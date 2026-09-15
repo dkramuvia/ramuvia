@@ -1,0 +1,15 @@
+# 저장소 루트: 회사 기획 원본 문서는 올리지 않음 (정리본은 ramupin/docs/*.md)
+/*.pdf
+/*.docx
+/*.xlsx
+/*.pptx
+/*.png
+/*.jpg
+
+# 공통
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

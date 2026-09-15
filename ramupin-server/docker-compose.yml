@@ -1,0 +1,70 @@
+# 라무핀 백엔드 로컬 개발 / 서버 1대 공용 구성
+#
+# 개발 (PC):  docker compose up -d db redis   → DB·Redis만 띄우고 API 는 npm run start:dev
+# 서버 1대:   docker compose --profile app up -d --build   → API 컨테이너까지 함께
+#
+# 위치 데이터는 처음부터 별도 데이터베이스(ramupin_location)에 둡니다.
+# 나중에 위치 DB를 다른 서버로 옮길 때는 LOCATION_DATABASE_URL 만 바꾸면 됩니다. (docs/backend-db-plan.md)
+
+services:
+  db:
+    # postgis/postgis:17-3.5 + 초기화 스크립트 (docker/postgres/Dockerfile)
+    build: ./docker/postgres
+    image: ramupin-db:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ramupin
+      APP_MAIN_PASSWORD: ${APP_MAIN_PASSWORD}
+      APP_LOCATION_PASSWORD: ${APP_LOCATION_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      # 처음 이 볼륨이 만들어질 때 20-ramupin.sh 가 한 번 실행됨 (위치 DB·앱 계정 생성)
+      - db-data:/var/lib/postgresql/data
+    ports:
+      # 개발 PC 에서만 접속용으로 노출. 서버에서는 docker-compose.prod.yml 에서 막습니다
+      - '127.0.0.1:${DB_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ramupin']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD}']
+    volumes:
+      - redis-data:/data
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ['app']
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # 컨테이너 안에서는 서비스 이름으로 접속
+      MAIN_DATABASE_URL: postgres://app_main:${APP_MAIN_PASSWORD}@db:5432/ramupin
+      LOCATION_DATABASE_URL: postgres://app_location:${APP_LOCATION_PASSWORD}@db:5432/ramupin_location
+      MIGRATOR_MAIN_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/ramupin
+      MIGRATOR_LOCATION_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/ramupin_location
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '${API_PORT:-3000}:3000'
+
+volumes:
+  db-data:
+  redis-data:

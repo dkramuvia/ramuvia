@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "라무핀",
+    "slug": "ramupin",
+    "scheme": "ramupin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.ramuviamanager.ramupin",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.ramuviamanager.ramupin",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}

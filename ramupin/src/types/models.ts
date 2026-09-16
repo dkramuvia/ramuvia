@@ -10,7 +10,10 @@ export type PlanId = 'basic' | 'platinum' | 'trinity' | 'care' | 'guardian';
 export type Gender = 'male' | 'female';
 
 export interface User {
+  /** 서버 내부 ID (uuid). 목업에서는 8자리 ID 와 같은 값 */
   id: string;
+  /** 앱에 보이는 8자리 ID (WBS 3.9) */
+  publicId: string;
   nickname: string;
   gender?: Gender;
   birthDate?: string; // YYYY-MM-DD
@@ -84,6 +87,8 @@ export interface LatLng {
 
 export interface Friend {
   id: string;
+  /** 화면에 보이는 8자리 ID (서버 연결 시) */
+  publicId?: string;
   nickname: string;
   avatarUrl?: string;
   batteryLevel?: number; // 0~100
@@ -106,11 +111,20 @@ export interface FriendShareSetting {
 /** 친구가 아닌 사용자 요약 (QR·ID 검색, 연락처·근처 친구 추천) */
 export interface UserSummary {
   id: string;
+  /** 화면에 보이는 8자리 ID (서버 연결 시) */
+  publicId?: string;
   nickname: string;
   avatarUrl?: string;
   /** 공개된 대략적 위치 (예: 화성시 제부도). 위치 비공개면 없음 */
   areaName?: string;
   lastActiveAt?: string;
+}
+
+/** ID·QR 로 찾은 사용자와 나의 관계 */
+export type UserRelation = 'self' | 'friend' | 'request_sent' | 'request_received' | 'none';
+
+export interface FoundUser extends UserSummary {
+  relation: UserRelation;
 }
 
 export interface FriendSuggestion {

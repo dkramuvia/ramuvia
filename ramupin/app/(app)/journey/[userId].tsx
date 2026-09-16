@@ -2,23 +2,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, BatteryBadge, BottomNav } from '@/components/ui';
+import { AppText, BatteryBadge, BottomNav, SheetScrollView, SnapSheet } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
 import { allRouteCoordinates, formatDuration, minutesSince, routePolylines } from '@/features/journey/routeLayers';
 import { useAreaName } from '@/features/location/useAreaName';
 import { AppMapView, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
 import { useJourney } from '@/features/settings/queries';
-import { useAuthStore } from '@/stores/authStore';
+import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { colors, layout, radius } from '@/theme';
 
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
 const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
 const SHEET_RATIO = 0.62;
+/** 내렸을 때: 손잡이 + 이름 줄만 보임 */
+const SHEET_COLLAPSED = 90;
 
 const timeText = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
@@ -37,7 +39,7 @@ export default function JourneyScreen() {
   const { data: journey, isLoading } = useJourney(userId);
   const mapRef = useRef<AppMapViewHandle>(null);
 
-  const isMe = userId === me?.id;
+  const isMe = isMeId(userId, me);
   const friend = friends.find((f) => f.id === userId);
   const name = isMe ? me?.nickname : friend?.nickname;
   const [view, setView] = useState<'summary' | 'timeline'>(isMe || params.view === 'timeline' ? 'timeline' : 'summary');
@@ -46,9 +48,16 @@ export default function JourneyScreen() {
   const current = lastStop ?? friend?.location ?? null;
   const areaName = useAreaName(current);
 
+  const { height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const navHeight = layout.tabBarHeight + insets.bottom;
+  const expandedHeight = Math.round(screenHeight * SHEET_RATIO) - navHeight;
+  // 지도가 시트에 가려지지 않도록 현재 시트 높이만큼 아래 여백
+  const [sheetHeight, setSheetHeight] = useState(expandedHeight);
+
   useEffect(() => {
     if (journey) mapRef.current?.fitTo(allRouteCoordinates(journey));
-  }, [journey]);
+  }, [journey, sheetHeight]);
 
   const markers = useMemo<MapMarkerItem[]>(() => {
     if (!current || !name) return [];
@@ -65,7 +74,7 @@ export default function JourneyScreen() {
         initialDelta={0.02}
         markers={markers}
         polylines={journey ? routePolylines(journey) : []}
-        padding={{ top: 100, right: 20, bottom: 520, left: 20 }}
+        padding={{ top: 100, right: 20, bottom: sheetHeight + navHeight, left: 20 }}
       />
 
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
@@ -79,19 +88,21 @@ export default function JourneyScreen() {
         </View>
       </SafeAreaView>
 
-      <View style={styles.sheet}>
-        {/* 기획: 바텀시트를 내리면 이동 경로를 지도로 볼 수 있음 → 손잡이를 누르면 이동경로 화면 */}
-        <Pressable accessibilityRole="button" accessibilityLabel={t('journey.viewRoute')} onPress={() => router.push(`/journey/route/${userId}`)} style={styles.grabberArea}>
-          <View style={styles.grabber} />
-        </Pressable>
-        <ScrollView contentContainerStyle={styles.sheetContent}>
+      {/* 기획: 바텀시트를 내리면 이동 경로를 지도로 볼 수 있음 */}
+      <SnapSheet
+        snapPoints={[SHEET_COLLAPSED, expandedHeight]}
+        bottomInset={navHeight}
+        onIndexChange={(index) => setSheetHeight(index === 0 ? SHEET_COLLAPSED : expandedHeight)}
+        header={
           <View style={styles.nameRow}>
             <AppText variant="title2" style={styles.flex} numberOfLines={1}>
               {isMe ? t('journey.myTitle') : name}
             </AppText>
             {battery != null ? <BatteryBadge level={battery} textVariant="micro" /> : null}
           </View>
-
+        }
+      >
+        <SheetScrollView contentContainerStyle={styles.sheetContent}>
           {isLoading ? <ActivityIndicator color={colors.brown} /> : null}
 
           {!isLoading && view === 'summary' ? (
@@ -178,7 +189,18 @@ export default function JourneyScreen() {
               ) : null}
             </>
           ) : null}
-        </ScrollView>
+
+          {!isLoading && journey ? (
+            <Pressable accessibilityRole="button" onPress={() => router.push(`/journey/route/${userId}`)} style={styles.routeLink}>
+              <Ionicons name="map-outline" size={18} color={colors.textSecondary} />
+              <AppText variant="label1" color={colors.textSecondary}>
+                {t('journey.viewRoute')}
+              </AppText>
+            </Pressable>
+          ) : null}
+        </SheetScrollView>
+      </SnapSheet>
+      <View style={styles.nav}>
         <BottomNav active="map" />
       </View>
     </View>
@@ -200,20 +222,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: layout.screenPadding },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 12 },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: `${SHEET_RATIO * 100}%`,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: colors.background,
-  },
-  grabberArea: { paddingVertical: 12, alignItems: 'center' },
-  grabber: { width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9' },
+  nav: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  routeLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
   sheetContent: { paddingHorizontal: layout.screenPadding, paddingBottom: 24, gap: 12 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: layout.screenPadding, paddingBottom: 12 },
   now: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   nowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.check },
   card: { borderRadius: radius.md, backgroundColor: colors.surface, padding: 12, gap: 8 },

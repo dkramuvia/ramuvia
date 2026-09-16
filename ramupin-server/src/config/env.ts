@@ -15,7 +15,16 @@ const schema = z.object({
   LOCATION_DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET 은 32자 이상'),
-  JWT_EXPIRES_IN: z.string().default('30d'),
+  // access token 은 짧게: 기기 교체·로그아웃이 늦어도 이 시간 안에는 반영됨 (가드가 세션도 매번 확인)
+  JWT_EXPIRES_IN: z.string().default('1h'),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(60),
+  // 문자 발송: dev = 서버 로그에만 출력하고 인증번호 123456 고정. TODO: 대표님 계약 업체 연동
+  SMS_PROVIDER: z.enum(['dev']).default('dev'),
+  // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
+  KAKAO_APP_ID: z.coerce.number().int().positive(),
+  // 전화번호 암호화·중복 확인 키 (32바이트 base64). 바뀌면 기존 번호를 읽지 못함
+  PHONE_ENC_KEY: z.string().min(40),
+  PHONE_HASH_KEY: z.string().min(40),
   DEV_LOGIN_ENABLED: z
     .string()
     .default('false')
@@ -32,5 +41,10 @@ export const env = parsed.data;
 
 if (env.NODE_ENV === 'production' && env.DEV_LOGIN_ENABLED) {
   console.error('운영 환경에서는 DEV_LOGIN_ENABLED=false 여야 합니다');
+  process.exit(1);
+}
+
+if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'dev') {
+  console.error('운영 환경에서는 실제 문자 발송 업체(SMS_PROVIDER)를 설정해야 합니다');
   process.exit(1);
 }

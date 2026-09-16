@@ -5,10 +5,11 @@ import { MainDatabaseModule } from './database/main-database.module.js';
 import { FriendsModule } from './friends/friends.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LocationModule } from './location/location.module.js';
+import { PhoneModule } from './phone/phone.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, AuthModule, LocationModule, UsersModule, FriendsModule, HealthModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, HealthModule],
 })
 export class AppModule {}

@@ -13,10 +13,27 @@ const users = [
   { publicId: '26460003', nickname: '상원', gender: 'male' },
   { publicId: '26460004', nickname: '지윤002', gender: 'female' },
   { publicId: '26460005', nickname: 'caramel001', gender: 'male' },
+  // 친구가 아닌 사용자 (친구 요청 테스트, 앱 목업과 같은 이름)
+  { publicId: '26467001', nickname: 'hyunjin001', gender: 'female' },
+  { publicId: '26460006', nickname: '김민수', gender: 'male' },
+  { publicId: '26460007', nickname: '짱민지', gender: 'female' },
+  { publicId: '26460008', nickname: '이서연', gender: 'female' },
+];
+
+// 대기 중인 친구 요청: 김민수·짱민지 → 강한 (받은 요청), 강한 → hyunjin001 (보낸 요청)
+const pendingRequests = [
+  ['김민수', '강한'],
+  ['짱민지', '강한'],
+  ['강한', 'hyunjin001'],
 ];
 
 // 강한이 친구들에게 공유하는 수준 (앱 목업과 동일)
 const shareFromMe = { RamuVia001: 'hidden', 지원: 'exact', 상원: 'exact', 지윤002: 'blurred', caramel001: 'blurred' };
+// 친구들이 강한에게 공유하는 수준 (지도에서 정확·흐림·비공개가 모두 보이도록 섞어 둠)
+const shareToMe = { RamuVia001: 'exact', 지원: 'exact', 상원: 'blurred', 지윤002: 'exact', caramel001: 'hidden' };
+
+/** 공유 수준에 맞는 설정값 (DB CHECK: 흐림은 경로 공유 불가, 비공개는 모두 끔) */
+const settingsFor = (level) => ({ show: level !== 'hidden', route: level === 'exact', battery: level !== 'hidden' });
 
 const client = new pg.Client({ connectionString: url });
 await client.connect();
@@ -41,18 +58,32 @@ try {
       `INSERT INTO social.friendships (user_id, friend_id) VALUES ($1, $2), ($2, $1) ON CONFLICT DO NOTHING`,
       [me, friend],
     );
-    const on = level !== 'hidden';
+    const mine = settingsFor(level);
+    const theirLevel = shareToMe[nickname];
+    const theirs = settingsFor(theirLevel);
     await client.query(
       `INSERT INTO social.friend_share_settings (owner_id, friend_id, location_level, show_status, share_route, share_battery)
-       VALUES ($1, $2, $3, $4, $5, $6), ($2, $1, 'exact', true, true, true)
+       VALUES ($1, $2, $3, $4, $5, $6), ($2, $1, $7, $8, $9, $10)
        ON CONFLICT (owner_id, friend_id) DO UPDATE
          SET location_level = EXCLUDED.location_level, show_status = EXCLUDED.show_status,
              share_route = EXCLUDED.share_route, share_battery = EXCLUDED.share_battery`,
-      [me, friend, level, on, level === 'exact', on],
+      [me, friend, level, mine.show, mine.route, mine.battery, theirLevel, theirs.show, theirs.route, theirs.battery],
+    );
+  }
+  for (const [from, to] of pendingRequests) {
+    // 이미 친구가 됐거나 대기 중인 요청이 있으면 넣지 않음
+    await client.query(
+      `INSERT INTO social.friend_requests (from_user_id, to_user_id, created_at)
+       SELECT $1, $2, now() - interval '2 hours'
+       WHERE NOT EXISTS (SELECT 1 FROM social.friendships WHERE user_id = $1 AND friend_id = $2)
+       ON CONFLICT (from_user_id, to_user_id) WHERE status = 'pending' DO NOTHING`,
+      [ids[from], ids[to]],
     );
   }
   await client.query('COMMIT');
-  console.log(`seeded ${users.length} users, ${Object.keys(shareFromMe).length} friendships (login as public_id 26467878)`);
+  console.log(
+    `seeded ${users.length} users, ${Object.keys(shareFromMe).length} friendships, ${pendingRequests.length} friend requests (login as public_id 26467878)`,
+  );
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

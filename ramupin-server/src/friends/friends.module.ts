@@ -1,6 +1,25 @@
-import { Controller, Get, Inject, Injectable, Module, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Module,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
+import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
+import { parseInput } from '../common/app-error.js';
+import { FriendRequestsService } from './friend-requests.service.js';
+import { ShareSettingsService, shareSettingBody } from './share-settings.service.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { ShareLevel } from '../database/main.schema.js';
 import { LocationModule } from '../location/location.module.js';
@@ -89,20 +108,72 @@ class FriendsService {
   }
 }
 
+const sendRequestBody = z.object({ userId: z.uuid(), message: z.string().max(100).nullish() });
+
 @Controller('friends')
 @UseGuards(AuthGuard)
 class FriendsController {
-  constructor(private readonly friends: FriendsService) {}
+  constructor(
+    private readonly friends: FriendsService,
+    private readonly requests: FriendRequestsService,
+    private readonly shareSettings: ShareSettingsService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.friends.list(user.id);
+  }
+
+  @Get('requests')
+  listRequests(@CurrentUser() user: AuthUser) {
+    return this.requests.listPending(user.id);
+  }
+
+  @Get('requests/:requestId')
+  getRequest(@CurrentUser() user: AuthUser, @Param('requestId', ParseUUIDPipe) requestId: string) {
+    return this.requests.get(user.id, requestId);
+  }
+
+  /** 친구 요청 보내기 → { requestId, status: 'pending' | 'accepted' } (상대가 먼저 요청했으면 바로 친구) */
+  @Post('requests')
+  sendRequest(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const { userId, message } = parseInput(sendRequestBody, body);
+    return this.requests.send(user.id, userId, message);
+  }
+
+  @Post('requests/:requestId/accept')
+  @HttpCode(HttpStatus.OK)
+  accept(@CurrentUser() user: AuthUser, @Param('requestId', ParseUUIDPipe) requestId: string) {
+    return this.requests.accept(user.id, requestId);
+  }
+
+  @Post('requests/:requestId/reject')
+  @HttpCode(HttpStatus.OK)
+  async reject(@CurrentUser() user: AuthUser, @Param('requestId', ParseUUIDPipe) requestId: string) {
+    await this.requests.reject(user.id, requestId);
+    return { singleHouseholdReleasable: false };
+  }
+
+  @Delete('requests/:requestId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  cancel(@CurrentUser() user: AuthUser, @Param('requestId', ParseUUIDPipe) requestId: string) {
+    return this.requests.cancel(user.id, requestId);
+  }
+
+  @Get(':friendId/share-setting')
+  getShareSetting(@CurrentUser() user: AuthUser, @Param('friendId', ParseUUIDPipe) friendId: string) {
+    return this.shareSettings.get(user.id, friendId);
+  }
+
+  @Put(':friendId/share-setting')
+  saveShareSetting(@CurrentUser() user: AuthUser, @Param('friendId', ParseUUIDPipe) friendId: string, @Body() body: unknown) {
+    return this.shareSettings.save(user.id, friendId, parseInput(shareSettingBody, body));
   }
 }
 
 @Module({
   imports: [LocationModule],
   controllers: [FriendsController],
-  providers: [FriendsService],
+  providers: [FriendsService, FriendRequestsService, ShareSettingsService],
 })
 export class FriendsModule {}

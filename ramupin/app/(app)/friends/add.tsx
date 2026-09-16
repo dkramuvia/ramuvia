@@ -9,8 +9,10 @@ import { AppText, Button, Screen, TextField } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { buildFriendQr } from '@/features/friends/qr';
 import { useSendFriendRequest } from '@/features/friends/queries';
+import { blockedRequestReason } from '@/features/friends/relation';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, radius } from '@/theme';
+import { showToast } from '@/utils/toast';
 
 const MENU: { key: string; icon: ComponentProps<typeof Ionicons>['name']; href: Href }[] = [
   { key: 'myQr', icon: 'qr-code-outline', href: '/friends/my-qr' },
@@ -28,7 +30,7 @@ export default function FriendAddScreen() {
 
   const shareInvite = () => {
     if (!me) return;
-    Share.share({ message: t('friendAdd.inviteMessage', { id: me.id, link: buildFriendQr(me.id) }) });
+    Share.share({ message: t('friendAdd.inviteMessage', { id: me.publicId, link: buildFriendQr(me.publicId) }) });
   };
 
   return (
@@ -109,10 +111,20 @@ function UserIdModal({ visible, onClose, onSent }: { visible: boolean; onClose: 
       setError(t('friendAdd.userNotFound'));
       return;
     }
+    const blocked = blockedRequestReason(user);
+    if (blocked) {
+      setError(t(blocked));
+      return;
+    }
     send.mutate(user.id, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         setUserId('');
-        onSent(user.nickname);
+        if (result.status === 'accepted') {
+          showToast(t('friendAdd.becameFriends', { name: user.nickname }));
+          onClose();
+        } else {
+          onSent(user.nickname);
+        }
       },
     });
   };

@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import type { ComponentProps, ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
-import { authApi, type SocialProvider } from '@/api/endpoints/auth';
+import { authApi, authErrorOf, type SocialProvider } from '@/api/endpoints/auth';
 import { AppText } from '@/components/ui';
-import { env } from '@/config/env';
+import { env, isLive } from '@/config/env';
+import { getDeviceInput } from '@/features/auth/device';
+import { signInWithKakao } from '@/features/auth/kakao';
+import { applyLoginResult } from '@/features/auth/session';
+import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, radius } from '@/theme';
@@ -30,13 +34,51 @@ export default function WelcomeScreen() {
   const { t } = useTranslation();
   const signIn = useAuthStore((s) => s.signIn);
   const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
+  const [pending, setPending] = useState(false);
 
   const login = async (provider: SocialProvider) => {
+    if (provider === 'kakao' && isLive('auth')) return loginWithKakao();
     try {
+      // TODO(로그인 단계): 나머지 소셜 SDK 연결. 지금은 목업
       const result = await authApi.socialLogin(provider, 'mock-token');
       signIn(result.accessToken, result.user);
       if (result.isNewUser) router.push('/profile-setup');
       else completeOnboarding();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  /** 카카오톡(없으면 카카오계정)으로 로그인 → 서버 확인 → 신규면 가입 화면 */
+  const loginWithKakao = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      const kakaoToken = await signInWithKakao();
+      const outcome = await applyLoginResult(await authApi.kakaoLogin(kakaoToken, await getDeviceInput()));
+      if (outcome === 'sign-up') router.push('/profile-setup');
+      else if (outcome === 'device-verification') router.push('/device-verify');
+    } catch (e) {
+      // 사용자가 카카오 로그인 창을 닫으면 취소 오류가 옵니다
+      const message = e instanceof Error ? e.message : String(e);
+      if (__DEV__) console.warn('[kakao] 실패', message, JSON.stringify(authErrorOf(e) ?? {}));
+      if (!/cancel/i.test(message)) showToast(t('onboarding.kakaoFailed'));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  // 개발용: 서버 연결(auth)이 켜져 있으면 서버 개발용 로그인 (다른 기기에서 쓰던 계정이면 새 기기 인증 화면)
+  const devSkip = async () => {
+    if (!isLive('auth')) {
+      await login('google');
+      completeOnboarding();
+      return;
+    }
+    try {
+      const outcome = await devServerLogin();
+      if (outcome === 'device-verification') router.push('/device-verify');
+      else if (outcome === 'sign-up') router.push('/profile-setup');
     } catch (e) {
       showToast(e instanceof Error ? e.message : String(e));
     }
@@ -88,7 +130,7 @@ export default function WelcomeScreen() {
       </View>
 
       {env.devSkipAuth || __DEV__ ? (
-        <Pressable accessibilityRole="button" onPress={() => login('google').then(() => completeOnboarding())} style={styles.devSkip}>
+        <Pressable accessibilityRole="button" onPress={devSkip} style={styles.devSkip}>
           <AppText variant="caption" color={colors.textMuted}>
             {t('onboarding.devSkip')}
           </AppText>

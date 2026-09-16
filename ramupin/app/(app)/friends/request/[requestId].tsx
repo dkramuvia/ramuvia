@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Image, Modal, StyleSheet, View } from 'react-native';
 
+import { usersApi } from '@/api/endpoints/users';
 import { AppText, Avatar, Button, Screen } from '@/components/ui';
 import { useFriendRequest, useRespondFriendRequest } from '@/features/friends/queries';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, radius } from '@/theme';
 import { formatRelativeTime } from '@/utils/time';
+import { showToast } from '@/utils/toast';
 
 /**
  * 피그마: 친구 요청 상세 (283:23927) → 등록 완료 (283:24012) → 1인 가구 모드 해제 (283:24079)
@@ -68,7 +70,7 @@ export default function FriendRequestDetailScreen() {
             <View>
               <AppText variant="listTitle">{person.nickname}</AppText>
               <AppText variant="caption" color={colors.textTertiary}>
-                ID:{person.id}
+                ID:{person.publicId ?? person.id}
               </AppText>
             </View>
           </View>
@@ -106,10 +108,15 @@ export default function FriendRequestDetailScreen() {
               label={t('friendRequestDetail.singleOffConfirm')}
               variant="dark"
               size="lg"
-              onPress={() => {
-                // TODO(5단계): 서버에 1인 가구 모드 해제 요청
-                updateUser({ singleHouseholdMode: false });
-                setShowSingleOff(false);
+              onPress={async () => {
+                try {
+                  await usersApi.setSingleHousehold(false);
+                  updateUser({ singleHouseholdMode: false });
+                } catch {
+                  showToast(t('friendAdd.requestFailed'));
+                } finally {
+                  setShowSingleOff(false);
+                }
               }}
             />
           </View>

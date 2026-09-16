@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { authApi } from '@/api/endpoints/auth';
+import { authApi, authErrorOf } from '@/api/endpoints/auth';
 import { AppText, Button, TextField } from '@/components/ui';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useSignUpStore } from '@/stores/signUpStore';
@@ -26,7 +26,8 @@ const mmss = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:
  */
 export default function PhoneVerifyScreen() {
   const { t } = useTranslation();
-  const setSignUp = useSignUpStore((s) => s.set);
+  const signUp = useSignUpStore();
+  const setSignUp = signUp.set;
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [remaining, setRemaining] = useState(0);
@@ -45,20 +46,49 @@ export default function PhoneVerifyScreen() {
   const phoneDigits = phone.replace(/\D/g, '');
   const phoneValid = /^01[016789]\d{7,8}$/.test(phoneDigits);
 
+  /** 서버 오류(인증번호 틀림·횟수 초과 등)를 화면 문구로 */
+  const handleError = (e: unknown) => {
+    const body = authErrorOf(e);
+    switch (body?.code) {
+      case 'CODE_INVALID':
+        setError(t('session.codeWrongLeft', { count: body.remainingAttempts ?? 0 }));
+        break;
+      case 'CODE_EXPIRED':
+        setError(t('onboarding.codeExpired'));
+        break;
+      case 'CODE_ATTEMPTS_EXCEEDED':
+      case 'SIGN_UP_TOKEN_INVALID':
+        setError(t('onboarding.signUpExpired'));
+        break;
+      case 'SMS_TOO_SOON':
+        setError(t('session.tooSoon', { sec: body.retryAfterSec ?? 30 }));
+        break;
+      case 'SMS_LIMIT':
+        setError(t('session.smsLimit'));
+        break;
+      default:
+        setError(t('onboarding.signUpFailed'));
+    }
+  };
+
   const request = async () => {
     setError(undefined);
     setCode('');
     setVerified(false);
-    const result = await authApi.requestSmsCode(phoneDigits);
-    if (result.alreadyRegistered) {
-      setError(t('onboarding.alreadyRegistered'));
-      return;
+    try {
+      const result = await authApi.requestSignUpCode(signUp.signUpToken, phoneDigits);
+      if (result.alreadyRegistered) {
+        setError(t('onboarding.alreadyRegistered'));
+        return;
+      }
+      setRequested(true);
+      setRemaining(result.codeExpiresInSec);
+      setSentBanner(true);
+      setTimeout(() => setSentBanner(false), 2500);
+      codeRef.current?.focus();
+    } catch (e) {
+      handleError(e);
     }
-    setRequested(true);
-    setRemaining(result.expiresInSec);
-    setSentBanner(true);
-    setTimeout(() => setSentBanner(false), 2500);
-    codeRef.current?.focus();
   };
 
   const onCode = async (value: string) => {
@@ -70,12 +100,17 @@ export default function PhoneVerifyScreen() {
       setError(t('onboarding.codeExpired'));
       return;
     }
-    const { verified: ok } = await authApi.verifySmsCode(phoneDigits, digits);
-    if (ok) {
+    try {
+      const { verified: ok } = await authApi.verifySignUpCode(signUp.signUpToken, digits);
+      if (!ok) {
+        setError(t('onboarding.codeWrong'));
+        return;
+      }
       setVerified(true);
       setRemaining(0);
-    } else {
-      setError(t('onboarding.codeWrong'));
+      setSignUp({ phone: phoneDigits, phoneVerified: true });
+    } catch (e) {
+      handleError(e);
     }
   };
 
@@ -89,10 +124,7 @@ export default function PhoneVerifyScreen() {
           shape="rounded"
           variant={verified ? 'dark' : 'neutral'}
           disabled={!verified}
-          onPress={() => {
-            setSignUp({ phone: phoneDigits });
-            router.push('/terms');
-          }}
+          onPress={() => router.push('/terms')}
         />
       }
     >

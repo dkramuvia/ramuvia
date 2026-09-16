@@ -12,8 +12,9 @@ import { AppText, Avatar, Button } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { parseFriendQr } from '@/features/friends/qr';
 import { useSendFriendRequest } from '@/features/friends/queries';
+import { blockedRequestReason } from '@/features/friends/relation';
 import { colors, layout, radius } from '@/theme';
-import type { UserSummary } from '@/types/models';
+import type { FoundUser } from '@/types/models';
 import { formatRelativeTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
 
@@ -24,7 +25,7 @@ export default function QrScanScreen() {
   const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
-  const [found, setFound] = useState<UserSummary | null>(null);
+  const [found, setFound] = useState<FoundUser | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
   // 같은 코드를 연속으로 여러 번 읽지 않도록 잠금
   const scanning = useRef(true);
@@ -41,8 +42,9 @@ export default function QrScanScreen() {
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const user = await friendsApi.findUser(userId).catch(() => null);
-    if (!user) {
-      showToast(t('friendAdd.userNotFound'));
+    const blocked = user ? blockedRequestReason(user) : 'friendAdd.userNotFound';
+    if (!user || blocked) {
+      showToast(t(blocked ?? 'friendAdd.userNotFound'));
       setTimeout(() => (scanning.current = true), 1500);
       return;
     }
@@ -125,7 +127,18 @@ export default function QrScanScreen() {
               variant="dark"
               size="lg"
               disabled={send.isPending}
-              onPress={() => send.mutate(found.id, { onSuccess: () => setSentTo(found.nickname) })}
+              onPress={() =>
+                send.mutate(found.id, {
+                  onSuccess: (result) => {
+                    if (result.status === 'pending') {
+                      setSentTo(found.nickname);
+                      return;
+                    }
+                    showToast(t('friendAdd.becameFriends', { name: found.nickname }));
+                    router.dismissTo('/people');
+                  },
+                })
+              }
             />
             <Button label={t('friendAdd.rescan')} variant="neutral" size="lg" onPress={rescan} />
           </View>

@@ -1,9 +1,12 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, View } from 'react-native';
 
-import { authApi } from '@/api/endpoints/auth';
+import { authApi, authErrorOf } from '@/api/endpoints/auth';
 import { Button } from '@/components/ui';
+import { getDeviceInput } from '@/features/auth/device';
+import { applyLoginResult } from '@/features/auth/session';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { useSignUpStore } from '@/stores/signUpStore';
@@ -24,24 +27,32 @@ export default function SingleHouseholdScreen() {
   const finish = async (singleHousehold: boolean) => {
     setPending(true);
     try {
-      if (signUp.gender && signUp.nickname) {
-        const user = await authApi.completeSignUp({
-          nickname: signUp.nickname,
-          gender: signUp.gender,
-          birthDate: signUp.birthDate,
-          phone: signUp.phone,
-          agreedTerms: signUp.agreedTerms,
-          singleHousehold,
-        });
-        updateUser(user);
-      } else {
+      if (!signUp.gender || !signUp.nickname) {
+        // 개발용으로 가입을 건너뛰고 들어온 경우
         updateUser({ singleHouseholdMode: singleHousehold });
+        completeOnboarding();
+        return;
       }
-      signUp.reset();
-      // 로그인 완료 → 루트 레이아웃이 (app) 으로 전환
-      completeOnboarding();
+      const result = await authApi.completeSignUp({
+        signUpToken: signUp.signUpToken,
+        nickname: signUp.nickname,
+        gender: signUp.gender,
+        birthDate: signUp.birthDate,
+        agreedTerms: signUp.agreedTerms,
+        singleHousehold,
+        device: await getDeviceInput(),
+      });
+      // 가입 완료 → 로그인 상태가 되어 루트 레이아웃이 (app) 으로 전환
+      await applyLoginResult(result);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : String(e));
+      const code = authErrorOf(e)?.code;
+      if (code === 'SIGN_UP_TOKEN_INVALID' || code === 'PHONE_NOT_VERIFIED') {
+        showToast(t('onboarding.signUpExpired'));
+        signUp.reset();
+        router.replace('/start');
+        return;
+      }
+      showToast(t(code === 'NICKNAME_TAKEN' ? 'profileEdit.taken' : 'onboarding.signUpFailed'));
       setPending(false);
     }
   };

@@ -7,7 +7,7 @@ export { Card } from './Card';
 export { CheckCircle } from './CheckCircle';
 export { ChipTabs } from './ChipTabs';
 export { CountActionBar } from './CountActionBar';
-export { DraggableSheet } from './DraggableSheet';
+export { SheetScrollView, SnapSheet } from './SnapSheet';
 export { Fab } from './Fab';
 export { Header } from './Header';
 export { MenuItem } from './MenuItem';

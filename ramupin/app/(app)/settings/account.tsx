@@ -5,12 +5,11 @@ import { StyleSheet } from 'react-native';
 
 import { MenuItem, Popup, Screen } from '@/components/ui';
 import { ProfileCard } from '@/features/settings/ProfileCard';
-import { useAuthStore } from '@/stores/authStore';
+import { logout } from '@/features/auth/session';
 
 /** 피그마: 계정 관리 (283:27229) */
 export default function AccountScreen() {
   const { t } = useTranslation();
-  const signOut = useAuthStore((s) => s.signOut);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   return (
@@ -27,9 +26,9 @@ export default function AccountScreen() {
         onDismiss={() => setConfirmLogout(false)}
         confirmLabel={t('account.logout')}
         onConfirm={() => {
-          // TODO(5단계): 서버 토큰 폐기, 푸시 토큰 해제. 개발 중 로그인 건너뛰기가 켜져 있으면 가입 첫 화면으로 이동
+          // TODO(푸시 단계): 푸시 토큰 해제
           setConfirmLogout(false);
-          signOut();
+          logout();
         }}
       />
     </Screen>

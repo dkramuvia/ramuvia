@@ -3,15 +3,31 @@
  * 값은 프로젝트 루트의 .env 에서 읽습니다 (.env.example 참고).
  * 앱 코드에서는 process.env 를 직접 쓰지 말고 항상 이 파일의 env 를 사용하세요.
  */
+
+/** 서버에 연결할 수 있는 기능 이름. 서버 API 가 준비된 것부터 하나씩 추가합니다 */
+export type ServerFeature = 'auth' | 'me' | 'policy' | 'friends' | 'location';
+
+const useMock = process.env.EXPO_PUBLIC_USE_MOCK !== 'false';
+const serverFeatures = new Set(
+  (process.env.EXPO_PUBLIC_SERVER_FEATURES ?? '')
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean),
+);
+
 export const env = {
-  useMock: process.env.EXPO_PUBLIC_USE_MOCK !== 'false',
-  /** 개발용: 가입/로그인 없이 목업 사용자로 바로 앱에 들어감 (가입·로그인은 마지막 단계에서 연결) */
+  useMock,
+  /** 개발용: 가입/로그인 없이 바로 앱에 들어감 (서버 연결 시 서버의 개발용 로그인 사용) */
   devSkipAuth: __DEV__ && process.env.EXPO_PUBLIC_DEV_SKIP_AUTH !== 'false',
+  /** 개발용 로그인에 쓸 테스트 사용자 8자리 ID (서버 npm run db:seed) */
+  devLoginPublicId: process.env.EXPO_PUBLIC_DEV_LOGIN_PUBLIC_ID ?? '26467878',
 
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? '',
   wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? '',
 
   auth: {
+    /** 카카오 디벨로퍼스 RamuPin(1578376) 네이티브 앱 키. app.config.ts 에서 네이티브 설정에도 씁니다 */
+    kakaoNativeAppKey: process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY ?? '',
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
     facebookAppId: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? '',
     xClientId: process.env.EXPO_PUBLIC_X_CLIENT_ID ?? '',
@@ -27,3 +43,12 @@ export const env = {
     admobAndroidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID ?? '',
   },
 } as const;
+
+/**
+ * 이 기능을 실제 서버로 호출할지.
+ * - EXPO_PUBLIC_USE_MOCK=false → 전부 서버
+ * - EXPO_PUBLIC_USE_MOCK=true + EXPO_PUBLIC_SERVER_FEATURES=me,friends → 적힌 기능만 서버, 나머지는 목업
+ */
+export function isLive(feature: ServerFeature): boolean {
+  return !useMock || serverFeatures.has(feature);
+}

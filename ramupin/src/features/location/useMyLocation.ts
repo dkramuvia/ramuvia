@@ -9,6 +9,8 @@ export interface MyLocation extends LatLng {
   /** 이동 속도 (km/h) */
   speedKmh: number | null;
   heading: number | null;
+  altitude: number | null;
+  altitudeAccuracy: number | null;
   timestamp: number;
 }
 
@@ -63,6 +65,8 @@ function toMyLocation({ coords, timestamp }: Location.LocationObject): MyLocatio
     accuracy: coords.accuracy,
     speedKmh: coords.speed != null && coords.speed >= 0 ? coords.speed * 3.6 : null,
     heading: coords.heading,
+    altitude: coords.altitude,
+    altitudeAccuracy: coords.altitudeAccuracy,
     timestamp,
   };
 }

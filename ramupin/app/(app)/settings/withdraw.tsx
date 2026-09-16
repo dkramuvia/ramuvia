@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { profileApi } from '@/api/endpoints/settings';
 import { AppText, Button, Popup, Screen } from '@/components/ui';
+import { endSession } from '@/features/auth/session';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, radius, typography } from '@/theme';
 
@@ -12,7 +13,6 @@ import { colors, radius, typography } from '@/theme';
 export default function WithdrawScreen() {
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
-  const signOut = useAuthStore((s) => s.signOut);
   const [agreed, setAgreed] = useState(false);
   const [reason, setReason] = useState('');
   const [confirmPaid, setConfirmPaid] = useState(false);
@@ -25,7 +25,7 @@ export default function WithdrawScreen() {
     setPending(true);
     try {
       await profileApi.withdraw(reason.trim());
-      signOut();
+      await endSession('logout');
     } finally {
       setPending(false);
     }

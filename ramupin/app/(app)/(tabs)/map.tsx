@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import * as Battery from 'expo-battery';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { feedApi } from '@/api';
-import { AppText, Avatar, BatteryBadge, DraggableSheet } from '@/components/ui';
+import { AppText, Avatar, BatteryBadge, SheetScrollView, SnapSheet } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriendRequests, useFriends } from '@/features/friends/queries';
 import { gpsSignal, moveMode, type GpsSignal, type MoveMode } from '@/features/location/signal';
 import { useAreaName } from '@/features/location/useAreaName';
+import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
@@ -59,6 +61,10 @@ export default function MapScreen() {
   const [sheet, setSheet] = useState<SheetContent>('feed');
 
   const { permission, location } = useMyLocation();
+  useLocationUpload(location);
+  // 기기 배터리 (-1 = 알 수 없음 → 프로필 값 사용)
+  const deviceBattery = Battery.useBatteryLevel();
+  const myBattery = deviceBattery >= 0 ? Math.round(deviceBattery * 100) : me?.batteryLevel;
   const areaName = useAreaName(location);
   const { data: friends = [] } = useFriends();
   const { data: requests } = useFriendRequests();
@@ -151,90 +157,87 @@ export default function MapScreen() {
         ) : null}
       </SafeAreaView>
 
-      <View style={styles.bottomArea} pointerEvents="box-none">
-        <DraggableSheet
-          expandedHeight={SHEET_HEIGHT}
-          collapsedHeight={SHEET_COLLAPSED}
-          above={
-            <>
-              {location ? (
-                <View style={styles.statusChip}>
-                  <Ionicons name={MOVE_ICONS[mode]} size={20} color={colors.text} />
-                  <AppText variant="body2Bold">
-                    {mode === 'stay' ? t('map.staying') : t('map.moving', { speed: Math.round(location.speedKmh ?? 0) })}
+      <SnapSheet
+        snapPoints={[SHEET_COLLAPSED, SHEET_HEIGHT]}
+        above={
+          <>
+            {location ? (
+              <View style={styles.statusChip}>
+                <Ionicons name={MOVE_ICONS[mode]} size={20} color={colors.text} />
+                <AppText variant="body2Bold">
+                  {mode === 'stay' ? t('map.staying') : t('map.moving', { speed: Math.round(location.speedKmh ?? 0) })}
+                </AppText>
+                {myBattery != null ? <BatteryBadge level={myBattery} textVariant="body2Bold" /> : null}
+                <View style={styles.signal} accessibilityLabel={t(`map.signal.${signal}`)}>
+                  <Ionicons name="cellular" size={14} color={SIGNAL_COLORS[signal].icon} />
+                </View>
+              </View>
+            ) : null}
+
+            {/* TODO(7단계): AdMob 배너. 노인·유료 사용자는 표시하지 않음 */}
+            <View style={styles.adBanner}>
+              <AppText variant="label2" color={colors.textMuted}>
+                {t('map.adArea')}
+              </AppText>
+            </View>
+          </>
+        }
+        header={
+          <View style={styles.sheetHeader}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setSheet((s) => (s === 'feed' ? 'friends' : 'feed'))}
+              style={styles.friendsToggle}
+            >
+              <Ionicons name="people-outline" size={20} color={colors.text} />
+              <AppText variant="body2Bold">{t('map.friends', { count: friends.length })}</AppText>
+              {hasNewRequests ? (
+                <Pressable onPress={() => router.push('/friends/requests')} hitSlop={8} style={styles.newBadge}>
+                  <AppText variant="microBold" color={colors.white}>
+                    N
                   </AppText>
-                  {me?.batteryLevel != null ? <BatteryBadge level={me.batteryLevel} textVariant="body2Bold" /> : null}
-                  <View style={styles.signal} accessibilityLabel={t(`map.signal.${signal}`)}>
-                    <Ionicons name="cellular" size={14} color={SIGNAL_COLORS[signal].icon} />
+                </Pressable>
+              ) : null}
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/friends/add')} style={styles.addFriend}>
+              <AppText variant="body1Regular" color={colors.textMuted}>
+                {t('map.addFriend')}
+              </AppText>
+              <Ionicons name="add-circle-outline" size={24} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        }
+      >
+        <SheetScrollView contentContainerStyle={styles.sheetContent}>
+          {sheet === 'feed'
+            ? feed.map((item) => (
+                <View key={item.id} style={styles.feedItem}>
+                  {FEED_ICONS[item.type] ? (
+                    <Image source={FEED_ICONS[item.type]} style={styles.feedIcon} />
+                  ) : (
+                    <View style={styles.feedIcon} />
+                  )}
+                  <View style={styles.feedTexts}>
+                    <AppText variant="headlineMedium">{item.message}</AppText>
+                    <AppText variant="body2" color={colors.textPlaceholder}>
+                      {formatMonthDayTime(item.createdAt)}
+                    </AppText>
                   </View>
                 </View>
-              ) : null}
-
-              {/* TODO(7단계): AdMob 배너. 노인·유료 사용자는 표시하지 않음 */}
-              <View style={styles.adBanner}>
-                <AppText variant="label2" color={colors.textMuted}>
-                  {t('map.adArea')}
-                </AppText>
-              </View>
-            </>
-          }
-          header={
-            <View style={styles.sheetHeader}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setSheet((s) => (s === 'feed' ? 'friends' : 'feed'))}
-                style={styles.friendsToggle}
-              >
-                <Ionicons name="people-outline" size={20} color={colors.text} />
-                <AppText variant="body2Bold">{t('map.friends', { count: friends.length })}</AppText>
-                {hasNewRequests ? (
-                  <Pressable onPress={() => router.push('/friends/requests')} hitSlop={8} style={styles.newBadge}>
-                    <AppText variant="microBold" color={colors.white}>
-                      N
-                    </AppText>
-                  </Pressable>
-                ) : null}
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/friends/add')} style={styles.addFriend}>
-                <AppText variant="body1Regular" color={colors.textMuted}>
-                  {t('map.addFriend')}
-                </AppText>
-                <Ionicons name="add-circle-outline" size={24} color={colors.textMuted} />
-              </Pressable>
-            </View>
-          }
-        >
-          <ScrollView contentContainerStyle={styles.sheetContent}>
-            {sheet === 'feed'
-              ? feed.map((item) => (
-                  <View key={item.id} style={styles.feedItem}>
-                    {FEED_ICONS[item.type] ? (
-                      <Image source={FEED_ICONS[item.type]} style={styles.feedIcon} />
-                    ) : (
-                      <View style={styles.feedIcon} />
-                    )}
-                    <View style={styles.feedTexts}>
-                      <AppText variant="headlineMedium">{item.message}</AppText>
-                      <AppText variant="body2" color={colors.textPlaceholder}>
-                        {formatMonthDayTime(item.createdAt)}
-                      </AppText>
-                    </View>
-                  </View>
-                ))
-              : friends.map((friend) => (
-                  <FriendRow
-                    key={friend.id}
-                    friend={friend}
-                    // 기획: 친구 리스트에서 친구를 누르면 그 친구의 하루 여정과 상호작용 기록
-                    onPress={() => {
-                      if (friend.location) mapRef.current?.moveTo(friend.location, 0.006);
-                      router.push(`/journey/${friend.id}`);
-                    }}
-                  />
-                ))}
-          </ScrollView>
-        </DraggableSheet>
-      </View>
+              ))
+            : friends.map((friend) => (
+                <FriendRow
+                  key={friend.id}
+                  friend={friend}
+                  // 기획: 친구 리스트에서 친구를 누르면 그 친구의 하루 여정과 상호작용 기록
+                  onPress={() => {
+                    if (friend.location) mapRef.current?.moveTo(friend.location, 0.006);
+                    router.push(`/journey/${friend.id}`);
+                  }}
+                />
+              ))}
+        </SheetScrollView>
+      </SnapSheet>
     </View>
   );
 }
@@ -273,7 +276,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     backgroundColor: 'rgba(46,52,56,0.9)',
   },
-  bottomArea: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   statusChip: {
     alignSelf: 'center',
     flexDirection: 'row',

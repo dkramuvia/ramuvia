@@ -13,7 +13,7 @@ import { useChatMessages, useSendMessage } from '@/features/chat/queries';
 import { buildFriendQr } from '@/features/friends/qr';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
-import { useAuthStore } from '@/stores/authStore';
+import { useIsMe } from '@/stores/authStore';
 import { colors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
@@ -23,7 +23,7 @@ const CHAT_BACKGROUND = '#E5F4FF';
 export default function ChatRoomScreen() {
   const { t } = useTranslation();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
-  const me = useAuthStore((s) => s.user);
+  const isMe = useIsMe();
   const { data: group } = useGroup(roomId);
   const { data: messages = [] } = useChatMessages(roomId);
   const send = useSendMessage(roomId);
@@ -98,7 +98,7 @@ export default function ChatRoomScreen() {
             const newer = reversed[index - 1];
             const sameAsOlder = older && older.type !== 'system' && older.senderId === item.senderId;
             const sameAsNewer = newer && newer.type !== 'system' && newer.senderId === item.senderId;
-            const isMine = item.senderId === me?.id;
+            const isMine = isMe(item.senderId);
             const member = members.get(item.senderId);
             return (
               <MessageItem

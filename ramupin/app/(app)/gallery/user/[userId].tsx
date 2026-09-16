@@ -8,7 +8,7 @@ import { AppText, Avatar, Fab, Header } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
 import { PostGrid } from '@/features/gallery/PostGrid';
 import { useUserPosts } from '@/features/gallery/queries';
-import { useAuthStore } from '@/stores/authStore';
+import { isMeId, useAuthStore } from '@/stores/authStore';
 import { colors, layout } from '@/theme';
 
 /** 피그마: 사용자 게시물 모아보기 (119:42163) */
@@ -19,9 +19,10 @@ export default function GalleryUserScreen() {
   const { data: friends = [] } = useFriends();
   const { data: posts = [] } = useUserPosts(userId);
 
-  const person = userId === me?.id ? me : (friends.find((f) => f.id === userId) ?? posts[0]?.author);
+  const isMe = isMeId(userId, me);
+  const person = isMe ? me : (friends.find((f) => f.id === userId) ?? posts[0]?.author);
   // TODO(5단계): 사용자 프로필 API (상태메시지 포함)
-  const statusMessage = me && userId === me.id ? me.statusMessage : undefined;
+  const statusMessage = isMe ? me?.statusMessage : undefined;
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
@@ -50,7 +51,7 @@ export default function GalleryUserScreen() {
           </View>
         }
       />
-      {userId === me?.id ? (
+      {isMe ? (
         <Fab
           accessibilityLabel={t('gallery.write')}
           onPress={() => router.push('/gallery/upload')}

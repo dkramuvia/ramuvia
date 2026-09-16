@@ -12,7 +12,7 @@ import { useAreaName } from '@/features/location/useAreaName';
 import { AppMapView, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
 import { useJourney } from '@/features/settings/queries';
-import { useAuthStore } from '@/stores/authStore';
+import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { colors, layout } from '@/theme';
 
@@ -31,7 +31,7 @@ export default function RouteScreen() {
   const { data: journey } = useJourney(userId);
   const mapRef = useRef<AppMapViewHandle>(null);
 
-  const isMe = userId === me?.id;
+  const isMe = isMeId(userId, me);
   const friend = friends.find((f) => f.id === userId);
   const name = (isMe ? me?.nickname : friend?.nickname) ?? '';
   const first = journey?.stops[0];

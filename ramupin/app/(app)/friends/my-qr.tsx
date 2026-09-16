@@ -21,10 +21,10 @@ export default function MyQrScreen() {
   const me = useAuthStore((s) => s.user);
   if (!me) return null;
 
-  const qrValue = buildFriendQr(me.id);
+  const qrValue = buildFriendQr(me.publicId);
 
   const copyId = async () => {
-    await Clipboard.setStringAsync(me.id);
+    await Clipboard.setStringAsync(me.publicId);
     showToast(t('friendAdd.copied'));
   };
 
@@ -55,7 +55,7 @@ export default function MyQrScreen() {
               <View>
                 <AppText variant="listTitle">{me.nickname}</AppText>
                 <AppText variant="caption" color={colors.textTertiary}>
-                  ID:{me.id}
+                  ID:{me.publicId}
                 </AppText>
                 {me.batteryLevel != null ? <BatteryBadge level={me.batteryLevel} iconSize={12} textVariant="microBold" /> : null}
               </View>
@@ -65,7 +65,7 @@ export default function MyQrScreen() {
           <View style={styles.qrCard}>
             <Pressable accessibilityRole="button" onPress={copyId} style={styles.idPill}>
               <AppText variant="body2" color={colors.white}>
-                {t('friendAdd.idLabel', { id: me.id })}
+                {t('friendAdd.idLabel', { id: me.publicId })}
               </AppText>
               <Ionicons name="copy" size={16} color={colors.white} />
             </Pressable>
@@ -78,7 +78,7 @@ export default function MyQrScreen() {
             <RoundAction
               icon="arrow-redo"
               label={t('friendAdd.shareInvite')}
-              onPress={() => Share.share({ message: t('friendAdd.inviteMessage', { id: me.id, link: qrValue }) })}
+              onPress={() => Share.share({ message: t('friendAdd.inviteMessage', { id: me.publicId, link: qrValue }) })}
             />
             <RoundAction icon="scan" label={t('friendAdd.byQrScan')} onPress={() => router.replace('/friends/qr-scan')} />
           </View>

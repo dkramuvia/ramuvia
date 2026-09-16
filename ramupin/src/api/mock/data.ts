@@ -17,6 +17,7 @@ const minutesAgo = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOStri
 
 export const mockMe: User = {
   id: '26467878',
+  publicId: '26467878',
   nickname: '강한',
   gender: 'male',
   birthDate: '1999-07-13',

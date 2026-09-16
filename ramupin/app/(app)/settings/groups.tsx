@@ -5,13 +5,13 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Card, CountActionBar, Popup, Screen } from '@/components/ui';
 import { useLeaveGroup, useMyGroups } from '@/features/groups/queries';
-import { useAuthStore } from '@/stores/authStore';
+import { useIsMe } from '@/stores/authStore';
 import type { GroupDetail } from '@/types/models';
 
 /** 피그마: 그룹 설정 목록 (283:32075). 기획: 그룹을 떠나거나 그룹 만들기 */
 export default function GroupListScreen() {
   const { t } = useTranslation();
-  const me = useAuthStore((s) => s.user);
+  const isMe = useIsMe();
   const { data: groups = [] } = useMyGroups();
   const [leaving, setLeaving] = useState<GroupDetail | null>(null);
 
@@ -38,7 +38,7 @@ export default function GroupListScreen() {
           </Card>
         ))}
       </View>
-      {leaving ? <LeavePopup group={leaving} isOwner={leaving.ownerId === me?.id} onClose={() => setLeaving(null)} /> : null}
+      {leaving ? <LeavePopup group={leaving} isOwner={isMe(leaving.ownerId)} onClose={() => setLeaving(null)} /> : null}
     </Screen>
   );
 }

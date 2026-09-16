@@ -84,13 +84,14 @@ const styles = StyleSheet.create({
   },
   iconBox: { height: 44, justifyContent: 'center', alignItems: 'center' },
   iconInactive: { opacity: 0.6, filter: 'grayscale(1)' },
-  // 선택 탭 아래 반쯤 잘린 원
+  // 선택 탭 표시. 피그마는 아래로 반쯤 걸친 원(19px)이지만, 안드로이드는 아래에 시스템 버튼 줄이 있어
+  // 잘린 것처럼 보여서 탭 바 안에 온전한 점으로 표시 (docs/design-notes.md 17)
   dot: {
     position: 'absolute',
-    bottom: -12,
-    width: 19,
-    height: 19,
-    borderRadius: 10,
+    bottom: 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.accent,
   },
 });

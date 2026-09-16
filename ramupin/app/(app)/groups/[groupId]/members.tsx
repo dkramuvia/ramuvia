@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Avatar, Screen, Tag } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useGroup } from '@/features/groups/queries';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, useIsMe } from '@/stores/authStore';
 import { colors } from '@/theme';
 
 /** 피그마: 그룹방 멤버 (283:36361) */
@@ -14,8 +14,9 @@ export default function GroupMembersScreen() {
   const { t } = useTranslation();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const me = useAuthStore((s) => s.user);
+  const isMe = useIsMe();
   const { data: group, isLoading } = useGroup(groupId);
-  const others = group?.members.filter((m) => m.id !== me?.id) ?? [];
+  const others = group?.members.filter((m) => !isMe(m.id)) ?? [];
 
   return (
     <Screen

@@ -18,6 +18,8 @@
     "db:down": "docker compose stop db redis",
     "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "db:seed": "node --env-file=.env scripts/seed-dev.mjs",
+    "dev:simulate": "node --env-file=.env scripts/simulate-friends.mjs",
+    "dev:befriend": "node --env-file=.env scripts/add-test-friends.mjs",
     "db:reset": "docker compose down -v && docker compose up -d --wait db redis && npm run db:migrate && npm run db:seed",
     "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",

@@ -20,7 +20,7 @@ export function ProfileCard({ onPress }: { onPress?: () => void }) {
       <View style={styles.texts}>
         <AppText variant="listTitle">{me.nickname}</AppText>
         <AppText variant="caption" color="#878787">
-          {t('settingsMenu.id', { id: me.id })}
+          {t('settingsMenu.id', { id: me.publicId })}
         </AppText>
         {me.batteryLevel != null ? (
           <BatteryBadge level={me.batteryLevel} iconSize={12} textVariant="caption" textColor={colors.textSecondary} />

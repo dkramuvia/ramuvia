@@ -10,6 +10,7 @@ import {
 } from '../mock/settings';
 import { env } from '@/config/env';
 import { inbox } from '@/db/inbox';
+import { isMeId } from '@/stores/authStore';
 import type {
   Geofence,
   HideModeSetting,
@@ -159,12 +160,13 @@ export const historyApi = {
   /** 하루 여정. 친구의 이동 경로 공유가 꺼져 있으면 서버가 null (기획: '최근 여정' 미표시) */
   async journey(userId: string): Promise<JourneyDay | null> {
     if (env.useMock) {
-      if (userId === mockMe.id) return mockResponse(mockJourney(userId, mockMe.batteryLevel));
+      if (isMeId(userId)) return mockResponse(mockJourney(userId, mockMe.batteryLevel));
       const friend = mockFriends.find((f) => f.id === userId);
       // 목업: caramel001(f5)은 이동 경로를 공개하지 않은 친구로 가정
       // (여정 공개 여부는 "친구가 나에게" 공유하는지로 서버가 판단. myShareLevel 은 내가 친구에게 공유하는 값이라 무관)
-      if (!friend || friend.id === 'f5') return mockResponse(null);
-      return mockResponse(mockJourney(userId, friend.batteryLevel));
+      // 서버 친구 목록(uuid)을 쓰는 동안에는 목업 친구에 없어도 샘플 여정을 보여줍니다
+      if (friend?.id === 'f5') return mockResponse(null);
+      return mockResponse(mockJourney(userId, friend?.batteryLevel));
     }
     const { data } = await apiClient.get<JourneyDay | null>(`/users/${userId}/journey/today`);
     return data;

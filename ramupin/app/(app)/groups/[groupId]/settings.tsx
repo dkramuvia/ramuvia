@@ -7,7 +7,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, MenuItem, Popup, Screen, Tag } from '@/components/ui';
 import { useGroup, useLeaveGroup } from '@/features/groups/queries';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, useIsMe } from '@/stores/authStore';
 import { colors, radius } from '@/theme';
 
 /** 피그마: 그룹 설정 - 방장 (283:39250) / 멤버 (283:36264) */
@@ -15,11 +15,12 @@ export default function GroupSettingsScreen() {
   const { t } = useTranslation();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const me = useAuthStore((s) => s.user);
+  const isMe = useIsMe();
   const { data: group, isLoading } = useGroup(groupId);
   const leave = useLeaveGroup(groupId);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
-  const isOwner = group?.ownerId === me?.id;
+  const isOwner = isMe(group?.ownerId);
 
   const onLeave = () =>
     leave.mutate(undefined, {

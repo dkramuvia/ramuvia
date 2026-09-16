@@ -16,6 +16,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     ...(config.plugins ?? []),
     [
+      'expo-build-properties',
+      {
+        // 카카오 SDK 는 카카오 전용 저장소에만 있습니다
+        android: { extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/'] },
+      },
+    ],
+    [
       'expo-location',
       {
         locationWhenInUsePermission: '친구와 위치를 공유하고 지도에 내 위치를 표시하기 위해 위치 정보를 사용합니다.',
@@ -50,6 +57,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         photosPermission: '프로필 사진 설정과 갤러리 업로드를 위해 사진에 접근합니다.',
         cameraPermission: '사진을 촬영해 갤러리에 올리기 위해 카메라를 사용합니다.',
         microphonePermission: '동영상을 촬영할 때 소리를 함께 녹음합니다.',
+      },
+    ],
+    [
+      '@react-native-kakao/core',
+      {
+        // 카카오 디벨로퍼스 > RamuPin(1578376) > 앱 키 > 네이티브 앱 키
+        nativeAppKey: process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY,
+        // 카카오톡이 없을 때 카카오계정 웹 로그인으로 돌아오기 위한 화면
+        android: { authCodeHandlerActivity: true },
       },
     ],
     [

@@ -17,10 +17,13 @@ import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
+import { PLAN_NAMES } from '@/features/policy/policies';
+import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, layout, radius } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
+import { showToast } from '@/utils/toast';
 
 const FEED_ICONS: Partial<Record<FeedItemType, number>> = {
   stay: require('../../../assets/icons/feed-stay.png'),
@@ -61,6 +64,7 @@ export default function MapScreen() {
   const [sheet, setSheet] = useState<SheetContent>('feed');
 
   const { permission, location } = useMyLocation();
+  const { can, minPlanFor } = usePlan();
   useLocationUpload(location);
   // 기기 배터리 (-1 = 알 수 없음 → 프로필 값 사용)
   const deviceBattery = Battery.useBatteryLevel();
@@ -88,6 +92,8 @@ export default function MapScreen() {
       .map((f) => ({
         id: f.id,
         coordinate: f.location!,
+        label: f.nickname,
+        tintColor: f.isOnline ? colors.check : colors.textMuted,
         children: <AvatarMarker name={f.nickname} imageUrl={f.avatarUrl} online={f.isOnline} />,
         onPress: () => router.push(`/journey/${f.id}`),
       }));
@@ -96,6 +102,8 @@ export default function MapScreen() {
         id: 'me',
         coordinate: location,
         zIndex: 10,
+        label: me.nickname,
+        tintColor: colors.primary,
         children: <AvatarMarker name={me.nickname} imageUrl={me.avatarUrl} isMe />,
       });
     }
@@ -141,6 +149,21 @@ export default function MapScreen() {
               style={[styles.roundButton, !location && styles.disabled]}
             >
               <Ionicons name="locate" size={20} color={colors.text} />
+            </Pressable>
+            {/* 로드뷰(거리뷰)는 네이버 지도 기능이라 유료 플랜에서만 (WBS 10.5) */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('map.streetView')}
+              disabled={!location}
+              onPress={() =>
+                location &&
+                (can('premiumMap')
+                  ? router.push({ pathname: '/street-view', params: { lat: location.latitude, lng: location.longitude, name: areaName ?? '' } })
+                  : showToast(t('streetView.premiumOnly', { plan: PLAN_NAMES[minPlanFor('premiumMap')] })))
+              }
+              style={[styles.roundButton, !location && styles.disabled]}
+            >
+              <Ionicons name="man-outline" size={20} color={colors.text} />
             </Pressable>
           </View>
         </View>

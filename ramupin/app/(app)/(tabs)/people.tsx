@@ -3,13 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { chatApi } from '@/api';
 import { AppText, Avatar, Card, Fab, Header, SegmentedTabs } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
+import { useDirectRoom } from '@/features/groups/queries';
 import { colors, layout } from '@/theme';
 import { formatRelativeTime } from '@/utils/time';
 
@@ -46,6 +47,7 @@ export default function PeopleScreen() {
 function FriendsList() {
   const { t } = useTranslation();
   const { data: friends = [], isLoading } = useFriends();
+  const directRoom = useDirectRoom();
   const activeCount = friends.filter((f) => f.isOnline).length;
 
   if (isLoading) return <ActivityIndicator style={styles.loading} color={colors.brown} />;
@@ -60,8 +62,24 @@ function FriendsList() {
           {t('people.activeCount', { count: activeCount })}
         </AppText>
       }
-      // 기획: 친구 아바타 클릭 → 친구별 상세 공유
-      renderItem={({ item }) => <FriendRow friend={item} onPress={() => router.push(`/settings/share/${item.id}`)} />}
+      // 기획: 친구 아바타 클릭 → 친구별 상세 공유. 오른쪽 말풍선 → 1:1 대화
+      renderItem={({ item }) => (
+        <FriendRow
+          friend={item}
+          onPress={() => router.push(`/settings/share/${item.id}`)}
+          action={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('people.openChat')}
+              hitSlop={8}
+              disabled={directRoom.isPending}
+              onPress={() => directRoom.mutate(item.id, { onSuccess: (group) => router.push(`/chat/${group.id}`) })}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textSecondary} />
+            </Pressable>
+          }
+        />
+      )}
     />
   );
 }
@@ -101,6 +119,13 @@ function ChatRoomList() {
               {item.lastMessage} · {formatRelativeTime(item.updatedAt)}
             </AppText>
           </View>
+          {item.unreadCount ? (
+            <View style={styles.unread} accessibilityLabel={t('people.unread', { count: item.unreadCount })}>
+              <AppText variant="microBold" color={colors.white}>
+                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+              </AppText>
+            </View>
+          ) : null}
         </Card>
       )}
     />
@@ -116,5 +141,6 @@ const styles = StyleSheet.create({
   roomCard: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, paddingRight: 16 },
   roomTexts: { flex: 1 },
   roomTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  unread: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1 },
 });

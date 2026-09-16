@@ -89,6 +89,49 @@ export interface SessionsTable {
   revoke_reason: SessionRevokeReason | null;
 }
 
+export interface GroupsTable {
+  id: Generated<string>;
+  name: string;
+  owner_id: string;
+  is_direct: Generated<boolean>;
+  is_premium: Generated<boolean>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface GroupMembersTable {
+  group_id: string;
+  user_id: string;
+  role: Generated<'owner' | 'member'>;
+  location_paused: Generated<boolean>;
+  joined_at: Timestamp;
+  last_read_at: Timestamp;
+}
+
+export interface DirectRoomsTable {
+  user_a: string;
+  user_b: string;
+  group_id: string;
+}
+
+export interface ChatMessagesTable {
+  id: Generated<string>;
+  room_id: string;
+  sender_id: string | null;
+  type: 'text' | 'location' | 'system';
+  text: string | null;
+  place: ColumnType<SharedPlace | null, string | null, string | null>;
+  created_at: Timestamp;
+}
+
+/** 위치 공유 메시지 내용 (앱 types/models.ts SharedPlace) */
+export interface SharedPlace {
+  latitude: number;
+  longitude: number;
+  address: string;
+  placeName?: string;
+}
+
 export interface FriendshipsTable {
   user_id: string;
   friend_id: string;
@@ -135,6 +178,10 @@ export interface MainDatabase {
   'member.phone_access_logs': PhoneAccessLogsTable;
   'member.devices': DevicesTable;
   'member.sessions': SessionsTable;
+  'social.groups': GroupsTable;
+  'social.group_members': GroupMembersTable;
+  'social.direct_rooms': DirectRoomsTable;
+  'chat.messages': ChatMessagesTable;
   'social.friendships': FriendshipsTable;
   'social.friend_share_settings': FriendShareSettingsTable;
   'social.friend_requests': FriendRequestsTable;

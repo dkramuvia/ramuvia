@@ -22,6 +22,9 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(['dev']).default('dev'),
   // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
   KAKAO_APP_ID: z.coerce.number().int().positive(),
+  // 네이버 지도 REST (주소 검색·좌표→주소). 앱에는 Client ID 만 들어가고 Secret 은 서버 전용
+  NAVER_MAP_CLIENT_ID: z.string().default(''),
+  NAVER_MAP_CLIENT_SECRET: z.string().default(''),
   // 전화번호 암호화·중복 확인 키 (32바이트 base64). 바뀌면 기존 번호를 읽지 못함
   PHONE_ENC_KEY: z.string().min(40),
   PHONE_HASH_KEY: z.string().min(40),

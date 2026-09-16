@@ -1,13 +1,17 @@
 import * as Location from 'expo-location';
 
+import { placesApi } from '@/api/endpoints/places';
 import type { LatLng, SharedPlace } from '@/types/models';
 
 /**
- * 좌표 → 장소명/주소 (기기 내장 Geocoder).
+ * 좌표 → 장소명/주소.
+ * 서버(네이버 지도)가 연결돼 있으면 건물 이름까지 받아오고, 안 되면 기기 내장 변환으로 대신합니다.
  * 기획: 장소명이 특정되면 제목으로, 아니면 주소만 표시.
- * TODO(5단계): POI 이름(예: 삼성 코엑스)은 기기 Geocoder 로는 거의 안 나옴 → 서버 또는 Places API 로 교체
  */
 export async function describePlace(coordinate: LatLng): Promise<SharedPlace> {
+  const fromServer = await placesApi.reverse(coordinate).catch(() => null);
+  if (fromServer) return fromServer;
+
   const [address] = await Location.reverseGeocodeAsync(coordinate).catch(() => []);
   const full = (address?.formattedAddress ?? '').replace(/^대한민국\s*/, '').trim();
   const name = address?.name?.trim();

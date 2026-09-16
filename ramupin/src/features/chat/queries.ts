@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { chatApi, type SendMessageInput } from '@/api/endpoints/chat';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,7 +11,19 @@ export const chatKeys = {
 };
 
 export function useChatMessages(roomId: string) {
-  return useQuery({ queryKey: chatKeys.messages(roomId), queryFn: () => chatApi.messages(roomId) });
+  const query = useQuery({ queryKey: chatKeys.messages(roomId), queryFn: () => chatApi.messages(roomId), enabled: !!roomId });
+  const queryClient = useQueryClient();
+
+  // 방을 열면 읽음 처리 (채팅방 목록의 안 읽은 수 0)
+  useEffect(() => {
+    if (!roomId || !query.isSuccess) return;
+    chatApi
+      .markRead(roomId)
+      .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.rooms, exact: true }))
+      .catch(() => undefined);
+  }, [roomId, query.isSuccess, queryClient]);
+
+  return query;
 }
 
 /** 보내는 즉시 화면에 표시하고(전송 중), 서버 응답으로 교체합니다 */

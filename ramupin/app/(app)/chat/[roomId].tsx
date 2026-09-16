@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Header } from '@/components/ui';
@@ -15,6 +15,7 @@ import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
 import { useIsMe } from '@/stores/authStore';
 import { colors } from '@/theme';
+import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
 import { showToast } from '@/utils/toast';
 
 const CHAT_BACKGROUND = '#E5F4FF';
@@ -24,6 +25,7 @@ export default function ChatRoomScreen() {
   const { t } = useTranslation();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const isMe = useIsMe();
+  const keyboardPadding = useKeyboardPadding();
   const { data: group } = useGroup(roomId);
   const { data: messages = [] } = useChatMessages(roomId);
   const send = useSendMessage(roomId);
@@ -66,7 +68,8 @@ export default function ChatRoomScreen() {
         }
       />
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* 키보드가 올라오면 그만큼 올려서 입력창과 마지막 메시지가 가려지지 않게 */}
+      <View style={[styles.flex, { paddingBottom: keyboardPadding }]}>
         <FlatList
           inverted
           data={reversed}
@@ -118,7 +121,7 @@ export default function ChatRoomScreen() {
           onSharePlace={() => router.push({ pathname: '/place-picker', params: { mode: 'share', roomId } })}
           onShareCurrentLocation={shareCurrentLocation}
         />
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

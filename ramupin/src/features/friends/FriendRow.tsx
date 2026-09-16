@@ -22,13 +22,15 @@ interface FriendRowProps {
   selected?: boolean;
   /** 선택 체크 색 (SOS 수신인 지정은 빨강) */
   checkColor?: string;
+  /** 오른쪽 끝에 넣을 버튼 (예: 1:1 대화) */
+  action?: ReactNode;
 }
 
 /**
  * 친구 리스트 한 줄 (피그마 사람들 / 지도 친구 리스트 / 그룹 멤버 / 그룹 초대).
  * 기획: 공유 아이콘은 "그 친구에 대한 나의 공유 상태", 배터리는 "친구의 현재 배터리".
  */
-export function FriendRow({ friend, onPress, tag, selected, checkColor }: FriendRowProps) {
+export function FriendRow({ friend, onPress, tag, selected, checkColor, action }: FriendRowProps) {
   const selectable = selected !== undefined;
   return (
     <Card onPress={onPress} style={[styles.card, selectable && styles.cardSelectable]}>
@@ -45,6 +47,7 @@ export function FriendRow({ friend, onPress, tag, selected, checkColor }: Friend
         <View style={styles.right}>
           {friend.myShareLevel ? <ShareLevelIcon level={friend.myShareLevel} /> : null}
           {friend.batteryLevel != null ? <BatteryBadge level={friend.batteryLevel} /> : null}
+          {action}
         </View>
       )}
     </Card>

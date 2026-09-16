@@ -8,6 +8,11 @@ export interface Preferences {
   mapTheme: 'light' | 'dark';
   mapDimension: '2d' | '3d';
   mapProvider: 'os' | 'naver' | 'mapbox';
+  /**
+   * 지도 유형. 기획에는 일반만 있고, 위성·지형은 Google 결제 계정이 있어야 보여서 화면에서는 뺐습니다.
+   * (설정 화면 선택지는 09-16 기획 확인 후 제거. 값은 구조만 남겨 둠)
+   */
+  mapType: 'road' | 'satellite' | 'terrain';
   showTraffic: boolean;
   showWeather: boolean;
   /** 지도를 열면 모든 친구가 보이도록 축소 */
@@ -25,6 +30,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       mapTheme: 'light',
       mapDimension: '2d',
       mapProvider: 'os',
+      mapType: 'road',
       showTraffic: false,
       showWeather: false,
       fitAllFriends: false,

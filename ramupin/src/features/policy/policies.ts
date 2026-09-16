@@ -1,5 +1,14 @@
 import type { PlanId } from '@/types/models';
 
+/** 화면에 보여 주는 등급 이름 ("0000 플랜부터 이용 가능") */
+export const PLAN_NAMES: Record<PlanId, string> = {
+  basic: '베이직',
+  platinum: '플래티넘',
+  trinity: '트리니티',
+  care: '케어',
+  guardian: '가디언',
+};
+
 /**
  * 등급별 제한값·기능 (WBS 2.1: 수치 하드코딩 금지 → 서버 정책 API 로 내려받음).
  * 여기 값은 서버 연동 전까지 쓰는 목업이며, 피그마 결제 플랜 화면 기준입니다.

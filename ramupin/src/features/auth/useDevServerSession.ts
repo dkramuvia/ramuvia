@@ -34,7 +34,7 @@ function fallbackToMock() {
  * TODO(로그인 단계): 실제 로그인이 붙으면 복원만 남기고 개발용 로그인은 삭제
  */
 export function useDevServerSession(): DevSessionState {
-  const enabled = env.devSkipAuth && isLive('auth');
+  const enabled = isLive('auth');
   const [state, setState] = useState<DevSessionState>(enabled ? 'connecting' : 'idle');
 
   useEffect(() => {
@@ -48,19 +48,28 @@ export function useDevServerSession(): DevSessionState {
     };
     const timer = setTimeout(() => {
       if (finish('failed')) {
-        console.warn(`[dev-session] 서버(${env.apiBaseUrl}) 응답 없음 → 목업 사용자로 진행`);
-        fallbackToMock();
+        console.warn(`[session] 서버(${env.apiBaseUrl}) 응답 없음`);
+        // 개발용 건너뛰기가 켜져 있을 때만 목업 사용자로 진행 (아니면 로그인 화면)
+        if (env.devSkipAuth) fallbackToMock();
       }
     }, TIMEOUT_MS);
 
     (async () => {
       try {
-        const outcome = (await restoreSession()) ? 'signed-in' : await devServerLogin();
-        finish(outcome === 'signed-in' ? 'connected' : 'verify');
+        // 저장된 로그인이 있으면 복원, 없고 개발용 건너뛰기가 켜져 있으면 서버 개발용 로그인
+        if (await restoreSession()) {
+          finish('connected');
+          return;
+        }
+        if (!env.devSkipAuth) {
+          finish('idle');
+          return;
+        }
+        finish((await devServerLogin()) === 'signed-in' ? 'connected' : 'verify');
       } catch (error) {
         if (finish('failed')) {
-          console.warn('[dev-session] 서버 개발용 로그인 실패 → 목업 사용자로 진행', String(error));
-          fallbackToMock();
+          console.warn('[session] 로그인 복원 실패', String(error));
+          if (env.devSkipAuth) fallbackToMock();
         }
       } finally {
         clearTimeout(timer);

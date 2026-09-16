@@ -18,16 +18,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-build-properties',
       {
-        // 카카오 SDK 는 카카오 전용 저장소에만 있습니다
-        android: { extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/'] },
+        // 카카오·네이버 SDK 는 각자 전용 저장소에만 있습니다
+        android: {
+          extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/', 'https://repository.map.naver.com/archive/maven'],
+        },
       },
     ],
     [
       'expo-location',
       {
         locationWhenInUsePermission: '친구와 위치를 공유하고 지도에 내 위치를 표시하기 위해 위치 정보를 사용합니다.',
-        // 백그라운드 위치는 6단계에서 켭니다 (Play 권한 신고 필요)
-        isAndroidBackgroundLocationEnabled: false,
+        locationAlwaysAndWhenInUsePermission:
+          '앱을 보고 있지 않을 때도 보호자에게 위치를 알리고 긴급 상황을 감지하기 위해 항상 위치 정보를 사용합니다.',
+        // 백그라운드 위치 (WBS 2.4). Play Console 에 "항상 허용" 권한 신고 + 시연 영상 제출이 필요합니다
+        isAndroidBackgroundLocationEnabled: true,
+        // 수집 중에는 안드로이드 알림이 계속 떠 있어야 합니다 (포그라운드 서비스)
+        isAndroidForegroundServiceEnabled: true,
         isIosBackgroundLocationEnabled: false,
       },
     ],
@@ -66,6 +72,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         nativeAppKey: process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY,
         // 카카오톡이 없을 때 카카오계정 웹 로그인으로 돌아오기 위한 화면
         android: { authCodeHandlerActivity: true },
+      },
+    ],
+    [
+      '@mj-studio/react-native-naver-map',
+      {
+        // 네이버 클라우드 플랫폼 > Maps > 앱 키 (Client ID). Secret 은 서버에서만 사용
+        client_id: process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID,
+        android: { ACCESS_FINE_LOCATION: true },
       },
     ],
     [

@@ -5,7 +5,7 @@
  */
 
 /** 서버에 연결할 수 있는 기능 이름. 서버 API 가 준비된 것부터 하나씩 추가합니다 */
-export type ServerFeature = 'auth' | 'me' | 'policy' | 'friends' | 'location';
+export type ServerFeature = 'auth' | 'me' | 'policy' | 'friends' | 'location' | 'groups' | 'chat' | 'places';
 
 const useMock = process.env.EXPO_PUBLIC_USE_MOCK !== 'false';
 const serverFeatures = new Set(
@@ -23,7 +23,8 @@ export const env = {
   devLoginPublicId: process.env.EXPO_PUBLIC_DEV_LOGIN_PUBLIC_ID ?? '26467878',
 
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? '',
-  wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? '',
+  /** 실시간(WebSocket) 주소. 없으면 API 주소를 그대로 사용 */
+  wsUrl: process.env.EXPO_PUBLIC_WS_URL || (process.env.EXPO_PUBLIC_API_BASE_URL ?? ''),
 
   auth: {
     /** 카카오 디벨로퍼스 RamuPin(1578376) 네이티브 앱 키. app.config.ts 에서 네이티브 설정에도 씁니다 */

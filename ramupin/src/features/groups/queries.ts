@@ -23,6 +23,19 @@ export function useCreateGroup() {
     mutationFn: ({ name, memberIds }: { name: string; memberIds: string[] }) => groupsApi.create(name, memberIds),
     onSuccess: (group) => {
       queryClient.setQueryData(groupKeys.detail(group.id), group);
+      queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });
+      queryClient.invalidateQueries({ queryKey: chatRoomsKey });
+    },
+  });
+}
+
+/** 친구와 1:1 대화방 열기 (없으면 만들어짐) */
+export function useDirectRoom() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (friendId: string) => groupsApi.directRoom(friendId),
+    onSuccess: (group) => {
+      queryClient.setQueryData(groupKeys.detail(group.id), group);
       queryClient.invalidateQueries({ queryKey: chatRoomsKey });
     },
   });
@@ -53,6 +66,7 @@ export function useLeaveGroup(groupId: string) {
     mutationFn: () => groupsApi.leave(groupId),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: groupKeys.detail(groupId) });
+      queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });
       queryClient.invalidateQueries({ queryKey: chatRoomsKey });
     },
   });

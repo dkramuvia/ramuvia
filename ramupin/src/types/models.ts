@@ -30,6 +30,8 @@ export interface ChatRoom {
   memberCount: number;
   lastMessage?: string;
   updatedAt: string;
+  /** 안 읽은 메시지 수 (서버 연결 시) */
+  unreadCount?: number;
 }
 
 export interface SharedPlace extends LatLng {

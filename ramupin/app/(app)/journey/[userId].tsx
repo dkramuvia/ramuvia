@@ -11,10 +11,13 @@ import { allRouteCoordinates, formatDuration, minutesSince, routePolylines } fro
 import { useAreaName } from '@/features/location/useAreaName';
 import { AppMapView, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
+import { PLAN_NAMES } from '@/features/policy/policies';
+import { usePlan } from '@/features/policy/usePlan';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { colors, layout, radius } from '@/theme';
+import { showToast } from '@/utils/toast';
 
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
 const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
@@ -37,6 +40,7 @@ export default function JourneyScreen() {
   const unit = usePreferencesStore((s) => s.distanceUnit);
   const { data: friends = [] } = useFriends();
   const { data: journey, isLoading } = useJourney(userId);
+  const { can, minPlanFor } = usePlan();
   const mapRef = useRef<AppMapViewHandle>(null);
 
   const isMe = isMeId(userId, me);
@@ -109,6 +113,23 @@ export default function JourneyScreen() {
             <>
               <NowRow />
               {friend?.location?.address ? <AppText variant="label1">{friend.location.address}</AppText> : null}
+              {/* 로드뷰(거리뷰)로 그 자리를 눈으로 확인 (WBS 10.5 유료 지도) */}
+              {current ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    can('premiumMap')
+                      ? router.push({ pathname: '/street-view', params: { lat: current.latitude, lng: current.longitude, name } })
+                      : showToast(t('streetView.premiumOnly', { plan: PLAN_NAMES[minPlanFor('premiumMap')] }))
+                  }
+                  style={styles.routeLink}
+                >
+                  <Ionicons name="man-outline" size={18} color={colors.textSecondary} />
+                  <AppText variant="label1" color={colors.textSecondary}>
+                    {t('map.streetView')}
+                  </AppText>
+                </Pressable>
+              ) : null}
               {journey ? (
                 <Pressable accessibilityRole="button" onPress={() => setView('timeline')} style={styles.card}>
                   <View style={styles.cardHeader}>

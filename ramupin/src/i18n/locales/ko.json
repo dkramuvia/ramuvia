@@ -9,7 +9,8 @@
     "save": "저장",
     "later": "나중에 하기",
     "allow": "허용하기",
-    "continue": "계속"
+    "continue": "계속",
+    "back": "뒤로"
   },
   "tabs": {
     "map": "Map",
@@ -38,7 +39,13 @@
     "friends": "친구 ({{count}})",
     "addFriend": "친구추가",
     "adArea": "배너 광고 영역",
-    "profile": "나의 프로필"
+    "profile": "나의 프로필",
+    "streetView": "로드뷰"
+  },
+  "streetView": {
+    "openInNaver": "네이버 지도에서 보기",
+    "openFailed": "네이버 지도를 열지 못했습니다",
+    "premiumOnly": "로드뷰는 {{plan}} 플랜부터 이용할 수 있어요"
   },
   "people": {
     "tabFriends": "친구",
@@ -46,7 +53,9 @@
     "activeCount": "{{count}}명의 친구 활동 중",
     "newGroup": "그룹 만들기",
     "roomMembers": "{{count}}명",
-    "emptyRooms": "아직 대화방이 없어요."
+    "emptyRooms": "아직 대화방이 없어요.",
+    "openChat": "1:1 대화",
+    "unread": "안 읽음 {{count}}"
   },
   "groups": {
     "registeredFriends": "{{count}}명의 친구 등록됨",
@@ -263,7 +272,8 @@
     "safeZone": "세이프존",
     "safety": "안전 & SOS",
     "map": "지도",
-    "account": "계정 관리"
+    "account": "계정 관리",
+    "location": "위치 수집"
   },
   "myProfile": {
     "settings": "설정",
@@ -484,6 +494,9 @@
     "naver": "네이버지도",
     "mapbox": "MapBox",
     "premiumOnly": "{{plan}} 플랜부터 이용가능",
+    "typeRoad": "일반",
+    "typeSatellite": "위성",
+    "typeTerrain": "지형",
     "traffic": "실시간 도로 상황",
     "trafficDesc": "현재 교통 상황 보기",
     "weather": "날씨",
@@ -705,6 +718,23 @@
     "withdraw": "회원 탈퇴",
     "plans": "구독 플랜",
     "checkout": "결제 정보",
-    "freeTrial": "1개월 무료 체험"
+    "freeTrial": "1개월 무료 체험",
+    "locationSettings": "위치 수집"
+  },
+  "locationSettings": {
+    "background": "앱을 꺼도 위치 알리기",
+    "backgroundDesc": "앱을 보고 있지 않을 때도 위치를 모아 보호자에게 알립니다. 켜면 알림 하나가 계속 표시됩니다.",
+    "started": "위치 수집을 켰습니다",
+    "stopped": "위치 수집을 껐습니다",
+    "needForeground": "위치 권한을 허용해야 사용할 수 있어요",
+    "needBackground": "설정에서 위치 권한을 \"항상 허용\"으로 바꿔 주세요",
+    "startFailed": "위치 수집을 시작하지 못했습니다",
+    "status": "수집 현황",
+    "statusDesc": "아직 서버로 보내지 못한 위치입니다. 인터넷이 끊겨도 쌓아 두었다가 다시 보냅니다.",
+    "queued": "보낼 위치",
+    "oldest": "가장 오래된 것",
+    "newest": "가장 최근 것",
+    "sendNow": "지금 보내기",
+    "sent": "전송했습니다"
   }
 }

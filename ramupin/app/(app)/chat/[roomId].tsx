@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText, Header } from '@/components/ui';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageItem } from '@/features/chat/MessageItem';
-import { useChatMessages, useSendMessage } from '@/features/chat/queries';
+import { useChatMessages, useChatRooms, useSendMessage } from '@/features/chat/queries';
 import { buildFriendQr } from '@/features/friends/qr';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
@@ -28,7 +28,14 @@ export default function ChatRoomScreen() {
   const keyboardPadding = useKeyboardPadding();
   const { data: group } = useGroup(roomId);
   const { data: messages = [] } = useChatMessages(roomId);
+  const { data: rooms = [] } = useChatRooms();
   const send = useSendMessage(roomId);
+
+  // 그룹을 나가면 서버에는 방이 없고 기기에만 대화가 남습니다. 읽기만 가능 (WBS 7.6)
+  const room = rooms.find((r) => r.id === roomId);
+  const archived = room?.archived ?? false;
+  // 나간 방은 서버에서 그룹 정보를 못 받으므로 기기에 저장해 둔 방 이름을 씁니다
+  const title = group?.name ?? room?.name;
 
   const members = useMemo(() => new Map(group?.members.map((m) => [m.id, m])), [group]);
   // 인버티드 리스트: 최신 메시지가 0번
@@ -55,16 +62,18 @@ export default function ChatRoomScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <Header
-        title={group?.name}
+        title={title}
         right={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('screens.groupSettings')}
-            hitSlop={8}
-            onPress={() => router.push(`/groups/${roomId}/settings`)}
-          >
-            <Ionicons name="settings-outline" size={24} color={colors.text} />
-          </Pressable>
+          archived ? undefined : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('screens.groupSettings')}
+              hitSlop={8}
+              onPress={() => router.push(`/groups/${roomId}/settings`)}
+            >
+              <Ionicons name="settings-outline" size={24} color={colors.text} />
+            </Pressable>
+          )
         }
       />
 
@@ -116,11 +125,19 @@ export default function ChatRoomScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
 
-        <ChatInput
-          onSend={(text) => send.mutate({ type: 'text', text })}
-          onSharePlace={() => router.push({ pathname: '/place-picker', params: { mode: 'share', roomId } })}
-          onShareCurrentLocation={shareCurrentLocation}
-        />
+        {archived ? (
+          <View style={styles.archivedNotice}>
+            <AppText variant="label2" color={colors.textMuted} align="center">
+              {t('chat.archivedNotice')}
+            </AppText>
+          </View>
+        ) : (
+          <ChatInput
+            onSend={(text) => send.mutate({ type: 'text', text })}
+            onSharePlace={() => router.push({ pathname: '/place-picker', params: { mode: 'share', roomId } })}
+            onShareCurrentLocation={shareCurrentLocation}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -138,6 +155,7 @@ function IntroAction({ icon, label, onPress }: { icon: 'link' | 'person-add-outl
 }
 
 const styles = StyleSheet.create({
+  archivedNotice: { paddingHorizontal: 20, paddingVertical: 18 },
   container: { flex: 1, backgroundColor: CHAT_BACKGROUND },
   flex: { flex: 1 },
   list: { paddingVertical: 16 },

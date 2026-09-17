@@ -68,6 +68,14 @@ export class ChatGateway implements OnGatewayConnection {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('rooms-changed', {});
   }
 
+  /**
+   * 이상징후 알림을 친구에게 전달 (docs/anomaly-alerts.md).
+   * 앱이 켜져 있을 때만 닿습니다. 꺼져 있을 때는 푸시가 필요합니다 (6단계).
+   */
+  emitAnomaly(userIds: string[], payload: unknown) {
+    for (const userId of userIds) this.server?.to(`user:${userId}`).emit('anomaly', payload);
+  }
+
   /** 초대된 사람을 방에 즉시 넣어 줍니다 */
   async joinRoom(userIds: string[], roomId: string) {
     for (const userId of userIds) {

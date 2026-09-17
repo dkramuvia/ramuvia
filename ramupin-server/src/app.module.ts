@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AnomalyModule } from './anomaly/anomaly.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { MainDatabaseModule } from './database/main-database.module.js';
 import { ChatModule } from './chat/chat.module.js';
@@ -13,6 +14,6 @@ import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, HealthModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, AnomalyModule, HealthModule],
 })
 export class AppModule {}

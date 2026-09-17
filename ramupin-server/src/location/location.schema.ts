@@ -18,6 +18,8 @@ export interface LocationPointsTable {
   satellites: number | null;
   signal_strength: number | null;
   battery: number | null;
+  /** 측정 시점에 충전 중이었는지 (이상징후 판정, docs/anomaly-alerts.md) */
+  charging: boolean | null;
   state: string | null;
 }
 
@@ -29,7 +31,25 @@ export interface LocationAccessLogsTable {
   accessed_at: Generated<Date>;
 }
 
+/** 이상징후 판정에 쓰는 사용자별 마지막 상태 (docs/anomaly-alerts.md) */
+export interface UserStatusTable {
+  user_id: string;
+  last_measured_at: Date;
+  last_latitude: number;
+  last_longitude: number;
+  last_battery: number | null;
+  last_charging: boolean | null;
+  /** 지금 자리에 머물기 시작한 기준점과 시각 (반경 밖으로 나가면 새로 잡음) */
+  fixed_anchor_latitude: number;
+  fixed_anchor_longitude: number;
+  fixed_since: Date;
+  /** 배터리가 0% 가 된 시각 (0% 를 벗어나면 null) */
+  battery_zero_since: Date | null;
+  updated_at: Generated<Date>;
+}
+
 export interface LocationDatabase {
   'location.location_points': LocationPointsTable;
   'location.location_access_logs': LocationAccessLogsTable;
+  'location.user_status': UserStatusTable;
 }

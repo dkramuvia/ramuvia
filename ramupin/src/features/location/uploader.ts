@@ -22,6 +22,8 @@ const BATCH_SIZE = 500;
 const MAX_QUEUE = 5000;
 /** 대기열에서 이 시간보다 오래된 점은 버립니다 */
 const MAX_AGE_MS = 7 * 24 * 60 * 60_000;
+/** 기기에 남기는 내 이동 경로 보관 기간. TODO(정책): 서버 정책값으로 (WBS 4.3 서버는 6개월) */
+const ROUTE_KEEP_MS = 30 * 24 * 60 * 60_000;
 
 let lastQueuedAt = 0;
 let flushing: Promise<void> | null = null;
@@ -35,12 +37,16 @@ function hasRealToken(): boolean {
   return !!token && token !== 'dev-token';
 }
 
-async function readBattery(): Promise<number | null> {
+async function readBattery(): Promise<{ level: number | null; charging: boolean | null }> {
   try {
-    const level = await Battery.getBatteryLevelAsync();
-    return level >= 0 ? Math.round(level * 100) : null;
+    const [level, state] = await Promise.all([Battery.getBatteryLevelAsync(), Battery.getBatteryStateAsync()]);
+    return {
+      level: level >= 0 ? Math.round(level * 100) : null,
+      // 이상징후 판정에서 "100% 충전중"과 "100%인데 신호 두절"은 위험도가 다릅니다
+      charging: state === Battery.BatteryState.CHARGING || state === Battery.BatteryState.FULL,
+    };
   } catch {
-    return null;
+    return { level: null, charging: null };
   }
 }
 
@@ -53,6 +59,7 @@ export async function enqueueLocation(location: MyLocation, minIntervalSec: numb
   if (location.timestamp - lastQueuedAt < minIntervalSec * 1000) return false;
   lastQueuedAt = location.timestamp;
 
+  const battery = await readBattery();
   const payload: LocationPointPayload = {
     latitude: location.latitude,
     longitude: location.longitude,
@@ -63,12 +70,23 @@ export async function enqueueLocation(location: MyLocation, minIntervalSec: numb
     speed: location.speedKmh != null ? location.speedKmh / 3.6 : null,
     heading: location.heading != null && location.heading >= 0 ? location.heading : null,
     provider: 'fused',
-    battery: await readBattery(),
+    battery: battery.level,
+    charging: battery.charging,
     state: location.speedKmh != null && location.speedKmh >= 3 ? 'moving' : 'still',
   };
 
   const db = getDb();
   await db.runAsync('INSERT INTO location_outbox (payload, measured_at) VALUES (?, ?)', JSON.stringify(payload), payload.measuredAt);
+  // 내 이동 경로는 서버와 별개로 기기에도 남깁니다 (WBS 4.3). 서버 기록이 파기돼도 내 것은 볼 수 있습니다
+  await db.runAsync(
+    'INSERT INTO my_route_points (latitude, longitude, accuracy, speed, measured_at) VALUES (?, ?, ?, ?, ?)',
+    payload.latitude,
+    payload.longitude,
+    payload.accuracy ?? null,
+    payload.speed ?? null,
+    payload.measuredAt,
+  );
+  await db.runAsync('DELETE FROM my_route_points WHERE measured_at < ?', new Date(Date.now() - ROUTE_KEEP_MS).toISOString());
   await db.runAsync(
     'DELETE FROM location_outbox WHERE measured_at < ? OR seq <= (SELECT MAX(seq) FROM location_outbox) - ?',
     new Date(Date.now() - MAX_AGE_MS).toISOString(),
@@ -100,8 +118,15 @@ export function flushLocationOutbox(): Promise<void> {
   flushing ??= (async () => {
     const db = getDb();
     try {
-      // 백그라운드에서 깨어난 직후라면 로그인 상태가 아직 없습니다. 저장된 refresh token 으로 되살립니다
-      if (!hasRealToken() && !(await restoreSession())) return;
+      // 백그라운드에서 깨어난 직후라면 로그인 상태가 아직 없습니다. 저장된 refresh token 으로 되살립니다.
+      // 되살리지 못해도(인터넷 끊김 등) 위치는 대기열에 남으므로, 조용히 물러나고 다음 전송 때 다시 시도합니다
+      if (!hasRealToken()) {
+        try {
+          if (!(await restoreSession())) return;
+        } catch {
+          return;
+        }
+      }
       for (;;) {
         const rows = await db.getAllAsync<{ seq: number; payload: string }>(
           'SELECT seq, payload FROM location_outbox ORDER BY seq LIMIT ?',

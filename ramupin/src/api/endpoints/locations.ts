@@ -14,6 +14,8 @@ export interface LocationPointPayload {
   heading?: number | null;
   provider?: string | null;
   battery?: number | null;
+  /** 측정 시점에 충전 중이었는지. 서버가 '배터리 100% 충전중'을 구분합니다 (docs/anomaly-alerts.md) */
+  charging?: boolean | null;
   state?: 'sos' | 'geofence' | 'low_battery' | 'moving' | 'still' | null;
 }
 

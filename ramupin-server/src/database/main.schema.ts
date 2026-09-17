@@ -170,6 +170,23 @@ export interface UserPolicyOverridesTable {
   updated_at: Timestamp;
 }
 
+/** 이상징후 발생 기록 (docs/anomaly-alerts.md) */
+export interface AnomalyEventsTable {
+  id: Generated<string>;
+  user_id: string;
+  /** battery / gps_fixed / fixed_battery_zero / fixed_charging / no_signal */
+  track: string;
+  /** low / zero / 30m / 3h / 12h / 24h / 48h */
+  stage: string;
+  /** friends = 친구에게 알림 / monitoring = 모니터링 사이트에만 표시 */
+  target: string;
+  detected_at: Generated<Date>;
+  /** 다시 움직이거나 전화기를 켜면 자동 해제 */
+  cleared_at: Date | null;
+  /** 모니터링 사이트에서 사람이 확인한 시각 */
+  acknowledged_at: Date | null;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -187,4 +204,5 @@ export interface MainDatabase {
   'social.friend_requests': FriendRequestsTable;
   'config.plan_policies': PlanPoliciesTable;
   'config.user_policy_overrides': UserPolicyOverridesTable;
+  'member.anomaly_events': AnomalyEventsTable;
 }

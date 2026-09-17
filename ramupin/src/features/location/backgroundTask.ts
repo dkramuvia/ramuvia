@@ -1,6 +1,8 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { PermissionsAndroid, Platform } from 'react-native';
 
+import { loadPolicySnapshot } from '@/features/policy/policySnapshot';
 import { enqueueLocation, flushLocationOutbox } from './uploader';
 import type { MyLocation } from './useMyLocation';
 
@@ -18,9 +20,6 @@ export const LOCATION_TASK = 'ramupin-background-location';
 
 /** 배터리를 위해 이 시간마다 묶어서 받습니다 (안드로이드가 그동안의 점을 모아서 한 번에 줍니다) */
 const DEFERRED_INTERVAL_MS = 30_000;
-const DEFERRED_DISTANCE_M = 30;
-/** 대기열에 쌓는 최소 간격 (초). TODO(정책): 등급별 gpsIntervalMovingSec 을 백그라운드에도 반영 */
-const MIN_QUEUE_INTERVAL_SEC = 20;
 
 TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, async ({ data, error }) => {
   if (error) {
@@ -31,9 +30,11 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, 
   if (locations.length === 0) return;
 
   try {
+    // 등급별 전송 주기 (WBS 2.1: 앱에 숫자를 넣지 않고 서버 정책을 따름)
+    const { gpsIntervalMovingSec } = await loadPolicySnapshot();
     let queued = false;
     for (const position of locations) {
-      queued = (await enqueueLocation(toMyLocation(position), MIN_QUEUE_INTERVAL_SEC)) || queued;
+      queued = (await enqueueLocation(toMyLocation(position), gpsIntervalMovingSec)) || queued;
     }
     if (queued) await flushLocationOutbox();
   } catch (e) {
@@ -76,16 +77,27 @@ export async function startBackgroundTracking(): Promise<StartResult> {
   const background = await Location.requestBackgroundPermissionsAsync();
   if (background.status !== Location.PermissionStatus.GRANTED) return 'need-background';
 
+  // 안드로이드 13+ 는 알림 권한이 없으면 수집 중 알림이 보이지 않습니다.
+  // 알림이 보여야 한다는 것이 포그라운드 서비스의 조건이라 함께 요청합니다 (거절해도 수집은 진행)
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    try {
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    } catch (e) {
+      console.warn('[location/bg] 알림 권한 요청 실패', String(e));
+    }
+  }
+
   if (await isBackgroundTrackingOn()) return 'started';
 
   try {
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,
+      // 거리 조건을 걸면 가만히 있을 때 위치가 아예 오지 않습니다.
+      // 머무는 중에도 "그 자리에 있다"를 알려야 해서 시간 기준으로 받습니다.
+      // TODO(2단계): 정지·이동·SOS 에 따라 주기를 바꾸는 적응형 로직 (GPS 보고서: 정지 1~5분, 이동 15~30초)
       timeInterval: DEFERRED_INTERVAL_MS,
-      distanceInterval: DEFERRED_DISTANCE_M,
-      // 배터리: 안드로이드가 점을 모았다가 한 번에 전달
+      distanceInterval: 0,
       deferredUpdatesInterval: DEFERRED_INTERVAL_MS,
-      deferredUpdatesDistance: DEFERRED_DISTANCE_M,
       // 안드로이드는 이 알림이 떠 있어야 백그라운드 수집이 끊기지 않습니다
       foregroundService: {
         notificationTitle: '라무핀이 위치를 확인하고 있어요',

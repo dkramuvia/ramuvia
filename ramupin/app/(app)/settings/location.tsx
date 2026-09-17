@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState, Linking, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Screen, ToggleRow } from '@/components/ui';
+import { AppText, Button, Popup, Screen, ToggleRow } from '@/components/ui';
 import {
   isBackgroundTrackingOn,
   startBackgroundTracking,
@@ -45,7 +45,18 @@ export default function LocationSettingsScreen() {
     };
   }, [refresh]);
 
+  // Play 정책: "항상 허용"을 묻기 전에 무엇을 위해 쓰는지 앱 안에서 먼저 알려야 합니다 (사전 고지)
+  const [disclosure, setDisclosure] = useState(false);
+
   const toggle = async (next: boolean) => {
+    if (next && !on) {
+      setDisclosure(true);
+      return;
+    }
+    await apply(next);
+  };
+
+  const apply = async (next: boolean) => {
     setBusy(true);
     try {
       if (!next) {
@@ -74,6 +85,20 @@ export default function LocationSettingsScreen() {
         description={t('locationSettings.backgroundDesc')}
         value={on}
         onValueChange={(next) => !busy && void toggle(next)}
+      />
+
+      <Popup
+        visible={disclosure}
+        title={t('locationSettings.disclosureTitle')}
+        message={t('locationSettings.disclosureMessage')}
+        confirmLabel={t('common.allow')}
+        cancelLabel={t('common.later')}
+        onConfirm={() => {
+          setDisclosure(false);
+          void apply(true);
+        }}
+        onCancel={() => setDisclosure(false)}
+        onDismiss={() => setDisclosure(false)}
       />
 
       <View style={styles.card}>

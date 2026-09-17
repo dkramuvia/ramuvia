@@ -21,6 +21,7 @@ const pointSchema = z.object({
   satellites: z.number().int().nonnegative().nullish(),
   signalStrength: z.number().nullish(),
   battery: z.number().int().min(0).max(100).nullish(),
+  charging: z.boolean().nullish(),
   state: z.enum(['sos', 'geofence', 'low_battery', 'moving', 'still']).nullish(),
 });
 

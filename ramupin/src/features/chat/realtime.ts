@@ -6,6 +6,7 @@ import { queryClient } from '@/api/queryClient';
 import { env, isLive } from '@/config/env';
 import { endSession, refreshAccessToken } from '@/features/auth/session';
 import { chatKeys } from '@/features/chat/queries';
+import { messageStore } from '@/db/messages';
 import { groupKeys } from '@/features/groups/queries';
 import { useAuthStore } from '@/stores/authStore';
 import type { ChatMessage } from '@/types/models';
@@ -28,6 +29,12 @@ interface ServerMessage {
 }
 
 function addMessage(message: ChatMessage) {
+  // 받은 즉시 기기에도 저장 (WBS 7.6: 방이 삭제돼도 내 폰에는 남음)
+  try {
+    messageStore.save([message]);
+  } catch (error) {
+    console.warn('[chat] 기기 저장 실패', String(error));
+  }
   queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(message.roomId), (list = []) =>
     list.some((m) => m.id === message.id) ? list : [...list, message],
   );

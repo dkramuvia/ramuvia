@@ -47,6 +47,15 @@ const MIGRATIONS: string[] = [
      measured_at TEXT NOT NULL
    );
    CREATE INDEX IF NOT EXISTS idx_route_time ON my_route_points (measured_at);`,
+
+  // 방 이름을 기기에도 남깁니다. 그룹을 나가면 서버에서 방이 사라지는데,
+  // 기기에 남은 대화를 보여 주려면 이름이 필요하기 때문입니다 (WBS 7.6)
+  `CREATE TABLE IF NOT EXISTS chat_rooms (
+     id TEXT PRIMARY KEY NOT NULL,
+     name TEXT NOT NULL,
+     member_count INTEGER NOT NULL DEFAULT 0,
+     updated_at TEXT NOT NULL
+   );`,
 ];
 
 let db: SQLiteDatabase | null = null;

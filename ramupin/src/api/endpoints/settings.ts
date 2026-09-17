@@ -146,15 +146,29 @@ export const scheduledMessagesApi = {
 };
 
 export const historyApi = {
-  /** 알림 내역 = 기기 알림 보관함(로컬 DB, WBS 9.7) + 서버 기록 */
+  /**
+   * 알림 내역 = 기기 알림 보관함(로컬 DB, WBS 9.7) + 서버 기록.
+   * 받은 알림은 기기에 남기 때문에, 서버 기록이 지워지거나 인터넷이 없어도 지난 알림을 볼 수 있습니다.
+   */
   async events(category?: HistoryCategory): Promise<HistoryEvent[]> {
+    const local = inbox.list(category);
+    const merge = (remote: HistoryEvent[]) => {
+      const byId = new Map(local.map((e) => [e.id, e]));
+      for (const e of remote) byId.set(e.id, e);
+      return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    };
+
     if (env.useMock) {
-      const local = inbox.list(category);
-      const list = [...local, ...mockHistory.filter((e) => !category || e.category === category)];
-      return mockResponse(list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      return mockResponse(merge(mockHistory.filter((e) => !category || e.category === category)));
     }
-    const { data } = await apiClient.get<HistoryEvent[]>('/me/history', { params: { category } });
-    return data;
+    try {
+      const { data } = await apiClient.get<HistoryEvent[]>('/me/history', { params: { category } });
+      return merge(data);
+    } catch (error) {
+      // 인터넷이 없으면 기기에 남은 알림만이라도 보여 줍니다
+      if (local.length > 0) return local;
+      throw error;
+    }
   },
 
   /** 하루 여정. 친구의 이동 경로 공유가 꺼져 있으면 서버가 null (기획: '최근 여정' 미표시) */

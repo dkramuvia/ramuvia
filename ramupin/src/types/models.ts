@@ -32,6 +32,8 @@ export interface ChatRoom {
   updatedAt: string;
   /** 안 읽은 메시지 수 (서버 연결 시) */
   unreadCount?: number;
+  /** 그룹을 나가 서버에는 없고 기기에만 남은 대화 (WBS 7.6) */
+  archived?: boolean;
 }
 
 export interface SharedPlace extends LatLng {
@@ -206,7 +208,19 @@ export interface JourneyDay {
 
 export type HistoryCategory = 'safety' | 'place';
 
-export type HistoryEventType = 'sos' | 'geofenceArrive' | 'geofenceLeave' | 'batteryLow' | 'gpsLost' | 'noMovement' | 'speeding' | 'dangerZone';
+export type HistoryEventType =
+  | 'sos'
+  | 'geofenceArrive'
+  | 'geofenceLeave'
+  | 'batteryLow'
+  | 'gpsLost'
+  | 'noMovement'
+  | 'speeding'
+  | 'dangerZone'
+  // 앱 안 알림 카드에서 온 것 (WBS 9.7: 받은 알림은 모두 기기에 보관)
+  | 'nearby'
+  | 'friendRequest'
+  | 'placeShared';
 
 /** 설정 > 히스토리: 알림 내역 (WBS 9.7: 기기에 보관) */
 export interface HistoryEvent {

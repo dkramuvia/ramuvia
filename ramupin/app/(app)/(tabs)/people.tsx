@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { chatApi } from '@/api';
 import { AppText, Avatar, Card, Fab, Header, SegmentedTabs } from '@/components/ui';
+import { useChatRooms } from '@/features/chat/queries';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
 import { useDirectRoom } from '@/features/groups/queries';
@@ -87,7 +87,7 @@ function FriendsList() {
 // 피그마에 채팅방 목록 디자인이 없어 친구 리스트 카드 형태로 임시 구성
 function ChatRoomList() {
   const { t } = useTranslation();
-  const { data: rooms = [], isLoading } = useQuery({ queryKey: ['chat', 'rooms'], queryFn: chatApi.rooms });
+  const { data: rooms = [], isLoading } = useChatRooms();
 
   if (isLoading) return <ActivityIndicator style={styles.loading} color={colors.brown} />;
 
@@ -116,6 +116,7 @@ function ChatRoomList() {
               ) : null}
             </View>
             <AppText variant="caption" color={colors.textTertiary} numberOfLines={1}>
+              {item.archived ? `${t('people.archived')} · ` : ''}
               {item.lastMessage} · {formatRelativeTime(item.updatedAt)}
             </AppText>
           </View>

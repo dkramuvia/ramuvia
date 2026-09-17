@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { queryClient } from '@/api/queryClient';
 import { inbox } from '@/db/inbox';
 import i18n from '@/i18n';
-import type { HistoryEventType, SharedPlace } from '@/types/models';
+import type { HistoryCategory, HistoryEventType, SharedPlace } from '@/types/models';
 
 /** 피그마 [설정 2 > 알림] 긴급 팝업 6종 */
 export type AlertPopupPayload =
@@ -50,7 +50,12 @@ export const useAlertStore = create<AlertState>((set) => ({
     // 히스토리 화면이 새 보관함 내용을 다시 읽도록
     queryClient.invalidateQueries({ queryKey: ['history'] });
   },
-  pushCard: (card) => set((s) => ({ cards: [...s.cards, { ...card, id: `card-${Date.now()}` }].slice(-3) })),
+  pushCard: (card) => {
+    const id = `card-${Date.now()}`;
+    saveCardToInbox(id, card);
+    queryClient.invalidateQueries({ queryKey: ['history'] });
+    set((s) => ({ cards: [...s.cards, { ...card, id }].slice(-3) }));
+  },
   removeCard: (id) => set((s) => ({ cards: s.cards.filter((c) => c.id !== id) })),
 }));
 
@@ -84,6 +89,35 @@ function saveToInbox(popup: AlertPopupPayload) {
   })();
   try {
     inbox.add({ id: `inbox-${Date.now()}`, type: TYPE_BY_KIND[popup.kind], category: 'safety', message, createdAt: new Date().toISOString(), payload: popup });
+  } catch {
+    // 보관함 저장 실패가 알림 표시를 막지 않게 함
+  }
+}
+
+/** 앱 안 알림 카드도 보관함에 남깁니다 (WBS 9.7) */
+const CARD_TYPES: Record<InAppCardPayload['kind'], { type: HistoryEventType; category: HistoryCategory }> = {
+  nearby: { type: 'nearby', category: 'place' },
+  friendRequest: { type: 'friendRequest', category: 'place' },
+  arrive: { type: 'geofenceArrive', category: 'place' },
+  leave: { type: 'geofenceLeave', category: 'place' },
+  shared: { type: 'placeShared', category: 'place' },
+};
+
+/** 카드에 쓰는 제목을 그대로 보관함 문구로 씁니다 (InAppCardHost 와 같은 문구) */
+const CARD_TITLE_KEYS: Record<InAppCardPayload['kind'], string> = {
+  nearby: 'alerts.nearbyTitle',
+  friendRequest: 'alerts.requestTitle',
+  arrive: 'alerts.arriveTitle',
+  leave: 'alerts.leaveTitle',
+  shared: 'alerts.sharedTitle',
+};
+
+function saveCardToInbox(id: string, card: Omit<InAppCardPayload, 'id'>) {
+  const t = i18n.t.bind(i18n);
+  const { type, category } = CARD_TYPES[card.kind];
+  const message = t(CARD_TITLE_KEYS[card.kind], { name: card.name, place: card.place ?? '' });
+  try {
+    inbox.add({ id, type, category, message, createdAt: new Date().toISOString(), payload: card });
   } catch {
     // 보관함 저장 실패가 알림 표시를 막지 않게 함
   }

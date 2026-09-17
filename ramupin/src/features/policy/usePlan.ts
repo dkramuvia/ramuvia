@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { FEATURE_MIN_PLAN, type PlanPolicy } from './policies';
+import { savePolicySnapshot } from './policySnapshot';
 import { policyApi } from '@/api/endpoints/policy';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -18,6 +20,11 @@ export function usePlan() {
     queryFn: () => policyApi.get(planId),
     staleTime: 10 * 60_000,
   });
+
+  // 백그라운드 수집은 react-query 캐시를 볼 수 없어, 필요한 숫자만 기기에 저장해 둡니다
+  useEffect(() => {
+    if (policy) void savePolicySnapshot(policy);
+  }, [policy]);
 
   return {
     planId,

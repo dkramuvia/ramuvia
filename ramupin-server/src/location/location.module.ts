@@ -22,6 +22,7 @@ const pointSchema = z.object({
   signalStrength: z.number().nullish(),
   battery: z.number().int().min(0).max(100).nullish(),
   charging: z.boolean().nullish(),
+  activity: z.enum(['still', 'walking', 'running', 'bicycle', 'vehicle', 'tilting', 'unknown']).nullish(),
   state: z.enum(['sos', 'geofence', 'low_battery', 'moving', 'still']).nullish(),
 });
 

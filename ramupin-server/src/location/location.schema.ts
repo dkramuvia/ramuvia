@@ -20,6 +20,8 @@ export interface LocationPointsTable {
   battery: number | null;
   /** 측정 시점에 충전 중이었는지 (이상징후 판정, docs/anomaly-alerts.md) */
   charging: boolean | null;
+  /** 안드로이드 활동 인식: still / walking / running / bicycle / vehicle (WBS 2.3) */
+  activity: string | null;
   state: string | null;
 }
 

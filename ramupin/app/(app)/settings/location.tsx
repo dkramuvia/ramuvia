@@ -5,6 +5,7 @@ import { AppState, Linking, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Popup, Screen, ToggleRow } from '@/components/ui';
 import {
+  currentIntervalSec,
   isBackgroundTrackingOn,
   startBackgroundTracking,
   stopBackgroundTracking,
@@ -23,10 +24,12 @@ export default function LocationSettingsScreen() {
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stats, setStats] = useState<OutboxStats | null>(null);
+  const [intervalSec, setIntervalSec] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     setOn(await isBackgroundTrackingOn());
     setStats(await outboxStats());
+    setIntervalSec(currentIntervalSec());
   }, []);
 
   useFocusEffect(
@@ -103,6 +106,7 @@ export default function LocationSettingsScreen() {
 
       <View style={styles.card}>
         <AppText variant="title4">{t('locationSettings.status')}</AppText>
+        <Row label={t('locationSettings.interval')} value={intervalSec ? intervalText(intervalSec) : '-'} />
         <Row label={t('locationSettings.queued')} value={stats ? `${stats.count}개` : '-'} />
         <Row label={t('locationSettings.oldest')} value={stats?.oldest ? timeText(stats.oldest) : '-'} />
         <Row label={t('locationSettings.newest')} value={stats?.newest ? timeText(stats.newest) : '-'} />
@@ -133,6 +137,9 @@ function Row({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
+
+/** 60초 이상은 분으로 (180초 → 3분) */
+const intervalText = (sec: number) => (sec >= 60 ? `${Math.round(sec / 60)}분마다` : `${sec}초마다`);
 
 const timeText = (iso: string) => new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 

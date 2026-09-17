@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- 활동 인식 결과를 받는 곳. 앱이 꺼져 있어도 안드로이드가 깨웁니다 (WBS 2.3) -->
+    <receiver
+      android:name=".ActivityReceiver"
+      android:exported="false" />
+  </application>
+</manifest>

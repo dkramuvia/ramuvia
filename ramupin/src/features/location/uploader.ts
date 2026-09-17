@@ -3,6 +3,7 @@ import * as Battery from 'expo-battery';
 import { locationsApi, type LocationPointPayload } from '@/api/endpoints/locations';
 import { isLive } from '@/config/env';
 import { getDb } from '@/db';
+import { getActivity, getSatellites } from '../../../modules/ramupin-gps';
 import { restoreSession } from '@/features/auth/session';
 import { useAuthStore } from '@/stores/authStore';
 import type { MyLocation } from './useMyLocation';
@@ -27,6 +28,15 @@ const ROUTE_KEEP_MS = 30 * 24 * 60 * 60_000;
 
 let lastQueuedAt = 0;
 let flushing: Promise<void> | null = null;
+
+/**
+ * 위성이 실제로 잡혔으면 GPS, 아니면 Wi-Fi·기지국으로 계산된 위치입니다.
+ * 실내에서 오차가 100m 까지 벌어지는 이유를 서버에서 구분할 수 있게 남깁니다.
+ */
+function providerOf(satellites: { satellitesUsed: number } | null): string {
+  if (!satellites) return 'fused';
+  return satellites.satellitesUsed > 0 ? 'gps' : 'network';
+}
 
 /** 목업 모드에서는 쌓지도 보내지도 않습니다 */
 const canCollect = () => isLive('location');
@@ -60,6 +70,8 @@ export async function enqueueLocation(location: MyLocation, minIntervalSec: numb
   lastQueuedAt = location.timestamp;
 
   const battery = await readBattery();
+  const satellites = getSatellites();
+  const activity = getActivity();
   const payload: LocationPointPayload = {
     latitude: location.latitude,
     longitude: location.longitude,
@@ -69,9 +81,14 @@ export async function enqueueLocation(location: MyLocation, minIntervalSec: numb
     altitudeAccuracy: location.altitudeAccuracy,
     speed: location.speedKmh != null ? location.speedKmh / 3.6 : null,
     heading: location.heading != null && location.heading >= 0 ? location.heading : null,
-    provider: 'fused',
+    // 위성 정보는 네이티브 모듈에서 (WBS 2.2·2.3). 모듈이 없는 빌드에서는 null
+    provider: providerOf(satellites),
+    satellites: satellites?.satellitesUsed ?? null,
+    signalStrength: satellites?.signalStrength ?? null,
     battery: battery.level,
     charging: battery.charging,
+    // 걷기·차량·정지 (WBS 2.3). 실내에서 쓰러져 있는 것을 위치로는 알 수 없어서 함께 보냅니다
+    activity: activity && activity.confidence >= 50 ? activity.type : null,
     state: location.speedKmh != null && location.speedKmh >= 3 ? 'moving' : 'still',
   };
 

@@ -1,0 +1,23 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.ramupingps'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.ramupingps"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // 활동 인식(걷기·자전거·차량·정지). expo-location 이 쓰는 것과 같은 버전으로 맞춥니다
+  implementation 'com.google.android.gms:play-services-location:21.0.1'
+}

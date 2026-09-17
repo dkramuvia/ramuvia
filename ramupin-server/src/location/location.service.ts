@@ -25,6 +25,8 @@ export interface LocationPointInput {
   battery?: number | null;
   /** 충전 중이었는지. 배터리 100% 가 '충전 중'인지 '방금 꽉 찬 채 끊김'인지 구분합니다 */
   charging?: boolean | null;
+  /** 걷기·자전거·차량·정지 (WBS 2.3) */
+  activity?: string | null;
   state?: string | null;
 }
 
@@ -97,6 +99,7 @@ export class LocationService implements OnModuleInit {
           signal_strength: p.signalStrength ?? null,
           battery: p.battery ?? null,
           charging: p.charging ?? null,
+          activity: p.activity ?? null,
           state: p.state ?? null,
         })),
       )

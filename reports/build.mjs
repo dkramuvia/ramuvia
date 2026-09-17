@@ -256,6 +256,9 @@ const doc = new Document({
 });
 
 mkdirSync(join(here, 'out'), { recursive: true });
-const target = join(here, 'out', `라무핀_진행보고_${date}.docx`);
+// 파일 이름은 문서 첫 제목(# ...)에서 가져옵니다. 진행 보고 외에 결정 요청 같은 문서도 만들 수 있게
+const firstHeading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? '진행보고';
+const safeName = firstHeading.replace(/[\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+const target = join(here, 'out', `라무핀_${safeName}_${date}.docx`);
 writeFileSync(target, await Packer.toBuffer(doc));
 console.log(`생성: ${target}`);

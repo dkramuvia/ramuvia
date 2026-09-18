@@ -14,6 +14,7 @@ import { queryClient } from '@/api/queryClient';
 import { SessionEndedPopup } from '@/features/auth/SessionEndedPopup';
 import { useDevServerSession } from '@/features/auth/useDevServerSession';
 import { useRealtime } from '@/features/chat/realtime';
+import { usePush } from '@/features/notifications/usePush';
 import { resumeBackgroundTrackingIfWanted } from '@/features/location/backgroundTask';
 import { selectIsSignedIn, useAuthStore } from '@/stores/authStore';
 import { fontAssets } from '@/theme';
@@ -23,6 +24,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
   const devSession = useDevServerSession();
   useRealtime();
+  usePush();
 
   // 강제 종료 뒤에는 안드로이드가 위치 수집을 되살려 주지 않아서, 앱이 켜질 때 직접 되살립니다
   useEffect(() => {

@@ -25,6 +25,7 @@ import { authError } from './auth-error.js';
 import { AuthGuard, CurrentUser, type AuthUser } from './auth.guard.js';
 import { DeviceVerificationService } from './device-verification.service.js';
 import { KakaoService } from './kakao.service.js';
+import { XService } from './x.service.js';
 import { SignUpService } from './sign-up.service.js';
 import { SessionService, type DeviceInfo, type NewSession, type TokenPair } from './session.service.js';
 import { SmsService } from './sms.service.js';
@@ -42,6 +43,13 @@ const deviceSchema = z.object({
 
 const devLoginBody = z.object({ publicId: z.string().min(1), device: deviceSchema });
 const kakaoLoginBody = z.object({ accessToken: z.string().min(10).max(500), device: deviceSchema });
+// X 는 토큰이 아니라 인가 코드를 받습니다. 토큰 교환은 서버가 직접 합니다 (x.service.ts 설명 참고)
+const xLoginBody = z.object({
+  code: z.string().min(10).max(500),
+  codeVerifier: z.string().min(43).max(128),
+  redirectUri: z.string().url().max(200),
+  device: deviceSchema,
+});
 const signUpSmsBody = z.object({ signUpToken: z.string().min(10), phone: z.string().regex(/^01[016789][-\s]?\d{3,4}[-\s]?\d{4}$/, '휴대폰 번호 형식이 아닙니다') });
 const signUpVerifyBody = z.object({ signUpToken: z.string().min(10), code: z.string().regex(/^\d{6}$/) });
 const signUpBody = z.object({
@@ -57,7 +65,12 @@ const nicknameQuery = z.object({ nickname: z.string().min(1).max(20) });
 const devSignUpTokenBody = z.object({ providerUserId: z.string().min(1).max(50), nickname: z.string().max(20).nullish() });
 const challengeBody = z.object({ challengeId: z.uuid() });
 const verifyBody = z.object({ challengeId: z.uuid(), code: z.string().regex(/^\d{6}$/) });
-const refreshBody = z.object({ refreshToken: z.string().min(1).max(200) });
+// installationId 는 "같은 기기가 맞는지" 확인용입니다 (session.service.ts refresh 설명 참고).
+// 옛 앱 버전은 안 보내므로 선택값입니다
+const refreshBody = z.object({
+  refreshToken: z.string().min(1).max(200),
+  installationId: z.string().min(8).max(100).nullish(),
+});
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const parsed = schema.safeParse(body);
@@ -105,6 +118,7 @@ class AuthController {
     private readonly sessions: SessionService,
     private readonly verification: DeviceVerificationService,
     private readonly kakao: KakaoService,
+    private readonly x: XService,
     private readonly signUp: SignUpService,
   ) {}
 
@@ -124,6 +138,28 @@ class AuthController {
     if (account) return this.login.login(account.user_id, device, 'kakao');
 
     return { status: 'sign_up_required', ...(await this.signUp.start('kakao', kakaoUser.providerUserId, kakaoUser.nickname, kakaoUser.avatarUrl)) };
+  }
+
+  /**
+   * X(트위터) 로그인.
+   * 앱은 인가 코드만 받아 오고, 토큰 교환은 서버가 우리 client_id 로 직접 합니다.
+   * X 는 "이 토큰이 우리 앱 것인지" 확인할 방법이 없어서, 교환 성공 자체를 증거로 삼습니다.
+   */
+  @Post('x')
+  @HttpCode(HttpStatus.OK)
+  async xLogin(@Body() body: unknown): Promise<LoginResult> {
+    const { code, codeVerifier, redirectUri, device } = parseInput(xLoginBody, body);
+    const xUser = await this.x.verify(code, codeVerifier, redirectUri);
+
+    const account = await this.db
+      .selectFrom('member.social_accounts')
+      .select('user_id')
+      .where('provider', '=', 'x')
+      .where('provider_user_id', '=', xUser.providerUserId)
+      .executeTakeFirst();
+    if (account) return this.login.login(account.user_id, device, 'x');
+
+    return { status: 'sign_up_required', ...(await this.signUp.start('x', xUser.providerUserId, xUser.nickname, xUser.avatarUrl)) };
   }
 
   /** 개발용: 카카오 없이 가입 흐름을 시험 (DEV_LOGIN_ENABLED=true 일 때만) */
@@ -194,7 +230,8 @@ class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() body: unknown): Promise<TokenPair> {
-    return this.sessions.refresh(parse(refreshBody, body).refreshToken);
+    const { refreshToken, installationId } = parse(refreshBody, body);
+    return this.sessions.refresh(refreshToken, installationId);
   }
 
   @Post('logout')
@@ -209,7 +246,7 @@ class AuthController {
 @Module({
   imports: [JwtModule.register({ secret: env.JWT_SECRET, signOptions: { expiresIn: env.JWT_EXPIRES_IN as never } })],
   controllers: [AuthController],
-  providers: [AuthGuard, SessionService, SmsService, DeviceVerificationService, LoginService, KakaoService, SignUpService],
+  providers: [AuthGuard, SessionService, SmsService, DeviceVerificationService, LoginService, KakaoService, XService, SignUpService],
   exports: [AuthGuard, JwtModule, SessionService, LoginService],
 })
 export class AuthModule {}

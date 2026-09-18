@@ -7,6 +7,8 @@ import { queryClient } from '@/api/queryClient';
 import { getDb } from '@/db';
 import { useAuthStore, type SessionEndReason } from '@/stores/authStore';
 import { useSignUpStore } from '@/stores/signUpStore';
+import { unregisterPush } from '@/features/notifications/push';
+import { getInstallationId } from './device';
 import { secureStorage } from './secureStorage';
 
 /**
@@ -62,7 +64,7 @@ export function refreshAccessToken(): Promise<string | null> {
         await endSession('expired');
         return null;
       }
-      const tokens = await authApi.refresh(refreshToken);
+      const tokens = await authApi.refresh(refreshToken, await getInstallationId().catch(() => undefined));
       await secureStorage.set('refreshToken', tokens.refreshToken);
       useAuthStore.setState({ accessToken: tokens.accessToken });
       return tokens.accessToken;
@@ -99,6 +101,12 @@ export async function endSession(reason: SessionEndReason | 'logout') {
 
 /** 설정 > 로그아웃 */
 export async function logout() {
+  try {
+    // 먼저 푸시 토큰을 지웁니다 (기기를 물려줬을 때 남의 알림이 가지 않게)
+    await unregisterPush();
+  } catch {
+    // 못 지워도 로그아웃은 진행
+  }
   try {
     await authApi.logout();
   } catch {

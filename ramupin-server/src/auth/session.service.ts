@@ -153,15 +153,36 @@ export class SessionService {
     return { ...(await this.issueTokens(userId, sessionId, refreshToken, refreshExpiresAt)), deviceKey };
   }
 
-  /** refresh token 으로 새 토큰 발급 (refresh token 도 매번 교체) */
-  async refresh(refreshToken: string): Promise<TokenPair> {
+  /**
+   * refresh token 으로 새 토큰 발급 (refresh token 도 매번 교체).
+   *
+   * @param installationId 앱이 보낸 기기 ID. 같은 기기인지 확인하는 데 씁니다.
+   *
+   * 교체된(옛) 토큰이 다시 오는 경우는 두 가지입니다.
+   *   ① 토큰 탈취 — 남이 훔쳐 간 옛 토큰을 쓰는 경우. 세션을 끊어야 합니다
+   *   ② 앱이 새 토큰을 저장하기 직전에 죽은 경우 — 강제 종료·배터리 방전.
+   *      이때는 잘못이 없는데도 로그아웃됩니다. 위치를 알려야 하는 앱에서는 치명적입니다
+   *
+   * 둘을 **기기로 구분**합니다. 같은 기기에서 온 옛 토큰이면 ②로 보고 새 토큰을 내줍니다.
+   */
+  async refresh(refreshToken: string, installationId?: string | null): Promise<TokenPair> {
     const [sessionId, secret] = refreshToken.split('.');
     if (!sessionId || !secret || !UUID_RE.test(sessionId)) throw authError(HttpStatus.UNAUTHORIZED, 'REFRESH_INVALID');
 
     const session = await this.db
-      .selectFrom('member.sessions')
-      .select(['user_id', 'refresh_token_hash', 'previous_refresh_token_hash', 'refreshed_at', 'expires_at', 'revoked_at', 'revoke_reason'])
-      .where('id', '=', sessionId)
+      .selectFrom('member.sessions as s')
+      .innerJoin('member.devices as d', 'd.id', 's.device_id')
+      .select([
+        's.user_id',
+        's.refresh_token_hash',
+        's.previous_refresh_token_hash',
+        's.refreshed_at',
+        's.expires_at',
+        's.revoked_at',
+        's.revoke_reason',
+        'd.installation_id',
+      ])
+      .where('s.id', '=', sessionId)
       .executeTakeFirst();
     if (!session) throw authError(HttpStatus.UNAUTHORIZED, 'REFRESH_INVALID');
     if (session.revoked_at) {
@@ -174,14 +195,21 @@ export class SessionService {
     const isPrevious = !!session.previous_refresh_token_hash && sameHash(hash, session.previous_refresh_token_hash);
     const inGrace = Date.now() - new Date(session.refreshed_at).getTime() < REFRESH_GRACE_MS;
 
-    if (!isCurrent && !(isPrevious && inGrace)) {
+    // 같은 기기에서 왔는지. 앱이 기기 ID 를 안 보내면 확인할 수 없으므로 false
+    const sameDevice = !!installationId && installationId === session.installation_id;
+
+    if (!isCurrent && !(isPrevious && (inGrace || sameDevice))) {
       if (isPrevious) {
-        // 이미 교체된 토큰이 한참 뒤에 다시 쓰임 → 토큰 탈취로 보고 세션을 끊음
+        // 다른 기기에서 옛 토큰을 씀 → 토큰 탈취로 보고 세션을 끊음
         await this.revoke(session.user_id, sessionId, 'reused');
-        this.logger.warn(`user ${session.user_id}: 교체된 refresh token 재사용 감지 → 세션 끊음`);
+        this.logger.warn(`user ${session.user_id}: 다른 기기에서 교체된 refresh token 재사용 → 세션 끊음`);
         throw authError(HttpStatus.UNAUTHORIZED, 'SESSION_REVOKED');
       }
       throw authError(HttpStatus.UNAUTHORIZED, 'REFRESH_INVALID');
+    }
+    if (isPrevious && !inGrace && sameDevice) {
+      // 앱이 새 토큰을 저장하기 전에 죽은 경우. 같은 기기라 로그아웃시키지 않습니다
+      this.logger.log(`user ${session.user_id}: 같은 기기의 옛 토큰 재사용 → 새 토큰 발급 (앱이 저장 전에 종료된 것으로 봄)`);
     }
 
     const nextToken = `${sessionId}.${randomBytes(32).toString('base64url')}`;

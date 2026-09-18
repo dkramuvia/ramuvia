@@ -3,6 +3,7 @@ import { Controller, Get, Inject, Logger, Module, Param, ParseUUIDPipe, Post, Us
 import { AuthGuard } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
 import { LocationModule } from '../location/location.module.js';
+import { PushModule } from '../push/push.module.js';
 import { AnomalyService } from './anomaly.service.js';
 
 /**
@@ -35,7 +36,7 @@ class AnomalyController {
 const SWEEP_INTERVAL_MS = 5 * 60_000;
 
 @Module({
-  imports: [LocationModule, RealtimeModule],
+  imports: [LocationModule, RealtimeModule, PushModule],
   controllers: [AnomalyController],
   providers: [AnomalyService],
   exports: [AnomalyService],

@@ -9,6 +9,7 @@ import { AppText } from '@/components/ui';
 import { env, isLive } from '@/config/env';
 import { getDeviceInput } from '@/features/auth/device';
 import { signInWithKakao } from '@/features/auth/kakao';
+import { signInWithX, XAuthCancelled } from '@/features/auth/x';
 import { applyLoginResult } from '@/features/auth/session';
 import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
@@ -38,6 +39,7 @@ export default function WelcomeScreen() {
 
   const login = async (provider: SocialProvider) => {
     if (provider === 'kakao' && isLive('auth')) return loginWithKakao();
+    if (provider === 'x' && isLive('auth')) return loginWithX();
     try {
       // TODO(로그인 단계): 나머지 소셜 SDK 연결. 지금은 목업
       const result = await authApi.socialLogin(provider, 'mock-token');
@@ -46,6 +48,25 @@ export default function WelcomeScreen() {
       else completeOnboarding();
     } catch (e) {
       showToast(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  /** X 로그인: 브라우저에서 인가 코드를 받아 서버가 토큰으로 바꿉니다 */
+  const loginWithX = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      const auth = await signInWithX();
+      const outcome = await applyLoginResult(await authApi.xLogin(auth, await getDeviceInput()));
+      if (outcome === 'sign-up') router.push('/profile-setup');
+      else if (outcome === 'device-verification') router.push('/device-verify');
+    } catch (e) {
+      if (e instanceof XAuthCancelled) return;
+      const message = e instanceof Error ? e.message : String(e);
+      if (__DEV__) console.warn('[x] 실패', message, JSON.stringify(authErrorOf(e) ?? {}));
+      showToast(t('onboarding.xFailed'));
+    } finally {
+      setPending(false);
     }
   };
 

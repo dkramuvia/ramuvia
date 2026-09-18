@@ -171,6 +171,31 @@ export interface UserPolicyOverridesTable {
 }
 
 /** 이상징후 발생 기록 (docs/anomaly-alerts.md) */
+/** 관리자 계정 (앱 사용자와 분리) */
+export interface AdminUsersTable {
+  id: Generated<string>;
+  login_id: string;
+  /** scrypt$N$r$p$salt$hash */
+  password_hash: string;
+  name: string;
+  role: Generated<'viewer' | 'editor' | 'owner'>;
+  disabled: Generated<boolean>;
+  last_login_at: NullableTimestamp;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+/** 정책을 누가 언제 무엇에서 무엇으로 바꿨는지 */
+export interface PolicyAuditTable {
+  id: Generated<number>;
+  admin_id: string;
+  scope: 'plan' | 'user';
+  target: string;
+  before: ColumnType<Record<string, unknown>, string, string>;
+  after: ColumnType<Record<string, unknown>, string, string>;
+  created_at: Timestamp;
+}
+
 export interface AnomalyEventsTable {
   id: Generated<string>;
   user_id: string;
@@ -185,6 +210,15 @@ export interface AnomalyEventsTable {
   cleared_at: Date | null;
   /** 모니터링 사이트에서 사람이 확인한 시각 */
   acknowledged_at: Date | null;
+}
+
+/** 푸시 알림 토큰 (WBS 6단계) */
+export interface PushTokensTable {
+  token: string;
+  user_id: string;
+  platform: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
 }
 
 export interface MainDatabase {
@@ -204,5 +238,8 @@ export interface MainDatabase {
   'social.friend_requests': FriendRequestsTable;
   'config.plan_policies': PlanPoliciesTable;
   'config.user_policy_overrides': UserPolicyOverridesTable;
+  'config.admin_users': AdminUsersTable;
+  'config.policy_audit': PolicyAuditTable;
   'member.anomaly_events': AnomalyEventsTable;
+  'member.push_tokens': PushTokensTable;
 }

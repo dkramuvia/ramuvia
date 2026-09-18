@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ChatGateway } from '../chat/chat.gateway.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
+import { PushService } from '../push/push.service.js';
 import { detect, type AnomalyTarget, type AnomalyTrack, type Detection } from './anomaly.rules.js';
 
 /**
@@ -24,6 +25,7 @@ export class AnomalyService {
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly location: LocationService,
     private readonly gateway: ChatGateway,
+    private readonly push: PushService,
   ) {}
 
   /** 한 바퀴 돌립니다. 배치(스케줄러)와 테스트에서 부릅니다 */
@@ -100,7 +102,16 @@ export class AnomalyService {
         stage: detection.stage,
         detectedAt: now.toISOString(),
       });
-      // TODO(6단계): 앱이 꺼져 있을 때를 위해 푸시(FCM) 발송
+      // 앱이 꺼져 있을 때는 WebSocket 이 닿지 않으므로 푸시로도 보냅니다
+      await this.push
+        .sendToUsers(friendIds, {
+          title: '라무핀 안전 알림',
+          body: messageFor(nickname, detection),
+          channel: 'anomaly',
+          route: `/journey/${userId}`,
+          data: { track: detection.track, stage: detection.stage },
+        })
+        .catch((error: unknown) => this.logger.error(`푸시 실패: ${String(error)}`));
     }
     // monitoring 은 따로 보내지 않습니다. 모니터링 사이트가 이 표를 읽어 보여 주고, 전화는 사람이 합니다
   }
@@ -152,3 +163,21 @@ export class AnomalyService {
 const key = (userId: string, track: string, stage: string) => `${userId}|${track}|${stage}`;
 
 export type { AnomalyTrack };
+
+/** 친구에게 보여줄 문구 (docs/anomaly-alerts.md 의 메시지) */
+function messageFor(nickname: string, detection: Detection): string {
+  const hours = detection.stage.endsWith('h') ? detection.stage.replace('h', '시간') : null;
+  switch (detection.track) {
+    case 'battery':
+      if (detection.stage === 'low') return `${nickname}님의 배터리가 부족합니다`;
+      if (detection.stage === 'zero') return `${nickname}님의 전화기가 꺼졌습니다`;
+      return `${nickname}님의 전화기가 꺼진 지 ${hours}이 되었습니다. 확인 바랍니다`;
+    case 'gps_fixed':
+      return `${nickname}님의 위치가 ${hours} 고정되었습니다`;
+    case 'fixed_battery_zero':
+    case 'fixed_charging':
+      return `${nickname}님의 안전을 확인하세요`;
+    case 'no_signal':
+      return `${nickname}님의 위치 신호가 확인되지 않습니다`;
+  }
+}

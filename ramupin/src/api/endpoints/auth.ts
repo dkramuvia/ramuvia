@@ -111,8 +111,13 @@ export const authApi = {
     return data;
   },
 
-  async refresh(refreshToken: string): Promise<SessionTokens> {
-    const { data } = await apiClient.post<SessionTokens>('/auth/refresh', { refreshToken });
+  /**
+   * @param installationId 같은 기기인지 확인용.
+   *   앱이 새 토큰을 저장하기 전에 죽으면 옛 토큰을 다시 보내게 되는데,
+   *   같은 기기면 서버가 로그아웃시키지 않고 새 토큰을 내줍니다
+   */
+  async refresh(refreshToken: string, installationId?: string): Promise<SessionTokens> {
+    const { data } = await apiClient.post<SessionTokens>('/auth/refresh', { refreshToken, installationId });
     return data;
   },
 
@@ -123,6 +128,15 @@ export const authApi = {
   /** 카카오 로그인: 카카오 SDK 로 받은 토큰을 서버가 확인 */
   async kakaoLogin(accessToken: string, device: DeviceInput): Promise<LoginResult> {
     const { data } = await apiClient.post<LoginResult>('/auth/kakao', { accessToken, device });
+    return data;
+  },
+
+  /**
+   * X(트위터) 로그인.
+   * 앱은 인가 코드만 받아 보내고, 토큰 교환은 서버가 합니다 (features/auth/x.ts 설명 참고)
+   */
+  async xLogin(auth: { code: string; codeVerifier: string; redirectUri: string }, device: DeviceInput): Promise<LoginResult> {
+    const { data } = await apiClient.post<LoginResult>('/auth/x', { ...auth, device });
     return data;
   },
 

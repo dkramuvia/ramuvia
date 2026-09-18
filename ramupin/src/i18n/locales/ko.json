@@ -659,7 +659,8 @@
     "openSettings": "설정 열기",
     "singleTitle": "Ramupin에 오신것을 환영합니다.\n1인가구 이신가요?",
     "singleYes": "1인 가구 모드를 활성화 할게요",
-    "singleNo": "아니요"
+    "singleNo": "아니요",
+    "xFailed": "X 로그인에 실패했어요. 잠시 후 다시 시도해 주세요."
   },
   "auth": {
     "singleHouseholdQuestion": "1인 가구 이신가요?",

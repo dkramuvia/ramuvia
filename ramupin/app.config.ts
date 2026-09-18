@@ -8,6 +8,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...(config as ExpoConfig),
   android: {
     ...config.android,
+    // Firebase 푸시 알림 설정 (ramupin-3e75c). 비밀값이 아니라 저장소에 올려도 됩니다
+    googleServicesFile: './google-services.json',
     // 연락처는 읽기만 합니다. 불필요한 권한은 Play 데이터 보안 심사에 불리
     blockedPermissions: ['android.permission.WRITE_CONTACTS'],
     // 신체 활동(이동 상태 감지, 권한 안내 화면) / 알림(Android 13+). 다음 네이티브 빌드부터 적용
@@ -37,6 +39,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isIosBackgroundLocationEnabled: false,
       },
     ],
+    // X 로그인은 브라우저(Custom Tabs)로 인증 화면을 엽니다
+    'expo-web-browser',
     [
       'expo-camera',
       {

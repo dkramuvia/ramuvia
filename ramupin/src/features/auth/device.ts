@@ -13,7 +13,7 @@ function createInstallationId(): string {
   return `${hex(8)}-${hex(4)}-4${hex(3)}-${hex(4)}-${hex(12)}`;
 }
 
-async function getInstallationId(): Promise<string> {
+export async function getInstallationId(): Promise<string> {
   const saved = await secureStorage.get('installationId');
   if (saved) return saved;
   const id = createInstallationId();

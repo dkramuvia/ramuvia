@@ -2,6 +2,8 @@
 //   npm run db:seed     (여러 번 실행해도 중복되지 않음)
 import pg from 'pg';
 
+import { hashPassword } from '../src/admin/admin-password.ts';
+
 const url = process.env.MIGRATOR_MAIN_URL;
 if (!url) throw new Error('MIGRATOR_MAIN_URL 환경변수가 없습니다');
 if (process.env.NODE_ENV === 'production') throw new Error('운영 환경에서는 실행하지 않습니다');
@@ -80,9 +82,17 @@ try {
       [ids[from], ids[to]],
     );
   }
+  // 관리자 화면(/admin) 개발용 계정. 개발 환경에서만 만들어집니다 (위에서 NODE_ENV 확인)
+  await client.query(
+    `INSERT INTO config.admin_users (login_id, password_hash, name, role)
+     VALUES ('admin', $1, '개발용 관리자', 'owner')
+     ON CONFLICT (login_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, disabled = false`,
+    [await hashPassword('admin')],
+  );
+
   await client.query('COMMIT');
   console.log(
-    `seeded ${users.length} users, ${Object.keys(shareFromMe).length} friendships, ${pendingRequests.length} friend requests (login as public_id 26467878)`,
+    `seeded ${users.length} users, ${Object.keys(shareFromMe).length} friendships, ${pendingRequests.length} friend requests (login as public_id 26467878) / 관리자 화면 admin / admin`,
   );
 } catch (error) {
   await client.query('ROLLBACK');

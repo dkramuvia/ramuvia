@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "182117629842",
+    "project_id": "ramupin-3e75c",
+    "storage_bucket": "ramupin-3e75c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:182117629842:android:74bca23cf42b6fe2db0b4b",
+        "android_client_info": {
+          "package_name": "com.ramuviamanager.ramupin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzQyaKAfP2-h7tEbWHThgpqNXSx0llllw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

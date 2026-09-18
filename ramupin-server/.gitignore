@@ -14,3 +14,6 @@ scripts/.simulator-device-keys.json
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Firebase 서비스 계정 키 (절대 커밋 금지: 프로젝트 관리자 권한을 가집니다)
+*firebase-adminsdk*.json

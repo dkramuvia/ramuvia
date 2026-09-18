@@ -22,6 +22,10 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(['dev']).default('dev'),
   // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
   KAKAO_APP_ID: z.coerce.number().int().positive(),
+  /** X(트위터) OAuth 2.0 Client ID. 공개 클라이언트(PKCE)라 secret 은 쓰지 않습니다 */
+  X_CLIENT_ID: z.string().min(10).default(''),
+  /** Firebase 서비스 계정 키 파일 경로 (푸시 발송용). 없으면 발송을 건너뜁니다 */
+  FIREBASE_SERVICE_ACCOUNT_FILE: z.string().default(''),
   // 네이버 지도 REST (주소 검색·좌표→주소). 앱에는 Client ID 만 들어가고 Secret 은 서버 전용
   NAVER_MAP_CLIENT_ID: z.string().default(''),
   NAVER_MAP_CLIENT_SECRET: z.string().default(''),

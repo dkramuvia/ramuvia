@@ -129,6 +129,28 @@ export async function outboxStats(): Promise<OutboxStats> {
   return { count: row?.count ?? 0, oldest: row?.oldest ?? null, newest: row?.newest ?? null };
 }
 
+/**
+ * 전송할 때가 됐으면 보냅니다 (09-18 대표 결정: 수집 15초 / 전송 60초).
+ *
+ * 15초마다 서버를 부르면 10만 대 기준 요청이 하루 5억 건이라 비용이 감당이 안 됩니다.
+ * 그래서 확인은 촘촘히 하되 전송은 모아서 합니다. 주기는 서버 정책값이라 나중에 관리자 페이지에서 바꿉니다.
+ *
+ * 마지막 전송 시각을 변수에 들고 있지 않고 대기열의 가장 오래된 점을 기준으로 판단합니다.
+ * 안드로이드가 앱 프로세스를 죽였다 깨우면 변수는 사라지지만 대기열은 남기 때문입니다.
+ */
+export async function flushIfDue(uploadIntervalSec: number): Promise<void> {
+  if (!canCollect()) return;
+  const { count, oldest } = await outboxStats();
+  if (count === 0) return;
+  // 너무 많이 쌓였으면 주기와 상관없이 먼저 비웁니다
+  if (count < BATCH_SIZE) {
+    if (!oldest) return;
+    const waitedMs = Date.now() - new Date(oldest).getTime();
+    if (waitedMs < uploadIntervalSec * 1000) return;
+  }
+  await flushLocationOutbox();
+}
+
 /** 대기열을 서버로 보냅니다. 동시에 여러 번 불러도 한 번만 실행됩니다. */
 export function flushLocationOutbox(): Promise<void> {
   if (!canCollect()) return Promise.resolve();

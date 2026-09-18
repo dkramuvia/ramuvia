@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { LatLng } from '@/types/models';
 
+import { distanceM } from './geo';
+export { distanceM };
+
 // 이 거리(m) 이상 움직였을 때만 주소를 다시 조회합니다 (역지오코딩 호출 절약)
 const REFRESH_DISTANCE_M = 300;
 
@@ -51,14 +54,4 @@ export function formatAreaName(address: Location.LocationGeocodedAddress): strin
   const region = (address.region ?? '').replace(/특별시|광역시|특별자치시/, '시');
   const local = address.subregion ?? address.city ?? address.district ?? '';
   return [region, local].filter(Boolean).join(' ');
-}
-
-/** 두 좌표 사이 거리 (m, 하버사인) */
-export function distanceM(a: LatLng, b: LatLng): number {
-  const R = 6_371_000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.latitude - a.latitude);
-  const dLng = toRad(b.longitude - a.longitude);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
 }

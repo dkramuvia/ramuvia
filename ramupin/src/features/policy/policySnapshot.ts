@@ -12,15 +12,23 @@ import type { PlanPolicy } from './policies';
 const KEY = 'policy-snapshot';
 
 export interface PolicySnapshot {
-  /** 이동 중 위치 전송 최대 주기(초) */
+  /** 이동 중 위치 확인 주기(초) */
   gpsIntervalMovingSec: number;
+  /** 머무는 중 위치 확인 주기(초) */
+  gpsIntervalStillSec: number;
+  /** 모아서 서버로 보내는 주기(초) */
+  uploadIntervalSec: number;
 }
 
 /** 서버 정책을 아직 못 받았을 때 쓰는 값 (베이직 등급 기준) */
-export const DEFAULT_SNAPSHOT: PolicySnapshot = { gpsIntervalMovingSec: 20 };
+export const DEFAULT_SNAPSHOT: PolicySnapshot = { gpsIntervalMovingSec: 15, gpsIntervalStillSec: 60, uploadIntervalSec: 60 };
 
 export async function savePolicySnapshot(policy: PlanPolicy): Promise<void> {
-  const snapshot: PolicySnapshot = { gpsIntervalMovingSec: policy.gpsIntervalMovingSec };
+  const snapshot: PolicySnapshot = {
+    gpsIntervalMovingSec: policy.gpsIntervalMovingSec,
+    gpsIntervalStillSec: policy.gpsIntervalStillSec,
+    uploadIntervalSec: policy.uploadIntervalSec,
+  };
   try {
     await Storage.setItem(KEY, JSON.stringify(snapshot));
   } catch (error) {
@@ -33,8 +41,12 @@ export async function loadPolicySnapshot(): Promise<PolicySnapshot> {
     const raw = await Storage.getItem(KEY);
     if (!raw) return DEFAULT_SNAPSHOT;
     const parsed = JSON.parse(raw) as Partial<PolicySnapshot>;
-    const interval = parsed.gpsIntervalMovingSec;
-    return typeof interval === 'number' && interval > 0 ? { gpsIntervalMovingSec: interval } : DEFAULT_SNAPSHOT;
+    const positive = (v: unknown, fallback: number) => (typeof v === 'number' && v > 0 ? v : fallback);
+    return {
+      gpsIntervalMovingSec: positive(parsed.gpsIntervalMovingSec, DEFAULT_SNAPSHOT.gpsIntervalMovingSec),
+      gpsIntervalStillSec: positive(parsed.gpsIntervalStillSec, DEFAULT_SNAPSHOT.gpsIntervalStillSec),
+      uploadIntervalSec: positive(parsed.uploadIntervalSec, DEFAULT_SNAPSHOT.uploadIntervalSec),
+    };
   } catch {
     return DEFAULT_SNAPSHOT;
   }

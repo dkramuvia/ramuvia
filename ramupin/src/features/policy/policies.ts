@@ -16,8 +16,15 @@ export const PLAN_NAMES: Record<PlanId, string> = {
  */
 export interface PlanPolicy {
   planId: PlanId;
-  /** 이동 중 위치 전송 최대 주기(초) */
+  /** 이동 중 위치 확인 주기(초). 09-18: 무료 15초, 유료 10초 */
   gpsIntervalMovingSec: number;
+  /**
+   * 머무는 중 위치 확인 주기(초). 09-18 협의: 60초.
+   * 이상징후 판정 기준이 전부 시간 단위(30분·12·24·48시간)라 촘촘히 찍어도 얻는 게 없습니다.
+   */
+  gpsIntervalStillSec: number;
+  /** 모아서 서버로 보내는 주기(초). 확인 주기와 분리해 서버 요청 수를 줄입니다. 09-18 대표 결정: 60초 */
+  uploadIntervalSec: number;
   /** 안심 장소(지오펜스) 등록 수 */
   safeZoneLimit: number;
   /** 단일 위치 등록 수 */
@@ -38,7 +45,9 @@ export interface PlanPolicy {
 }
 
 const base = {
-  gpsIntervalMovingSec: 20,
+  gpsIntervalMovingSec: 15,
+  gpsIntervalStillSec: 60,
+  uploadIntervalSec: 60,
   safeZoneLimit: 4,
   placeLimit: 10,
   geofenceAlertLimit: 0,

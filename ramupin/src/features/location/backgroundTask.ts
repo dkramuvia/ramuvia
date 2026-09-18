@@ -13,8 +13,9 @@ import {
   stopActivityUpdates,
   stopSatelliteUpdates,
 } from '../../../modules/ramupin-gps';
-import { ADAPTIVE, decideState, intervalSecFor } from './adaptive';
-import { enqueueLocation, flushLocationOutbox } from './uploader';
+import { ADAPTIVE, decideState, intervalSecFor, type MoveState } from './adaptive';
+import { distanceM } from './geo';
+import { enqueueLocation, flushIfDue } from './uploader';
 import type { MyLocation } from './useMyLocation';
 
 /**
@@ -40,59 +41,122 @@ const WANT_TRACKING_KEY = 'location-tracking-on';
 
 /** 아직 위치를 한 번도 못 받았을 때 쓰는 첫 주기 (곧 상태에 맞게 바뀝니다) */
 const INITIAL_INTERVAL_SEC = 30;
-/** 지금 안드로이드에 걸어 둔 주기. 상태가 바뀌어 값이 달라질 때만 다시 겁니다 */
+/** 지금 안드로이드에 걸어 둔 주기·정확도. 값이 달라질 때만 다시 겁니다 */
 let appliedIntervalSec: number | null = null;
+let appliedAccuracy: Location.LocationAccuracy | null = null;
 
-TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, async ({ data, error }) => {
+/**
+ * 태스크를 한 번에 하나씩만 돌립니다.
+ *
+ * 09-18 확인: 앱이 되살아나면 안드로이드가 그동안 모아 둔 위치를 **한꺼번에 여러 번** 넘깁니다.
+ * 그대로 두면 22번이 동시에 돌면서 대기열 간격 판단이 어긋나고, 수집 주기도 22번 다시 걸립니다.
+ */
+let taskQueue: Promise<void> = Promise.resolve();
+
+TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, ({ data, error }) => {
   if (error) {
     console.warn('[location/bg] 수집 오류', error.message);
-    return;
+    return Promise.resolve();
   }
   const locations = data?.locations ?? [];
-  if (locations.length === 0) return;
+  if (locations.length === 0) return Promise.resolve();
 
+  taskQueue = taskQueue.then(() => handleLocations(locations)).catch(() => undefined);
+  return taskQueue;
+});
+
+async function handleLocations(locations: Location.LocationObject[]) {
   // 앱이 다시 시작돼도 수집은 OS 가 계속 돌리므로, 위성 구독은 여기서 챙깁니다.
   // 이미 구독 중이면 아무것도 하지 않습니다
   ensureSatelliteUpdates();
 
   try {
-    // 등급별 전송 주기 (WBS 2.1: 앱에 숫자를 넣지 않고 서버 정책을 따름)
-    const { gpsIntervalMovingSec } = await loadPolicySnapshot();
-    let queued = false;
-    for (const position of locations) {
-      queued = (await enqueueLocation(toMyLocation(position), gpsIntervalMovingSec)) || queued;
-    }
-    if (queued) await flushLocationOutbox();
+    // 수집·전송 주기는 모두 서버 정책값 (WBS 2.1: 앱에 숫자를 넣지 않음)
+    const policy = await loadPolicySnapshot();
+    const latest = toMyLocation(locations[locations.length - 1]);
+    // 이동 중인지에 따라 대기열에 쌓는 최소 간격이 달라집니다
+    const state = await currentState(latest);
+    const minGapSec = intervalSecFor(state, policy);
 
-    // 이동 중인지 머무는 중인지에 따라 다음 주기를 바꿉니다 (배터리 절약)
-    await applyAdaptiveInterval(toMyLocation(locations[locations.length - 1]), gpsIntervalMovingSec);
+    for (const position of locations) {
+      await enqueueLocation(toMyLocation(position), minGapSec);
+    }
+    // 매번 보내지 않고 정책 주기(기본 60초)마다 모아서 보냅니다. 서버 요청 수가 크게 줄어듭니다.
+    // 새로 쌓인 게 없어도 부릅니다. 지난번 전송이 실패해 남아 있을 수 있습니다
+    await flushIfDue(policy.uploadIntervalSec);
+
+    await applyAdaptiveInterval(state, minGapSec);
   } catch (e) {
     // 백그라운드에서 예외가 나면 안드로이드가 태스크를 멈출 수 있어 여기서 삼킵니다
     console.warn('[location/bg] 저장·전송 실패', String(e));
   }
-});
+}
 
 /**
- * 상태(정지/이동/저배터리)에 맞게 수집 주기와 정확도를 다시 겁니다.
- * 값이 그대로면 아무것도 하지 않습니다 (괜히 다시 걸면 수집이 잠깐 끊깁니다).
+ * 머물던 자리(기준점). "집안에서 걸어다니는 것"과 "밖으로 나간 것"을 가릅니다.
+ *
+ * 프로세스가 죽었다 살아나도 남아야 하므로 기기에 저장합니다.
+ * 이게 없으면 앱이 되살아날 때마다 기준점이 지금 위치로 잡혀, 집을 나선 것을 놓칩니다.
  */
-async function applyAdaptiveInterval(latest: MyLocation, policyMovingSec: number) {
+const ANCHOR_KEY = 'location-stay-anchor';
+let anchor: { latitude: number; longitude: number } | null = null;
+let anchorLoaded = false;
+
+async function loadAnchor() {
+  if (anchorLoaded) return;
+  anchorLoaded = true;
+  try {
+    const raw = await Storage.getItem(ANCHOR_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { latitude?: unknown; longitude?: unknown };
+    if (typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number') {
+      anchor = { latitude: parsed.latitude, longitude: parsed.longitude };
+    }
+  } catch {
+    // 못 읽으면 다음 정지 판정 때 다시 잡힙니다
+  }
+}
+
+async function setAnchor(location: MyLocation) {
+  anchor = { latitude: location.latitude, longitude: location.longitude };
+  try {
+    await Storage.setItem(ANCHOR_KEY, JSON.stringify(anchor));
+  } catch (e) {
+    console.warn('[location/bg] 기준점 저장 실패', String(e));
+  }
+}
+
+/** 지금이 정지인지 이동인지 저배터리인지 (배터리·활동 인식·기준점까지 같이 봅니다) */
+async function currentState(latest: MyLocation): Promise<MoveState> {
+  await loadAnchor();
   const battery = await readBatteryForState();
-  const state = decideState({
+  const { state, reanchor } = decideState({
     speedKmh: latest.speedKmh,
     battery: battery.level,
     charging: battery.charging,
     activity: getActivity(),
+    distanceFromAnchorM: anchor ? distanceM(anchor, latest) : null,
   });
-  const intervalSec = intervalSecFor(state, policyMovingSec);
-  if (appliedIntervalSec === intervalSec) return;
+  // 기준점이 아직 없거나, 다른 곳에 도착해 자리를 잡았으면 지금 위치로 옮깁니다
+  if (!anchor || reanchor) await setAnchor(latest);
+  return state;
+}
+
+/**
+ * 상태에 맞게 수집 주기와 정확도를 다시 겁니다.
+ * 값이 그대로면 아무것도 하지 않습니다 (괜히 다시 걸면 수집이 잠깐 끊깁니다).
+ */
+async function applyAdaptiveInterval(state: MoveState, intervalSec: number) {
+  const accuracy = ADAPTIVE[state].accuracy;
+  if (appliedIntervalSec === intervalSec && appliedAccuracy === accuracy) return;
 
   // 백그라운드에서는 멈췄다 다시 걸 수 없으므로, 옵션만 바꿔 봅니다.
   // 실패하면 기존 주기로 계속 수집되고, 다음에 화면이 켜졌을 때 다시 시도합니다
-  const started = await startUpdates(intervalSec, ADAPTIVE[state].accuracy, { allowRestart: true });
+  const started = await startUpdates(intervalSec, accuracy, { allowRestart: true });
   if (started) {
     appliedIntervalSec = intervalSec;
-    console.log(`[location/bg] ${state} → ${intervalSec}초 주기`);
+    appliedAccuracy = accuracy;
+    console.log(`[location/bg] ${state} → ${intervalSec}초 주기 (정확도 ${accuracy})`);
   }
 }
 
@@ -185,6 +249,7 @@ export async function startBackgroundTracking(): Promise<StartResult> {
   const started = await startUpdates(INITIAL_INTERVAL_SEC, Location.Accuracy.Balanced, { allowRestart: true });
   if (!started) return 'error';
   appliedIntervalSec = INITIAL_INTERVAL_SEC;
+  appliedAccuracy = Location.Accuracy.Balanced;
   await Storage.setItem(WANT_TRACKING_KEY, 'on');
   return 'started';
 }
@@ -206,6 +271,7 @@ export async function resumeBackgroundTrackingIfWanted(): Promise<boolean> {
     const started = await startUpdates(INITIAL_INTERVAL_SEC, Location.Accuracy.Balanced);
     if (started) {
       appliedIntervalSec = INITIAL_INTERVAL_SEC;
+      appliedAccuracy = Location.Accuracy.Balanced;
       console.log('[location/bg] 강제 종료 뒤 수집을 다시 시작했습니다');
     }
     return started;

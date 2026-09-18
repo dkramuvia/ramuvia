@@ -8,6 +8,7 @@
     "@mj-studio/react-native-naver-map": "^2.9.0",
     "@react-native-kakao/core": "^2.4.6",
     "@react-native-kakao/user": "^2.4.6",
+    "@rnmapbox/maps": "^10.3.5",
     "@tanstack/react-query": "^5.102.8",
     "axios": "^1.20.0",
     "expo": "~57.0.22",

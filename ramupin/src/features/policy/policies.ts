@@ -38,6 +38,8 @@ export interface PlanPolicy {
   ads: 'none' | 'banner' | 'banner+fullscreen';
   features: {
     premiumMap: boolean;
+    /** 해외에서 Mapbox 지도. 09-18 대표 결정: 유료 등급만 (지도 로드 건당 과금) */
+    overseasMap: boolean;
     trafficWeather: boolean;
     speedingAlert: boolean;
     governmentEmergency: boolean;
@@ -55,7 +57,7 @@ const base = {
   sosRecipientLimit: 1,
   photoStorageMb: 300,
   ads: 'banner+fullscreen',
-  features: { premiumMap: false, trafficWeather: false, speedingAlert: false, governmentEmergency: false },
+  features: { premiumMap: false, overseasMap: false, trafficWeather: false, speedingAlert: false, governmentEmergency: false },
 } satisfies Omit<PlanPolicy, 'planId'>;
 
 export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
@@ -71,7 +73,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     sosRecipientLimit: 10,
     photoStorageMb: 1024,
     ads: 'none',
-    features: { premiumMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
+    features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
   },
   trinity: {
     planId: 'trinity',
@@ -84,7 +86,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     sosRecipientLimit: 30,
     photoStorageMb: 5120,
     ads: 'none',
-    features: { premiumMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
+    features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
   },
   care: {
     planId: 'care',
@@ -96,7 +98,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     scheduledMessageRecipientLimit: 3,
     sosRecipientLimit: 5,
     ads: 'none',
-    features: { premiumMap: false, trafficWeather: true, speedingAlert: false, governmentEmergency: true },
+    features: { premiumMap: false, overseasMap: false, trafficWeather: true, speedingAlert: false, governmentEmergency: true },
   },
   guardian: {
     planId: 'guardian',
@@ -114,6 +116,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
 /** 무료 체험(1개월)·유료 전환 안내에 쓰는 "이 기능이 열리는 최소 플랜" */
 export const FEATURE_MIN_PLAN: Record<keyof PlanPolicy['features'], PlanId> = {
   premiumMap: 'platinum',
+  overseasMap: 'platinum',
   trafficWeather: 'platinum',
   speedingAlert: 'platinum',
   governmentEmergency: 'care',

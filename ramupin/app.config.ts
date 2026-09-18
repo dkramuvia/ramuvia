@@ -87,6 +87,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
+      '@rnmapbox/maps',
+      {
+        // SDK 내려받기 토큰(sk.)은 ~/.gradle/gradle.properties 의 MAPBOX_DOWNLOADS_TOKEN 에서 읽습니다.
+        // 여기 적으면 저장소에 올라가므로 넣지 않습니다. 지도를 띄울 때 쓰는 공개 토큰(pk.)은 런타임에 설정합니다
+      },
+    ],
+    [
       'react-native-maps',
       {
         // Google Cloud 키: 패키지명 com.ramuviamanager.ramupin + SHA-1 로 제한해서 사용

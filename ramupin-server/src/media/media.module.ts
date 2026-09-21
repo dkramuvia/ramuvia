@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { appError, parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import { policyNumber, resolvePolicy } from '../config/policy.js';
+import { displayGroupName } from '../groups/group-name.js';
 import { StorageService } from './storage.service.js';
 
 /**
@@ -58,16 +60,20 @@ class GalleryController {
     // 올릴 주소만 받고 안 올린 찌꺼기를 먼저 치웁니다. 그냥 두면 용량 계산과 표가 지저분해집니다
     await this.dropStalePending(user.id);
 
-    const limitMb = await this.storageLimitMb(user.id);
-    if (limitMb <= 0) throw appError(403, 'PLAN_NO_PHOTO', '사진 공유를 쓸 수 없는 등급입니다');
+    // SOS 녹음은 용량 제한을 걸지 않습니다. 긴급 상황에 "용량이 찼다"고 거절하면 안 됩니다 (WBS 7.9)
+    const emergencyOnly = files.every((f) => f.contentType.startsWith('audio/'));
+    if (!emergencyOnly) {
+      const limitMb = await this.storageLimitMb(user.id);
+      if (limitMb <= 0) throw appError(403, 'PLAN_NO_PHOTO', '사진 공유를 쓸 수 없는 등급입니다');
 
-    const used = await this.usedBytes(user.id);
-    const adding = files.reduce((sum, f) => sum + f.bytes, 0);
-    if (used + adding > limitMb * 1024 * 1024) {
-      throw appError(403, 'STORAGE_FULL', '공유 용량이 가득 찼습니다', {
-        usedMb: Math.round((used / 1024 / 1024) * 10) / 10,
-        limitMb,
-      });
+      const used = await this.usedBytes(user.id);
+      const adding = files.reduce((sum, f) => sum + f.bytes, 0);
+      if (used + adding > limitMb * 1024 * 1024) {
+        throw appError(403, 'STORAGE_FULL', '공유 용량이 가득 찼습니다', {
+          usedMb: Math.round((used / 1024 / 1024) * 10) / 10,
+          limitMb,
+        });
+      }
     }
 
     const targets = [];
@@ -175,7 +181,7 @@ class GalleryController {
     if (groupId) query = query.where('p.group_id', '=', groupId);
 
     const rows = await query.execute();
-    return Promise.all(rows.map((row) => this.withMedia(row)));
+    return Promise.all(rows.map((row) => this.withMedia(row, user.id)));
   }
 
   /** 한 사람이 올린 것 모아 보기 (WBS 6.1). 같은 그룹에 있는 사람만 볼 수 있습니다 */
@@ -207,7 +213,7 @@ class GalleryController {
       .orderBy('p.created_at', 'desc')
       .limit(100)
       .execute();
-    return Promise.all(rows.map((row) => this.withMedia(row)));
+    return Promise.all(rows.map((row) => this.withMedia(row, user.id)));
   }
 
   /** 내가 올린 것만 지울 수 있습니다. 기록은 남기고 목록에서만 뺍니다 */
@@ -240,21 +246,24 @@ class GalleryController {
   }
 
   /** 게시물에 붙은 파일들의 "볼 수 있는 주소"를 만들어 붙입니다 */
-  private async withMedia(row: {
-    id: string;
-    groupId: string;
-    groupName: string;
-    placeName: string | null;
-    placeAddress: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    emergencyTitle: string | null;
-    emergencyMessage: string | null;
-    createdAt: Date;
-    authorId: string;
-    nickname: string;
-    avatarUrl: string | null;
-  }) {
+  private async withMedia(
+    row: {
+      id: string;
+      groupId: string;
+      groupName: string;
+      placeName: string | null;
+      placeAddress: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      emergencyTitle: string | null;
+      emergencyMessage: string | null;
+      createdAt: Date;
+      authorId: string;
+      nickname: string;
+      avatarUrl: string | null;
+    },
+    viewerId: string,
+  ) {
     const assets = await this.db
       .selectFrom('media.post_assets as pa')
       .innerJoin('media.assets as a', 'a.id', 'pa.asset_id')
@@ -274,10 +283,18 @@ class GalleryController {
       })),
     );
 
+    // 1:1 방은 이름이 비어 있으므로 상대방 이름으로 바꿔 줍니다 (groups API 와 같은 규칙)
+    const members = await this.db
+      .selectFrom('social.group_members as gm')
+      .innerJoin('member.users as u', 'u.id', 'gm.user_id')
+      .select(['u.id', 'u.nickname'])
+      .where('gm.group_id', '=', row.groupId)
+      .execute();
+
     return {
       id: row.id,
       groupId: row.groupId,
-      groupName: row.groupName,
+      groupName: displayGroupName({ name: row.groupName, members, viewerId }),
       author: { id: row.authorId, nickname: row.nickname, avatarUrl: row.avatarUrl },
       media,
       place: row.placeAddress
@@ -312,22 +329,15 @@ class GalleryController {
       .select(({ fn }) => fn.sum<string>('bytes').as('total'))
       .where('owner_id', '=', userId)
       .where('uploaded_at', 'is not', null)
+      // SOS 녹음은 사진 용량에 넣지 않습니다
+      .where('kind', '!=', 'audio')
       .executeTakeFirst();
     return Number(row?.total ?? 0);
   }
 
   /** 등급 정책 + 사용자별 예외 (관리자 화면에서 바꿉니다) */
   private async storageLimitMb(userId: string): Promise<number> {
-    const row = await this.db
-      .selectFrom('member.users as u')
-      .innerJoin('config.plan_policies as p', 'p.plan', 'u.plan')
-      .leftJoin('config.user_policy_overrides as o', 'o.user_id', 'u.id')
-      .select(['p.policy as base', 'o.policy as override'])
-      .where('u.id', '=', userId)
-      .executeTakeFirst();
-    if (!row) return 0;
-    const merged = { ...row.base, ...(row.override ?? {}) } as { photoStorageMb?: unknown };
-    return typeof merged.photoStorageMb === 'number' ? merged.photoStorageMb : 0;
+    return policyNumber(await resolvePolicy(this.db, userId), 'photoStorageMb', 0);
   }
 
   private async assertGroupMember(userId: string, groupId: string) {

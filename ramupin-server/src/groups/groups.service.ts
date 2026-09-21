@@ -4,6 +4,7 @@ import type { Transaction } from 'kysely';
 import { appError } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { MainDatabase, ShareLevel } from '../database/main.schema.js';
+import { displayGroupName } from './group-name.js';
 
 /** 앱 src/types/models.ts 의 GroupMember */
 export interface GroupMemberResponse {
@@ -76,7 +77,8 @@ export class GroupsService {
     return {
       id: group.id,
       // 1:1 방 이름은 상대방 닉네임 (사람마다 다르게 보임)
-      name: group.is_direct ? (members.find((m) => m.id !== me)?.nickname ?? group.name) : group.name,
+      // 이름이 비면 멤버 이름으로 (규칙은 group-name.ts 한 곳에)
+      name: displayGroupName({ name: group.name, members, viewerId: me }),
       ownerId: group.owner_id,
       memberCount: members.length,
       isPremium: group.is_premium,

@@ -13,10 +13,11 @@ import { MediaModule } from './media/media.module.js';
 import { PhoneModule } from './phone/phone.module.js';
 import { PlacesModule } from './places/places.module.js';
 import { PushModule } from './push/push.module.js';
+import { SosModule } from './sos/sos.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, AnomalyModule, AdminModule, HealthModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, AnomalyModule, AdminModule, HealthModule],
 })
 export class AppModule {}

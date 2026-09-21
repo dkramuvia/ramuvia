@@ -22,19 +22,22 @@ const UPLOAD_URL_TTL_SEC = 10 * 60;
 const VIEW_URL_TTL_SEC = 60 * 60;
 
 /** 허용하는 형식. 이 밖의 파일은 올릴 주소 자체를 안 줍니다 */
-const ALLOWED: Record<string, { kind: 'image' | 'video'; ext: string }> = {
+const ALLOWED: Record<string, { kind: 'image' | 'video' | 'audio'; ext: string }> = {
   'image/jpeg': { kind: 'image', ext: 'jpg' },
   'image/png': { kind: 'image', ext: 'png' },
   'image/webp': { kind: 'image', ext: 'webp' },
   'image/heic': { kind: 'image', ext: 'heic' },
   'video/mp4': { kind: 'video', ext: 'mp4' },
   'video/quicktime': { kind: 'video', ext: 'mov' },
+  // SOS 녹음 (WBS 7.9). 사진과 같은 저장소를 씁니다
+  'audio/m4a': { kind: 'audio', ext: 'm4a' },
+  'audio/mp4': { kind: 'audio', ext: 'm4a' },
 };
 
 export interface UploadTarget {
   objectKey: string;
   uploadUrl: string;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
 }
 
 @Injectable()

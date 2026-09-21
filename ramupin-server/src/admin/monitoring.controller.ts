@@ -1,9 +1,10 @@
-import { Controller, Get, NotFoundException, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
 
 import { AnomalyService } from '../anomaly/anomaly.service.js';
 import { parseInput } from '../common/app-error.js';
+import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { AdminGuard, assertCanEdit, CurrentAdmin, type AdminUser } from './admin.guard.js';
-import { z } from 'zod';
 
 /**
  * 모니터링 사이트 (docs/anomaly-alerts.md).
@@ -17,7 +18,54 @@ import { z } from 'zod';
 @Controller('admin/api/monitoring')
 @UseGuards(AdminGuard)
 export class MonitoringController {
-  constructor(private readonly anomaly: AnomalyService) {}
+  constructor(
+    private readonly anomaly: AnomalyService,
+    @Inject(MAIN_DB) private readonly db: MainDb,
+  ) {}
+
+  /**
+   * 회사가 받은 SOS (WBS 9.3).
+   * 지정 수신인이 없는 분이 SOS 를 누르면 여기로만 옵니다 — 놓치면 안 됩니다.
+   */
+  @Get('sos')
+  async sosList(@Query('limit') limitRaw?: string) {
+    const limit = Math.min(Number(limitRaw) || 100, 300);
+    return this.db
+      .selectFrom('member.sos_events as e')
+      .innerJoin('member.users as u', 'u.id', 'e.user_id')
+      .select([
+        'e.id',
+        'u.nickname',
+        'u.public_id as publicId',
+        'u.single_household as singleHousehold',
+        'e.latitude',
+        'e.longitude',
+        'e.place_name as placeName',
+        'e.place_address as placeAddress',
+        'e.status',
+        'e.recipient_count as recipientCount',
+        'e.to_monitoring as toMonitoring',
+        'e.started_at as startedAt',
+        'e.created_at as createdAt',
+        'e.acknowledged_at as acknowledgedAt',
+      ])
+      .where('e.status', '=', 'sent')
+      .orderBy('e.created_at', 'desc')
+      .limit(limit)
+      .execute();
+  }
+
+  /** SOS 를 사람이 확인했다고 표시 */
+  @Post('sos/:id/acknowledge')
+  async acknowledgeSos(@CurrentAdmin() admin: AdminUser, @Param('id', ParseUUIDPipe) id: string) {
+    assertCanEdit(admin);
+    await this.db
+      .updateTable('member.sos_events')
+      .set({ acknowledged_at: new Date() })
+      .where('id', '=', id)
+      .execute();
+    return { ok: true };
+  }
 
   /** 아직 안 풀린 이상징후 (최근 순) */
   @Get('anomalies')

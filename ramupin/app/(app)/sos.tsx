@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { sosApi } from '@/api/endpoints/sos';
 import { AppText, Button } from '@/components/ui';
 import { describePlace } from '@/features/location/address';
+import { setSosMode } from '@/features/location/sosMode';
 import { useSafetySetting } from '@/features/settings/queries';
 import { SlideToCancel } from '@/features/sos/SlideToCancel';
 import { colors } from '@/theme';
@@ -85,6 +86,8 @@ export default function SosScreen() {
     locationPromise.current = Location.requestForegroundPermissionsAsync()
       .then(({ granted }) => (granted ? Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }) : null))
       .catch(() => null);
+    // 누른 순간부터 촘촘하게 모읍니다. 구조대가 오는 동안의 경로가 남아야 합니다 (GPS 보고서 2-1)
+    void setSosMode(true);
     setPhase('countdown');
     setRemaining(COUNTDOWN_SECONDS);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -144,6 +147,7 @@ export default function SosScreen() {
       await recorder.stop();
       await deleteRecording(recorder.uri);
     }
+    await setSosMode(false);
     setPhase('idle');
     setCancelledBanner(true);
   };

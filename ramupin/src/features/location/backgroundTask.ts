@@ -15,6 +15,7 @@ import {
 } from '../../../modules/ramupin-gps';
 import { ADAPTIVE, decideState, intervalSecFor, type MoveState } from './adaptive';
 import { distanceM } from './geo';
+import { isSosActive } from './sosMode';
 import { isWatched } from './watchMode';
 import { enqueueLocation, flushIfDue } from './uploader';
 import type { MyLocation } from './useMyLocation';
@@ -91,7 +92,8 @@ async function handleLocations(locations: Location.LocationObject[]) {
     // 평소에는 정책 주기(기본 60초)마다 모아서 보냅니다. 서버 요청 수가 크게 줄어듭니다.
     // 다만 누가 보고 있을 때는 모아 두면 그만큼 늦게 보이므로 바로 보냅니다 (GPS 보고서 2-1 6번).
     // 새로 쌓인 게 없어도 부릅니다. 지난번 전송이 실패해 남아 있을 수 있습니다
-    await flushIfDue(state === 'watched' ? 0 : policy.uploadIntervalSec);
+    // SOS·조회 중에는 모아 두면 그만큼 늦게 보입니다. 바로 보냅니다
+    await flushIfDue(state === 'sos' || state === 'watched' ? 0 : policy.uploadIntervalSec);
 
     await applyAdaptiveInterval(state, minGapSec);
   } catch (e) {
@@ -137,7 +139,7 @@ async function setAnchor(location: MyLocation) {
 /** 지금이 정지인지 이동인지 저배터리인지 (배터리·활동 인식·기준점까지 같이 봅니다) */
 async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise<MoveState> {
   await loadAnchor();
-  const [battery, watched] = await Promise.all([readBatteryForState(), isWatched()]);
+  const [battery, watched, sos] = await Promise.all([readBatteryForState(), isWatched(), isSosActive()]);
   const { state, reanchor } = decideState({
     speedKmh: latest.speedKmh,
     battery: battery.level,
@@ -146,6 +148,7 @@ async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise
     distanceFromAnchorM: anchor ? distanceM(anchor, latest) : null,
     lowBatteryPercent: policy.lowBatteryPercent,
     watched,
+    sos,
   });
   // 기준점이 아직 없거나, 다른 곳에 도착해 자리를 잡았으면 지금 위치로 옮깁니다
   if (!anchor || reanchor) await setAnchor(latest);

@@ -171,12 +171,54 @@ export interface UserPolicyOverridesTable {
 }
 
 /** 이상징후 발생 기록 (docs/anomaly-alerts.md) */
+/** 안전 설정 (WBS 7.9) */
+export interface SafetySettingsTable {
+  user_id: string;
+  sos_enabled: Generated<boolean>;
+  updated_at: Timestamp;
+}
+
+/** SOS 를 받을 사람 (친구 한 명 또는 그룹방 전체) */
+export interface SosRecipientsTable {
+  user_id: string;
+  kind: 'friend' | 'group';
+  target_id: string;
+}
+
+/** SOS 발생 기록 (WBS 7.9 / 8.3 / 9.3) */
+export interface SosEventsTable {
+  id: Generated<string>;
+  user_id: string;
+  started_at: Timestamp;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  place_name: string | null;
+  place_address: string | null;
+  audio_asset_id: string | null;
+  status: Generated<'sent' | 'cancelled' | 'resolved'>;
+  recipient_count: Generated<number>;
+  /** 지정 수신인이 없어 회사가 받은 건 (WBS 9.3) */
+  to_monitoring: Generated<boolean>;
+  created_at: Timestamp;
+  cancelled_at: NullableTimestamp;
+  resolved_at: NullableTimestamp;
+  acknowledged_at: NullableTimestamp;
+}
+
+/** 누가 이 SOS 를 받았는지. 받은 사람만 상세를 볼 수 있습니다 */
+export interface SosDeliveriesTable {
+  sos_id: string;
+  recipient_user_id: string;
+  read_at: NullableTimestamp;
+}
+
 /** 저장소에 올린 파일 한 개 (WBS 5.6) */
 export interface MediaAssetsTable {
   id: Generated<string>;
   owner_id: string;
   object_key: string;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
   content_type: string;
   bytes: number;
   width: number | null;
@@ -275,6 +317,10 @@ export interface MainDatabase {
   'social.friend_requests': FriendRequestsTable;
   'config.plan_policies': PlanPoliciesTable;
   'config.user_policy_overrides': UserPolicyOverridesTable;
+  'member.safety_settings': SafetySettingsTable;
+  'member.sos_recipients': SosRecipientsTable;
+  'member.sos_events': SosEventsTable;
+  'member.sos_deliveries': SosDeliveriesTable;
   'media.assets': MediaAssetsTable;
   'media.posts': MediaPostsTable;
   'media.post_assets': MediaPostAssetsTable;

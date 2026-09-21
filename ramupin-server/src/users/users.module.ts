@@ -7,6 +7,7 @@ import { appError, parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { REDIS } from '../redis/redis.module.js';
 import { USER_SUMMARY_COLUMNS, toUserSummary } from './user-summary.js';
+import { resolvePolicy } from '../config/policy.js';
 
 const singleHouseholdBody = z.object({ enabled: z.boolean() });
 const lookupQuery = z.object({ publicId: z.string().regex(/^\d{8}$/) });
@@ -42,16 +43,8 @@ class MeController {
 
   /** 내 등급 정책 + 관리자가 사용자별로 바꾼 값 (WBS 2.1, 11.6) */
   @Get('policy')
-  async policy(@CurrentUser() user: AuthUser) {
-    const row = await this.db
-      .selectFrom('member.users as u')
-      .innerJoin('config.plan_policies as p', 'p.plan', 'u.plan')
-      .leftJoin('config.user_policy_overrides as o', 'o.user_id', 'u.id')
-      .select(['u.plan', 'p.policy as base', 'o.policy as override'])
-      .where('u.id', '=', user.id)
-      .executeTakeFirst();
-    if (!row) throw new NotFoundException();
-    return { planId: row.plan, ...row.base, ...row.override };
+  policy(@CurrentUser() user: AuthUser) {
+    return resolvePolicy(this.db, user.id);
   }
 
   /** 1인 가구 모드 켜기/끄기 (첫 친구 수락 후 해제 안내에서 사용) */

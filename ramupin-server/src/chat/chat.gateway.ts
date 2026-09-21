@@ -142,6 +142,11 @@ export class ChatGateway implements OnGatewayConnection {
    * 이상징후 알림을 친구에게 전달 (docs/anomaly-alerts.md).
    * 앱이 켜져 있을 때만 닿습니다. 꺼져 있을 때는 푸시가 필요합니다 (6단계).
    */
+  /** SOS 를 받을 사람에게 즉시 전달. 앱이 켜져 있으면 푸시보다 먼저 닿습니다 */
+  emitSos(userIds: string[], payload: unknown) {
+    for (const userId of userIds) this.server?.to(`user:${userId}`).emit('sos', payload);
+  }
+
   emitAnomaly(userIds: string[], payload: unknown) {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('anomaly', payload);
   }

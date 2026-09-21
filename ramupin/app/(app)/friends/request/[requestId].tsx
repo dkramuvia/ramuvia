@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, Modal, StyleSheet, View } from 'react-native';
+import { Image, Modal, StyleSheet, View } from 'react-native';
 
 import { usersApi } from '@/api/endpoints/users';
-import { AppText, Avatar, Button, Screen } from '@/components/ui';
+import { AppText, Avatar, Button, QueryState, Screen } from '@/components/ui';
 import { useFriendRequest, useRespondFriendRequest } from '@/features/friends/queries';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, radius } from '@/theme';
@@ -20,7 +20,7 @@ export default function FriendRequestDetailScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const me = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
-  const { data: request, isLoading } = useFriendRequest(requestId);
+  const { data: request, isLoading, isError, refetch } = useFriendRequest(requestId);
   const respond = useRespondFriendRequest();
 
   const [accepted, setAccepted] = useState(false);
@@ -45,8 +45,8 @@ export default function FriendRequestDetailScreen() {
 
   return (
     <Screen title={t('screens.friendRequestDetail')} tab="people" background={colors.surface} contentStyle={styles.content}>
-      {isLoading || !person ? (
-        <ActivityIndicator color={colors.brown} />
+      {isLoading || isError || !person ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
       ) : accepted ? (
         <View style={styles.card}>
           <View style={styles.doneTitles}>

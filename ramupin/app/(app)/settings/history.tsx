@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, Pressable, SectionList, StyleSheet, View } from 'react-native';
+import { Image, Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, BottomNav, ChipTabs, Header } from '@/components/ui';
+import { AppText, BottomNav, ChipTabs, Header, QueryState } from '@/components/ui';
 import { useAlertStore } from '@/features/alerts/alertStore';
 import { popupForHistory } from '@/features/alerts/samples';
 import i18n from '@/i18n';
@@ -65,7 +65,7 @@ function dayLabel(iso: string) {
 
 function EventHistory({ category }: { category?: 'safety' }) {
   const { t } = useTranslation();
-  const { data: events = [], isLoading } = useHistory(category);
+  const { data: events = [], isLoading, isError, refetch } = useHistory(category);
   const showPopup = useAlertStore((s) => s.showPopup);
 
   const sections = useMemo(() => {
@@ -77,7 +77,7 @@ function EventHistory({ category }: { category?: 'safety' }) {
     return [...groups.values()].map((items) => ({ title: dayLabel(items[0].createdAt), data: items }));
   }, [events]);
 
-  if (isLoading) return <ActivityIndicator style={styles.loading} color={colors.brown} />;
+  if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
 
   return (
     <SectionList
@@ -122,9 +122,9 @@ function PlaceHistory() {
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const unit = usePreferencesStore((s) => s.distanceUnit);
-  const { data: journey, isLoading } = useJourney(me?.id ?? '');
+  const { data: journey, isLoading, isError, refetch } = useJourney(me?.id ?? '');
 
-  if (isLoading) return <ActivityIndicator style={styles.loading} color={colors.brown} />;
+  if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
   if (!journey) return null;
 
   // TODO(5단계): 기간 합계·자주 간 장소는 서버 통계 API

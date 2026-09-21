@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
-import { AppText, Screen } from '@/components/ui';
+import { AppText, QueryState, Screen } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { SuggestionCard } from '@/features/friends/SuggestionCard';
 import { useNearbyUsers, useSendFriendRequest } from '@/features/friends/queries';
@@ -14,7 +14,7 @@ import { colors } from '@/theme';
  */
 export default function NearbyFriendsScreen() {
   const { t } = useTranslation();
-  const { data: suggestions = [], isLoading } = useNearbyUsers();
+  const { data: suggestions = [], isLoading, isError, refetch } = useNearbyUsers();
   const send = useSendFriendRequest();
   const [sentTo, setSentTo] = useState<string | null>(null);
 
@@ -34,8 +34,8 @@ export default function NearbyFriendsScreen() {
         <AppText variant="label1" color={colors.textTertiary}>
           {t('friendAdd.nearbyList')}
         </AppText>
-        {isLoading ? <ActivityIndicator color={colors.brown} /> : null}
-        {!isLoading && suggestions.length === 0 ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
+        {!isLoading && !isError && suggestions.length === 0 ? (
           <AppText variant="label1" color={colors.textMuted}>
             {t('friendAdd.nearbyEmpty')}
           </AppText>

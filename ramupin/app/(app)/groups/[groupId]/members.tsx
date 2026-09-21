@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Avatar, Screen, Tag } from '@/components/ui';
+import { AppText, Avatar, QueryState, Screen, Tag } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useGroup } from '@/features/groups/queries';
 import { useAuthStore, useIsMe } from '@/stores/authStore';
@@ -15,7 +15,7 @@ export default function GroupMembersScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const me = useAuthStore((s) => s.user);
   const isMe = useIsMe();
-  const { data: group, isLoading } = useGroup(groupId);
+  const { data: group, isLoading, isError, refetch } = useGroup(groupId);
   const others = group?.members.filter((m) => !isMe(m.id)) ?? [];
 
   return (
@@ -35,8 +35,8 @@ export default function GroupMembersScreen() {
       }
       contentStyle={styles.content}
     >
-      {isLoading || !group ? (
-        <ActivityIndicator color={colors.brown} />
+      {isLoading || isError || !group ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
       ) : (
         <>
           <View style={styles.me}>

@@ -3,9 +3,9 @@ import { router, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Fab } from '@/components/ui';
+import { AppText, Button, Fab, QueryState } from '@/components/ui';
 import { PostPager } from '@/features/gallery/PostPager';
 import { useGalleryFeed } from '@/features/gallery/queries';
 import { useMyGroups } from '@/features/groups/queries';
@@ -22,7 +22,7 @@ export default function GalleryScreen() {
   const focused = useIsFocused();
   const [groupId, setGroupId] = useState<string | undefined>(undefined);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { data: posts = [], isLoading } = useGalleryFeed(groupId);
+  const { data: posts = [], isLoading, isError, refetch } = useGalleryFeed(groupId);
   const { data: groups = [] } = useMyGroups();
 
   const selectGroup = (id: string | undefined) => {
@@ -35,8 +35,8 @@ export default function GalleryScreen() {
     <View style={styles.container}>
       {focused ? <StatusBar style="light" /> : null}
 
-      {isLoading ? (
-        <ActivityIndicator style={styles.center} color={colors.white} />
+      {isLoading || isError ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} tone="dark" style={styles.center} />
       ) : posts.length === 0 ? (
         <View style={[styles.center, styles.empty]}>
           <AppText variant="body1" color={colors.textMuted}>

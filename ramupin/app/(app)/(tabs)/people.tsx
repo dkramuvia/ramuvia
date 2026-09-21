@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Avatar, Card, Fab, Header, SegmentedTabs } from '@/components/ui';
+import { AppText, Avatar, Card, Fab, Header, QueryState, SegmentedTabs } from '@/components/ui';
 import { useChatRooms } from '@/features/chat/queries';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
@@ -46,11 +46,11 @@ export default function PeopleScreen() {
 
 function FriendsList() {
   const { t } = useTranslation();
-  const { data: friends = [], isLoading } = useFriends();
+  const { data: friends = [], isLoading, isError, refetch } = useFriends();
   const directRoom = useDirectRoom();
   const activeCount = friends.filter((f) => f.isOnline).length;
 
-  if (isLoading) return <ActivityIndicator style={styles.loading} color={colors.brown} />;
+  if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
 
   return (
     <FlatList
@@ -87,9 +87,9 @@ function FriendsList() {
 // 피그마에 채팅방 목록 디자인이 없어 친구 리스트 카드 형태로 임시 구성
 function ChatRoomList() {
   const { t } = useTranslation();
-  const { data: rooms = [], isLoading } = useChatRooms();
+  const { data: rooms = [], isLoading, isError, refetch } = useChatRooms();
 
-  if (isLoading) return <ActivityIndicator style={styles.loading} color={colors.brown} />;
+  if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
 
   return (
     <FlatList

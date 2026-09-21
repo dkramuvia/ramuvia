@@ -11,7 +11,7 @@ import { useSendFriendRequest } from '@/features/friends/queries';
 import { colors } from '@/theme';
 import type { FriendSuggestion } from '@/types/models';
 
-type Step = 'intro' | 'syncing' | 'denied' | 'done';
+type Step = 'intro' | 'syncing' | 'denied' | 'failed' | 'done';
 
 /** 피그마: 연락처 친구 - 동기화 안내 (363:18457) / 동기화 완료 (363:19516) */
 export default function ContactFriendsScreen() {
@@ -28,13 +28,19 @@ export default function ContactFriendsScreen() {
       return;
     }
     setStep('syncing');
-    const contacts = await Contact.getAllDetails([ContactField.FULL_NAME, ContactField.PHONES]);
-    const phoneNumbers = contacts
-      .flatMap((c) => c.phones ?? [])
-      .map((p) => (p.number ?? '').replace(/[^0-9+]/g, ''))
-      .filter(Boolean);
-    setSuggestions(await friendsApi.matchContacts(phoneNumbers));
-    setStep('done');
+    try {
+      const contacts = await Contact.getAllDetails([ContactField.FULL_NAME, ContactField.PHONES]);
+      const phoneNumbers = contacts
+        .flatMap((c) => c.phones ?? [])
+        .map((p) => (p.number ?? '').replace(/[^0-9+]/g, ''))
+        .filter(Boolean);
+      setSuggestions(await friendsApi.matchContacts(phoneNumbers));
+      setStep('done');
+    } catch (error) {
+      // 실패했는데 'syncing' 에 머물면 화면이 영원히 돕니다 (09-21)
+      console.warn('[friends] 연락처 동기화 실패', String(error));
+      setStep('failed');
+    }
   };
 
   const request = (s: FriendSuggestion) =>
@@ -66,7 +72,11 @@ export default function ContactFriendsScreen() {
           <Image source={require('../../../assets/images/contacts-sync.png')} style={styles.image} />
           <AppText variant="headline">{t('friendAdd.contactSync')}</AppText>
           <AppText variant="label2" color={colors.textSecondary} align="center">
-            {step === 'denied' ? t('friendAdd.contactsDenied') : t('friendAdd.contactSyncQuestion')}
+            {step === 'denied'
+              ? t('friendAdd.contactsDenied')
+              : step === 'failed'
+                ? t('common.loadFailed')
+                : t('friendAdd.contactSyncQuestion')}
           </AppText>
           {step === 'syncing' ? (
             <ActivityIndicator color={colors.brown} style={styles.button} />

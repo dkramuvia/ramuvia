@@ -10,7 +10,9 @@
     "later": "나중에 하기",
     "allow": "허용하기",
     "continue": "계속",
-    "back": "뒤로"
+    "back": "뒤로",
+    "loadFailed": "불러오지 못했습니다.\n연결 상태를 확인해 주세요.",
+    "retry": "다시 시도"
   },
   "tabs": {
     "map": "Map",

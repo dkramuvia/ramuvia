@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/ui';
+import { AppText, QueryState } from '@/components/ui';
 import { PostPager } from '@/features/gallery/PostPager';
 import { useGalleryFeed, useUserPosts } from '@/features/gallery/queries';
 import { colors } from '@/theme';
@@ -17,14 +17,14 @@ export default function GalleryPostScreen() {
 
   const groupFeed = useGalleryFeed(kind === 'group' ? scopeId : undefined);
   const userFeed = useUserPosts(kind === 'user' ? scopeId : '');
-  const { data: posts = [], isLoading } = kind === 'user' ? userFeed : groupFeed;
+  const { data: posts = [], isLoading, isError, refetch } = kind === 'user' ? userFeed : groupFeed;
   const index = Math.max(0, posts.findIndex((p) => p.id === postId));
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      {isLoading ? (
-        <ActivityIndicator style={styles.center} color={colors.white} />
+      {isLoading || isError ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} tone="dark" style={styles.center} />
       ) : (
         <PostPager
           posts={posts}

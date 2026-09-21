@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Avatar, BatteryBadge, Button, Screen, ShareLevelIcon, ToggleRow } from '@/components/ui';
+import { AppText, Avatar, BatteryBadge, Button, QueryState, Screen, ShareLevelIcon, ToggleRow } from '@/components/ui';
 import { useFriends, useSaveShareSetting, useShareSetting } from '@/features/friends/queries';
 import { applyShareLevel, isToggleLocked } from '@/features/sharing/shareRules';
 import { colors, radius } from '@/theme';
@@ -19,7 +19,7 @@ export default function FriendShareScreen() {
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const { data: friends = [] } = useFriends();
   const friend = friends.find((f) => f.id === friendId);
-  const { data: saved, isLoading } = useShareSetting(friendId);
+  const { data: saved, isLoading, isError, refetch } = useShareSetting(friendId);
   const save = useSaveShareSetting();
 
   const [draft, setDraft] = useState<FriendShareSetting | null>(null);
@@ -46,8 +46,8 @@ export default function FriendShareScreen() {
       tab="map"
       footer={<Button label={t('friendShare.save')} size="sm" disabled={!draft || save.isPending} onPress={onSave} />}
     >
-      {isLoading || !draft ? (
-        <ActivityIndicator color={colors.brown} />
+      {isLoading || isError || !draft ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
       ) : (
         <View style={styles.body}>
           <View style={styles.profile}>

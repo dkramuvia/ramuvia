@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Avatar, Button, Screen, UnderlineTabs } from '@/components/ui';
+import { AppText, Avatar, Button, QueryState, Screen, UnderlineTabs } from '@/components/ui';
 import { useCancelFriendRequest, useFriendRequests, useRespondFriendRequest } from '@/features/friends/queries';
 import { colors, radius } from '@/theme';
 import type { FriendRequest } from '@/types/models';
@@ -16,7 +16,7 @@ type Tab = 'received' | 'sent';
 export default function FriendRequestsScreen() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('received');
-  const { data, isLoading } = useFriendRequests();
+  const { data, isLoading, isError, refetch } = useFriendRequests();
   const respond = useRespondFriendRequest();
   const cancel = useCancelFriendRequest();
 
@@ -47,8 +47,8 @@ export default function FriendRequestsScreen() {
       <View style={styles.body}>
         <AppText variant="title3">{t(`friendRequests.${tab}`)}</AppText>
 
-        {isLoading ? <ActivityIndicator color={colors.brown} /> : null}
-        {!isLoading && list.length === 0 ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
+        {!isLoading && !isError && list.length === 0 ? (
           <AppText variant="label1" color={colors.textMuted}>
             {t(tab === 'received' ? 'friendRequests.emptyReceived' : 'friendRequests.emptySent')}
           </AppText>

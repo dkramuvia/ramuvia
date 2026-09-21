@@ -3,9 +3,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Avatar, MenuItem, Popup, Screen, Tag } from '@/components/ui';
+import { AppText, Avatar, MenuItem, Popup, QueryState, Screen, Tag } from '@/components/ui';
 import { useGroup, useLeaveGroup } from '@/features/groups/queries';
 import { useAuthStore, useIsMe } from '@/stores/authStore';
 import { colors, radius } from '@/theme';
@@ -16,7 +16,7 @@ export default function GroupSettingsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const me = useAuthStore((s) => s.user);
   const isMe = useIsMe();
-  const { data: group, isLoading } = useGroup(groupId);
+  const { data: group, isLoading, isError, refetch } = useGroup(groupId);
   const leave = useLeaveGroup(groupId);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
@@ -32,8 +32,8 @@ export default function GroupSettingsScreen() {
 
   return (
     <Screen title={t('screens.groupSettings')} tab="people" contentStyle={styles.content}>
-      {isLoading || !group ? (
-        <ActivityIndicator color={colors.brown} />
+      {isLoading || isError || !group ? (
+        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
       ) : (
         <>
           <View style={styles.profile}>

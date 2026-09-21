@@ -2,10 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, BatteryBadge, BottomNav, SheetScrollView, SnapSheet } from '@/components/ui';
+import { AppText, BatteryBadge, BottomNav, QueryState, SheetScrollView, SnapSheet } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
 import { allRouteCoordinates, formatDuration, minutesSince, routePolylines } from '@/features/journey/routeLayers';
 import { useAreaName } from '@/features/location/useAreaName';
@@ -39,7 +39,7 @@ export default function JourneyScreen() {
   const me = useAuthStore((s) => s.user);
   const unit = usePreferencesStore((s) => s.distanceUnit);
   const { data: friends = [] } = useFriends();
-  const { data: journey, isLoading } = useJourney(userId);
+  const { data: journey, isLoading, isError, refetch } = useJourney(userId);
   const { can, minPlanFor } = usePlan();
   const mapRef = useRef<AppMapViewHandle>(null);
 
@@ -107,9 +107,9 @@ export default function JourneyScreen() {
         }
       >
         <SheetScrollView contentContainerStyle={styles.sheetContent}>
-          {isLoading ? <ActivityIndicator color={colors.brown} /> : null}
+          <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
 
-          {!isLoading && view === 'summary' ? (
+          {!isLoading && !isError && view === 'summary' ? (
             <>
               <NowRow />
               {friend?.location?.address ? <AppText variant="label1">{friend.location.address}</AppText> : null}

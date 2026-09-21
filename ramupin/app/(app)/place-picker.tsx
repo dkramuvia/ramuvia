@@ -57,11 +57,16 @@ export default function PlacePickerScreen() {
     if (!center) return;
     let cancelled = false;
     setResolving(true);
-    describePlace(center).then((p) => {
-      if (cancelled) return;
-      setPlace(p);
-      setResolving(false);
-    });
+    describePlace(center)
+      .then((p) => {
+        if (cancelled) return;
+        setPlace(p);
+      })
+      // 주소를 못 찾아도 멈추면 안 됩니다. 좌표만으로도 공유할 수 있습니다
+      .catch((error: unknown) => console.warn('[place] 주소 찾기 실패', String(error)))
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
     return () => {
       cancelled = true;
     };

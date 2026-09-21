@@ -18,16 +18,28 @@ export interface PolicySnapshot {
   gpsIntervalStillSec: number;
   /** 모아서 서버로 보내는 주기(초) */
   uploadIntervalSec: number;
+  /** 이 값(%) 이하면 저전력 수집 */
+  lowBatteryPercent: number;
+  /** 이동 중 최소 이동 거리(m). 0 이면 시간만 봅니다 */
+  moveDistanceM: number;
 }
 
 /** 서버 정책을 아직 못 받았을 때 쓰는 값 (베이직 등급 기준) */
-export const DEFAULT_SNAPSHOT: PolicySnapshot = { gpsIntervalMovingSec: 15, gpsIntervalStillSec: 60, uploadIntervalSec: 60 };
+export const DEFAULT_SNAPSHOT: PolicySnapshot = {
+  gpsIntervalMovingSec: 15,
+  gpsIntervalStillSec: 60,
+  uploadIntervalSec: 60,
+  lowBatteryPercent: 20,
+  moveDistanceM: 75,
+};
 
 export async function savePolicySnapshot(policy: PlanPolicy): Promise<void> {
   const snapshot: PolicySnapshot = {
     gpsIntervalMovingSec: policy.gpsIntervalMovingSec,
     gpsIntervalStillSec: policy.gpsIntervalStillSec,
     uploadIntervalSec: policy.uploadIntervalSec,
+    lowBatteryPercent: policy.lowBatteryPercent,
+    moveDistanceM: policy.moveDistanceM,
   };
   try {
     await Storage.setItem(KEY, JSON.stringify(snapshot));
@@ -46,6 +58,9 @@ export async function loadPolicySnapshot(): Promise<PolicySnapshot> {
       gpsIntervalMovingSec: positive(parsed.gpsIntervalMovingSec, DEFAULT_SNAPSHOT.gpsIntervalMovingSec),
       gpsIntervalStillSec: positive(parsed.gpsIntervalStillSec, DEFAULT_SNAPSHOT.gpsIntervalStillSec),
       uploadIntervalSec: positive(parsed.uploadIntervalSec, DEFAULT_SNAPSHOT.uploadIntervalSec),
+      lowBatteryPercent: positive(parsed.lowBatteryPercent, DEFAULT_SNAPSHOT.lowBatteryPercent),
+      // 0 을 허용해야 "거리 조건 끄기" 가 됩니다
+      moveDistanceM: typeof parsed.moveDistanceM === 'number' && parsed.moveDistanceM >= 0 ? parsed.moveDistanceM : DEFAULT_SNAPSHOT.moveDistanceM,
     };
   } catch {
     return DEFAULT_SNAPSHOT;

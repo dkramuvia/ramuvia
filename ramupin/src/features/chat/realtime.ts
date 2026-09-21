@@ -7,6 +7,8 @@ import { env, isLive } from '@/config/env';
 import { endSession, refreshAccessToken } from '@/features/auth/session';
 import { chatKeys } from '@/features/chat/queries';
 import { messageStore } from '@/db/messages';
+import { setWatchMode } from '@/features/location/watchMode';
+import { friendKeys } from '@/features/friends/queries';
 import { groupKeys } from '@/features/groups/queries';
 import { useAuthStore } from '@/stores/authStore';
 import type { ChatMessage } from '@/types/models';
@@ -14,7 +16,6 @@ import type { ChatMessage } from '@/types/models';
 /**
  * 실시간 연결 (WBS 7.5).
  * 로그인 상태면 서버에 붙어서 새 메시지를 바로 받습니다. 앱이 꺼져 있을 때는 푸시 알림(다음 단계).
- * TODO(6단계): 친구 위치·긴급 알림도 이 연결로 받기
  */
 let socket: Socket | null = null;
 
@@ -47,6 +48,17 @@ function connect(token: string) {
 
   socket.on('connect_error', (error) => __DEV__ && console.log('[realtime] 연결 오류', String(error)));
   socket.on('message', (payload: ServerMessage) => addMessage(toChatMessage(payload)));
+  // 누가 내 지도를 보기 시작/그만두면 서버가 알려 줍니다 (GPS 보고서 2-1 6번)
+  socket.on('watch-mode', ({ on }: { on: boolean }) => {
+    void setWatchMode(on);
+  });
+
+  // 내가 보고 있는 친구의 위치가 갱신될 때마다 바로 받습니다.
+  // 30초 주기 재조회(FRIENDS_REFETCH_MS)는 소켓이 끊겼을 때를 위한 대비로 남겨 둡니다
+  socket.on('friend-location', () => {
+    queryClient.invalidateQueries({ queryKey: friendKeys.list, exact: true });
+  });
+
   socket.on('rooms-changed', () => {
     queryClient.invalidateQueries({ queryKey: chatKeys.rooms, exact: true });
     queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });
@@ -62,6 +74,18 @@ function connect(token: string) {
     if (code === 'SESSION_REPLACED') await endSession('replaced');
     else if (code === 'SESSION_REVOKED') await endSession('revoked');
   });
+}
+
+/**
+ * "지금 이 친구들 지도를 보고 있다"를 서버에 알립니다 (GPS 보고서 2-1 6번).
+ * 서버가 그 친구들 폰에만 촘촘한 수집을 켜라고 알리고, 화면을 닫으면 되돌립니다.
+ */
+export function watchFriends(userIds: string[]) {
+  socket?.emit('watch', { userIds });
+}
+
+export function unwatchFriends() {
+  socket?.emit('unwatch');
 }
 
 export function disconnectRealtime() {

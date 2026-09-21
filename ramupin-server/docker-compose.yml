@@ -1,6 +1,6 @@
 # 라무핀 백엔드 로컬 개발 / 서버 1대 공용 구성
 #
-# 개발 (PC):  docker compose up -d db redis   → DB·Redis만 띄우고 API 는 npm run start:dev
+# 개발 (PC):  docker compose up -d db redis storage   → DB·Redis·저장소만 띄우고 API 는 npm run start:dev
 # 서버 1대:   docker compose --profile app up -d --build   → API 컨테이너까지 함께
 #
 # 위치 데이터는 처음부터 별도 데이터베이스(ramupin_location)에 둡니다.
@@ -45,6 +45,28 @@ services:
       timeout: 3s
       retries: 20
 
+  # 사진·동영상 저장소 (WBS 5.6, 5.7).
+  # S3 와 같은 규격이라, 나중에 AWS 로 옮길 때 주소·키만 바꾸면 서버 코드는 그대로입니다.
+  storage:
+    # Docker Hub 의 minio/minio 는 2025 년부터 로그인 없이는 못 받습니다. 공식 대체 저장소를 씁니다
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY}
+    volumes:
+      - storage-data:/data
+    ports:
+      # 9000 = 파일 주고받기(S3 API), 9001 = 브라우저 관리 화면
+      - '${STORAGE_PORT:-9000}:9000'
+      - '127.0.0.1:${STORAGE_CONSOLE_PORT:-9001}:9001'
+    healthcheck:
+      test: ['CMD-SHELL', 'mc ready local || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   api:
     profiles: ['app']
     build: .
@@ -57,10 +79,13 @@ services:
       MIGRATOR_MAIN_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/ramupin
       MIGRATOR_LOCATION_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/ramupin_location
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      STORAGE_ENDPOINT: http://storage:9000
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      storage:
         condition: service_healthy
     ports:
       - '${API_PORT:-3000}:3000'
@@ -68,3 +93,4 @@ services:
 volumes:
   db-data:
   redis-data:
+  storage-data:

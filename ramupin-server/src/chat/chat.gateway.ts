@@ -24,6 +24,9 @@ export class ChatGateway implements OnGatewayConnection {
   @WebSocketServer()
   private server!: Server;
 
+  /** 사용자별 "지금 누가 보고 있는가". 값이 바뀔 때만 폰에 알립니다 */
+  private readonly watchMode = new Map<string, boolean>();
+
   constructor(
     private readonly jwt: JwtService,
     private readonly sessions: SessionService,
@@ -54,7 +57,74 @@ export class ChatGateway implements OnGatewayConnection {
     const groups = rows.map((r) => r.group_id);
     await Promise.all(groups.map((id) => client.join(`room:${id}`)));
     client.emit('ready', { rooms: groups });
+    this.registerWatching(client);
     this.logger.log(`연결: user ${payload.sub} (방 ${groups.length}개)`);
+  }
+
+  /**
+   * "지금 누구 지도를 보고 있다" (GPS 보고서 2-1 6번, 4-3).
+   *
+   * 아무도 안 볼 때도 촘촘히 보내면 배터리와 서버를 그냥 버리는 셈입니다.
+   * 보는 사람이 생기면 그 사람의 폰에만 "고빈도 모드"를 켜라고 알리고, 아무도 안 보면 되돌립니다.
+   */
+  private registerWatching(client: Socket) {
+    const me = client.data.userId as string;
+
+    client.on('watch', async (payload: unknown) => {
+      const targets = await this.friendsAmong(me, toIdList(payload));
+      const before = (client.data.watching as string[] | undefined) ?? [];
+      // 이번에 빠진 대상은 먼저 정리합니다
+      for (const id of before) if (!targets.includes(id)) await this.leaveWatch(client, id);
+      for (const id of targets) if (!before.includes(id)) await client.join(watchRoom(id));
+      client.data.watching = targets;
+      for (const id of targets) this.syncWatchMode(id);
+    });
+
+    client.on('unwatch', async () => {
+      for (const id of ((client.data.watching as string[] | undefined) ?? [])) await this.leaveWatch(client, id);
+      client.data.watching = [];
+    });
+
+    client.on('disconnect', () => {
+      // 연결이 끊기면 socket.io 가 방에서 자동으로 빼지만, 상대 폰에 알리는 것은 우리가 해야 합니다
+      for (const id of ((client.data.watching as string[] | undefined) ?? [])) setTimeout(() => this.syncWatchMode(id), 0);
+    });
+  }
+
+  private async leaveWatch(client: Socket, targetId: string) {
+    await client.leave(watchRoom(targetId));
+    this.syncWatchMode(targetId);
+  }
+
+  /** 보는 사람이 있는지 세어 보고, 달라졌으면 그 사람 폰에 알립니다 */
+  private syncWatchMode(targetId: string) {
+    const watchers = this.server?.sockets.adapter.rooms.get(watchRoom(targetId))?.size ?? 0;
+    const on = watchers > 0;
+    if (this.watchMode.get(targetId) === on) return;
+    this.watchMode.set(targetId, on);
+    this.server?.to(`user:${targetId}`).emit('watch-mode', { on });
+  }
+
+  /** 친구인 사람만 볼 수 있습니다. 모르는 사람 ID 를 넣어 위치를 받아 가지 못하게 */
+  private async friendsAmong(me: string, ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .selectFrom('social.friendships')
+      .select('friend_id')
+      .where('user_id', '=', me)
+      .where('friend_id', 'in', ids)
+      .execute();
+    return rows.map((r) => r.friend_id);
+  }
+
+  /** 보고 있는 사람에게만 위치를 즉시 전달. 아무도 안 보면 Redis 갱신만 하고 끝냅니다 */
+  emitLocation(userId: string, location: unknown) {
+    this.server?.to(watchRoom(userId)).emit('friend-location', { userId, location });
+  }
+
+  /** 지금 이 사람을 보고 있는 사람이 있는지 (위치 저장 쪽에서 확인) */
+  hasWatchers(userId: string): boolean {
+    return (this.server?.sockets.adapter.rooms.get(watchRoom(userId))?.size ?? 0) > 0;
   }
 
   /** 새 메시지를 방 참여자에게 전달 */
@@ -93,3 +163,15 @@ export class ChatGateway implements OnGatewayConnection {
 /** 실시간 연결은 그룹·채팅 어디서나 쓰므로 별도 모듈로 둡니다 (순환 의존 방지) */
 @Module({ providers: [ChatGateway], exports: [ChatGateway] })
 export class RealtimeModule {}
+
+/** 이 사람의 위치를 보고 있는 사람들이 모이는 방 */
+const watchRoom = (userId: string) => `watch:${userId}`;
+
+/** 앱이 보낸 목록에서 UUID 만 골라냅니다 (최대 100명) */
+function toIdList(payload: unknown): string[] {
+  const raw = (payload as { userIds?: unknown } | undefined)?.userIds;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === 'string' && UUID_RE.test(v)).slice(0, 100);
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

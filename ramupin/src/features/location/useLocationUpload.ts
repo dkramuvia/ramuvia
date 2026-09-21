@@ -20,15 +20,20 @@ export function useLocationUpload(location: MyLocation | null) {
   const movingSec = policy?.gpsIntervalMovingSec ?? DEFAULT_SNAPSHOT.gpsIntervalMovingSec;
   const stillSec = policy?.gpsIntervalStillSec ?? DEFAULT_SNAPSHOT.gpsIntervalStillSec;
   const uploadSec = policy?.uploadIntervalSec ?? DEFAULT_SNAPSHOT.uploadIntervalSec;
+  const moveDistanceM = policy?.moveDistanceM ?? DEFAULT_SNAPSHOT.moveDistanceM;
 
   useEffect(() => {
     if (!location) return;
     // 걷는 속도(3km/h) 이상이면 이동 중으로 봅니다
-    const gapSec = (location.speedKmh ?? 0) >= 3 ? movingSec : stillSec;
-    enqueueLocation(location, gapSec)
+    const moving = (location.speedKmh ?? 0) >= 3;
+    const rule =
+      moving && moveDistanceM > 0
+        ? { minGapSec: movingSec, minDistanceM: moveDistanceM, forceAfterSec: stillSec }
+        : { minGapSec: moving ? movingSec : stillSec };
+    enqueueLocation(location, rule)
       .then(() => flushIfDue(uploadSec))
       .catch((error) => console.warn('[location] 대기열 저장 실패', String(error)));
-  }, [location, movingSec, stillSec, uploadSec]);
+  }, [location, movingSec, stillSec, uploadSec, moveDistanceM]);
 
   useEffect(() => {
     const timer = setInterval(() => void flushIfDue(uploadSec), TICK_SEC * 1000);

@@ -15,7 +15,7 @@ export interface PolicyField {
   /** 화면에 같이 보여 줄 설명 */
   help: string;
   group: string;
-  type: 'seconds' | 'count' | 'megabytes' | 'choice' | 'switch';
+  type: 'seconds' | 'count' | 'megabytes' | 'percent' | 'meters' | 'choice' | 'switch';
   min?: number;
   max?: number;
   choices?: { value: string; label: string }[];
@@ -48,6 +48,24 @@ export const POLICY_FIELDS: PolicyField[] = [
     type: 'seconds',
     min: 10,
     max: 900,
+  },
+  {
+    key: 'lowBatteryPercent',
+    label: '저전력 전환 배터리',
+    help: '배터리가 이 값 아래로 내려가면 수집을 느슨하게 바꿔 전화기가 더 오래 버티게 합니다. 충전 중에는 해당 없습니다. GPS 보고서 기준 20%.',
+    group: '위치 수집',
+    type: 'percent',
+    min: 5,
+    max: 50,
+  },
+  {
+    key: 'moveDistanceM',
+    label: '이동 중 최소 이동 거리',
+    help: '이동 중에 직전 위치에서 이만큼 움직여야 기록합니다. 신호 대기처럼 길에 서 있을 때 같은 자리를 반복 저장하지 않습니다. 0 이면 거리와 무관하게 시간만 봅니다. GPS 보고서 권장 50~100m.',
+    group: '위치 수집',
+    type: 'meters',
+    min: 0,
+    max: 500,
   },
   { key: 'safeZoneLimit', label: '안심 장소 등록 수', help: '', group: '제한', type: 'count', min: 0, max: 200 },
   { key: 'placeLimit', label: '단일 위치 등록 수', help: '', group: '제한', type: 'count', min: 0, max: 500 },

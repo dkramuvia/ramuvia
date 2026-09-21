@@ -11,6 +11,14 @@ import { useUploadDraftStore } from '@/stores/uploadDraftStore';
 import { colors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
+/** 서버가 알려 준 이유를 그대로 보여 줍니다 (용량 초과·등급 제한 등) */
+function uploadErrorMessage(error: unknown, t: (key: string, vars?: Record<string, unknown>) => string): string {
+  const data = (error as { response?: { data?: { code?: string; usedMb?: number; limitMb?: number } } }).response?.data;
+  if (data?.code === 'STORAGE_FULL') return t('gallery.storageFull', { usedMb: data.usedMb, limitMb: data.limitMb });
+  if (data?.code === 'PLAN_NO_PHOTO') return t('gallery.planNoPhoto');
+  return t('gallery.uploadFailed');
+}
+
 /** 피그마: 그룹방 지정·위치 추가 (283:20418 / 목록 363:8084 / 선택됨 363:8185 / 위치 363:8485) */
 export default function GalleryUploadDetailScreen() {
   const { t } = useTranslation();
@@ -36,6 +44,8 @@ export default function GalleryUploadDetailScreen() {
           reset();
           router.dismissTo('/gallery');
         },
+        // 실패하면 아무 반응이 없으면 안 됩니다. 왜 안 됐는지 알려 줍니다
+        onError: (error) => showToast(uploadErrorMessage(error, t)),
       },
     );
   };

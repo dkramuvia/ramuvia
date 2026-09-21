@@ -9,6 +9,7 @@ import { FriendsModule } from './friends/friends.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LocationModule } from './location/location.module.js';
+import { MediaModule } from './media/media.module.js';
 import { PhoneModule } from './phone/phone.module.js';
 import { PlacesModule } from './places/places.module.js';
 import { PushModule } from './push/push.module.js';
@@ -16,6 +17,6 @@ import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, PushModule, AnomalyModule, AdminModule, HealthModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, AnomalyModule, AdminModule, HealthModule],
 })
 export class AppModule {}

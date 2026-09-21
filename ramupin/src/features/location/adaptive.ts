@@ -9,10 +9,10 @@ import type { ActivityStatus, ActivityType } from '../../../modules/ramupin-gps'
  * 배터리를 계속 먹고, 반대로 차를 타고 이동할 때는 30초가 너무 길어 경로가 뚝뚝 끊깁니다.
  * 상황에 따라 주기와 정확도를 바꿉니다.
  *
- * 우선순위: SOS > 관리자 강제 > 지오펜스 근접 > 저배터리 > 이동 > 정지
+ * 우선순위: SOS > 지오펜스 근접 > 조회 중 > 저배터리 > 이동 > 정지
  */
 
-export type MoveState = 'sos' | 'geofence' | 'lowBattery' | 'moving' | 'still';
+export type MoveState = 'sos' | 'geofence' | 'watched' | 'lowBattery' | 'moving' | 'still';
 
 /**
  * 상태별 기본 주기(초)와 정확도.
@@ -23,6 +23,9 @@ export const ADAPTIVE: Record<MoveState, { intervalSec: number; accuracy: Locati
   sos: { intervalSec: 2, accuracy: Location.Accuracy.BestForNavigation },
   // 안심 장소 근처: 진입·이탈을 놓치지 않게
   geofence: { intervalSec: 5, accuracy: Location.Accuracy.High },
+  // 지금 누가 내 지도를 보고 있음 (GPS 보고서 2-1 6번).
+  // 보는 사람이 있을 때만 촘촘하게 하고, 안 보면 바로 되돌아갑니다
+  watched: { intervalSec: 5, accuracy: Location.Accuracy.High },
   // 배터리가 얼마 안 남았으면 아껴서
   lowBattery: { intervalSec: 300, accuracy: Location.Accuracy.Balanced },
   // 이동 중: 경로가 끊기지 않을 만큼 (등급 정책값을 상한으로 씀)
@@ -44,8 +47,11 @@ export const ADAPTIVE: Record<MoveState, { intervalSec: number; accuracy: Locati
 
 /** 이 속도(km/h) 이상이면 이동 중으로 봅니다 (활동 인식이 없을 때만 씀) */
 const MOVING_SPEED_KMH = 3;
-/** 이 값 이하면 저전력 모드 (충전 중이면 해당 없음) */
-const LOW_BATTERY_PERCENT = 15;
+/**
+ * 이 값 이하면 저전력 모드 (충전 중이면 해당 없음).
+ * 정책을 못 받았을 때의 대비값입니다. GPS 보고서 2-1: 20%
+ */
+const DEFAULT_LOW_BATTERY_PERCENT = 20;
 
 /** 활동 인식 결과를 믿을 만한 최소 확신도 (0~100) */
 const MIN_ACTIVITY_CONFIDENCE = 50;
@@ -69,10 +75,14 @@ export interface StateInput {
   activity?: ActivityStatus | null;
   /** 머물던 기준점에서 떨어진 거리(m). 기준점이 아직 없으면 null */
   distanceFromAnchorM?: number | null;
+  /** 저전력으로 내려가는 배터리 기준(%). 서버 정책값 */
+  lowBatteryPercent?: number;
   /** SOS 진행 중 (TODO: SOS 화면에서 켜 주기) */
   sos?: boolean;
   /** 안심 장소 반경 근처 (TODO: 지오펜스 붙일 때) */
   nearGeofence?: boolean;
+  /** 지금 누가 내 위치를 보고 있음 (서버가 소켓으로 알려 줍니다) */
+  watched?: boolean;
 }
 
 export interface StateDecision {
@@ -85,12 +95,15 @@ export interface StateDecision {
 }
 
 export function decideState(input: StateInput): StateDecision {
-  const { speedKmh, battery, charging, sos, nearGeofence } = input;
+  const { speedKmh, battery, charging, sos, nearGeofence, watched } = input;
+  const lowBattery = input.lowBatteryPercent ?? DEFAULT_LOW_BATTERY_PERCENT;
   const movement = judgeMovement(input);
   if (sos) return { state: 'sos', reanchor: false };
   if (nearGeofence) return { state: 'geofence', reanchor: movement.reanchor };
+  // 보고 있는 사람이 있으면 배터리보다 실시간성을 앞세웁니다. 안 보면 바로 내려갑니다
+  if (watched) return { state: 'watched', reanchor: movement.reanchor };
   // 충전 중이면 배터리를 아낄 이유가 없습니다
-  if (!charging && battery != null && battery <= LOW_BATTERY_PERCENT) {
+  if (!charging && battery != null && battery <= lowBattery) {
     return { state: 'lowBattery', reanchor: movement.reanchor };
   }
   void speedKmh;

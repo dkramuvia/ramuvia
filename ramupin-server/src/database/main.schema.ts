@@ -171,6 +171,43 @@ export interface UserPolicyOverridesTable {
 }
 
 /** 이상징후 발생 기록 (docs/anomaly-alerts.md) */
+/** 저장소에 올린 파일 한 개 (WBS 5.6) */
+export interface MediaAssetsTable {
+  id: Generated<string>;
+  owner_id: string;
+  object_key: string;
+  kind: 'image' | 'video';
+  content_type: string;
+  bytes: number;
+  width: number | null;
+  height: number | null;
+  duration_sec: number | null;
+  uploaded_at: NullableTimestamp;
+  created_at: Timestamp;
+}
+
+/** 갤러리 게시물 (WBS 5.8, 5.9) */
+export interface MediaPostsTable {
+  id: Generated<string>;
+  group_id: string;
+  author_id: string;
+  place_name: string | null;
+  place_address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  /** 있으면 긴급 공지 (WBS 5.9) */
+  emergency_title: string | null;
+  emergency_message: string | null;
+  created_at: Timestamp;
+  deleted_at: NullableTimestamp;
+}
+
+export interface MediaPostAssetsTable {
+  post_id: string;
+  asset_id: string;
+  position: number;
+}
+
 /** 관리자 계정 (앱 사용자와 분리) */
 export interface AdminUsersTable {
   id: Generated<string>;
@@ -238,6 +275,9 @@ export interface MainDatabase {
   'social.friend_requests': FriendRequestsTable;
   'config.plan_policies': PlanPoliciesTable;
   'config.user_policy_overrides': UserPolicyOverridesTable;
+  'media.assets': MediaAssetsTable;
+  'media.posts': MediaPostsTable;
+  'media.post_assets': MediaPostAssetsTable;
   'config.admin_users': AdminUsersTable;
   'config.policy_audit': PolicyAuditTable;
   'member.anomaly_events': AnomalyEventsTable;

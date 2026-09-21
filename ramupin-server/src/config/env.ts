@@ -30,6 +30,13 @@ const schema = z.object({
   NAVER_MAP_CLIENT_ID: z.string().default(''),
   NAVER_MAP_CLIENT_SECRET: z.string().default(''),
   // 전화번호 암호화·중복 확인 키 (32바이트 base64). 바뀌면 기존 번호를 읽지 못함
+  // 사진·동영상 저장소. 개발은 Docker MinIO, 운영은 AWS S3 — 규격이 같아 주소·키만 바뀝니다
+  STORAGE_ENDPOINT: z.string().url().default(''),
+  STORAGE_BUCKET: z.string().default('ramupin-media'),
+  STORAGE_ACCESS_KEY: z.string().default(''),
+  STORAGE_SECRET_KEY: z.string().default(''),
+  /** 앱이 파일을 주고받을 때 쓸 주소. 비우면 STORAGE_ENDPOINT 를 씁니다 */
+  STORAGE_PUBLIC_URL: z.string().default(''),
   PHONE_ENC_KEY: z.string().min(40),
   PHONE_HASH_KEY: z.string().min(40),
   DEV_LOGIN_ENABLED: z

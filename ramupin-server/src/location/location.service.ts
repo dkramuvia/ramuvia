@@ -3,6 +3,7 @@ import type { Redis } from 'ioredis';
 import { sql, type Kysely } from 'kysely';
 
 import { ANOMALY_RULES, distanceM } from '../anomaly/anomaly.rules.js';
+import { ChatGateway } from '../chat/chat.gateway.js';
 import { REDIS } from '../redis/redis.module.js';
 import type { LocationDatabase } from './location.schema.js';
 
@@ -65,6 +66,7 @@ export class LocationService implements OnModuleInit {
   constructor(
     @Inject(LOCATION_DB) private readonly db: LocationDb,
     @Inject(REDIS) private readonly redis: Redis,
+    private readonly gateway: ChatGateway,
   ) {}
 
   async onModuleInit() {
@@ -122,6 +124,10 @@ export class LocationService implements OnModuleInit {
       await this.redis.set(currentKey(userId), JSON.stringify(current));
     }
     await this.updateStatus(userId, latest);
+
+    // 지금 이 사람 지도를 보고 있는 친구에게만 즉시 전달 (GPS 보고서 4-3).
+    // 아무도 안 보면 Redis 갱신까지만 하고 끝냅니다 — 쓸데없는 네트워크를 만들지 않습니다
+    if (this.gateway.hasWatchers(userId)) this.gateway.emitLocation(userId, current);
 
     const saved = results.reduce((sum, r) => sum + Number(r.numInsertedOrUpdatedRows ?? 0), 0);
     return { received: sorted.length, saved };

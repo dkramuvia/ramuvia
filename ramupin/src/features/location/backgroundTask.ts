@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, PermissionsAndroid, Platform } from 'react-native';
 
-import { loadPolicySnapshot } from '@/features/policy/policySnapshot';
+import { loadPolicySnapshot, type PolicySnapshot } from '@/features/policy/policySnapshot';
 import {
   getActivity,
   isGpsModuleAvailable,
@@ -15,6 +15,7 @@ import {
 } from '../../../modules/ramupin-gps';
 import { ADAPTIVE, decideState, intervalSecFor, type MoveState } from './adaptive';
 import { distanceM } from './geo';
+import { isWatched } from './watchMode';
 import { enqueueLocation, flushIfDue } from './uploader';
 import type { MyLocation } from './useMyLocation';
 
@@ -75,15 +76,22 @@ async function handleLocations(locations: Location.LocationObject[]) {
     const policy = await loadPolicySnapshot();
     const latest = toMyLocation(locations[locations.length - 1]);
     // 이동 중인지에 따라 대기열에 쌓는 최소 간격이 달라집니다
-    const state = await currentState(latest);
+    const state = await currentState(latest, policy);
     const minGapSec = intervalSecFor(state, policy);
 
+    // 이동 중에만 거리 조건을 겁니다 (GPS 보고서 2-2). 신호 대기처럼 길에 서 있을 때
+    // 같은 자리를 반복해서 쌓지 않되, 머무는 주기가 지나면 하나는 넣어 신호 두절로 오해받지 않게 합니다
+    const rule =
+      state === 'moving' && policy.moveDistanceM > 0
+        ? { minGapSec, minDistanceM: policy.moveDistanceM, forceAfterSec: policy.gpsIntervalStillSec }
+        : { minGapSec };
     for (const position of locations) {
-      await enqueueLocation(toMyLocation(position), minGapSec);
+      await enqueueLocation(toMyLocation(position), rule);
     }
-    // 매번 보내지 않고 정책 주기(기본 60초)마다 모아서 보냅니다. 서버 요청 수가 크게 줄어듭니다.
+    // 평소에는 정책 주기(기본 60초)마다 모아서 보냅니다. 서버 요청 수가 크게 줄어듭니다.
+    // 다만 누가 보고 있을 때는 모아 두면 그만큼 늦게 보이므로 바로 보냅니다 (GPS 보고서 2-1 6번).
     // 새로 쌓인 게 없어도 부릅니다. 지난번 전송이 실패해 남아 있을 수 있습니다
-    await flushIfDue(policy.uploadIntervalSec);
+    await flushIfDue(state === 'watched' ? 0 : policy.uploadIntervalSec);
 
     await applyAdaptiveInterval(state, minGapSec);
   } catch (e) {
@@ -127,15 +135,17 @@ async function setAnchor(location: MyLocation) {
 }
 
 /** 지금이 정지인지 이동인지 저배터리인지 (배터리·활동 인식·기준점까지 같이 봅니다) */
-async function currentState(latest: MyLocation): Promise<MoveState> {
+async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise<MoveState> {
   await loadAnchor();
-  const battery = await readBatteryForState();
+  const [battery, watched] = await Promise.all([readBatteryForState(), isWatched()]);
   const { state, reanchor } = decideState({
     speedKmh: latest.speedKmh,
     battery: battery.level,
     charging: battery.charging,
     activity: getActivity(),
     distanceFromAnchorM: anchor ? distanceM(anchor, latest) : null,
+    lowBatteryPercent: policy.lowBatteryPercent,
+    watched,
   });
   // 기준점이 아직 없거나, 다른 곳에 도착해 자리를 잡았으면 지금 위치로 옮깁니다
   if (!anchor || reanchor) await setAnchor(latest);

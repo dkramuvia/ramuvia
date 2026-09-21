@@ -6,6 +6,7 @@ import { getDb } from '@/db';
 import { getActivity, getSatellites } from '../../../modules/ramupin-gps';
 import { restoreSession } from '@/features/auth/session';
 import { useAuthStore } from '@/stores/authStore';
+import { distanceM } from './geo';
 import type { MyLocation } from './useMyLocation';
 
 /**
@@ -27,6 +28,7 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60_000;
 const ROUTE_KEEP_MS = 30 * 24 * 60 * 60_000;
 
 let lastQueuedAt = 0;
+let lastQueuedAtCoord: { latitude: number; longitude: number } | null = null;
 let flushing: Promise<void> | null = null;
 
 /**
@@ -60,14 +62,37 @@ async function readBattery(): Promise<{ level: number | null; charging: boolean 
   }
 }
 
-/**
- * 위치 하나를 대기열에 넣습니다.
- * @param minIntervalSec 직전에 넣은 점과 이 시간(초)보다 가까우면 건너뜀 (등급 정책 gpsIntervalMovingSec)
- */
-export async function enqueueLocation(location: MyLocation, minIntervalSec: number): Promise<boolean> {
+export interface EnqueueRule {
+  /** 직전에 넣은 점과 이 시간(초)보다 가까우면 건너뜁니다 (등급 정책) */
+  minGapSec: number;
+  /**
+   * 이동 중에만 씁니다. 직전 점에서 이만큼(m) 못 움직였으면 건너뜁니다 (GPS 보고서 2-2).
+   * 신호 대기처럼 길에 서 있을 때 같은 자리를 반복해서 쌓지 않기 위한 것입니다.
+   */
+  minDistanceM?: number;
+  /**
+   * 거리 조건 때문에 건너뛰더라도 이 시간(초)이 지나면 반드시 하나는 넣습니다.
+   *
+   * 이게 없으면 차가 막혀 10분간 서 있을 때 서버로 아무것도 안 가고,
+   * 서버는 그것을 "신호 두절"로 봅니다 (docs/anomaly-alerts.md).
+   */
+  forceAfterSec?: number;
+}
+
+/** 위치 하나를 대기열에 넣습니다 */
+export async function enqueueLocation(location: MyLocation, rule: EnqueueRule): Promise<boolean> {
   if (!canCollect()) return false;
-  if (location.timestamp - lastQueuedAt < minIntervalSec * 1000) return false;
+  const sinceLastMs = location.timestamp - lastQueuedAt;
+  if (sinceLastMs < rule.minGapSec * 1000) return false;
+
+  if (rule.minDistanceM && lastQueuedAtCoord) {
+    const moved = distanceM(lastQueuedAtCoord, location);
+    const overdue = rule.forceAfterSec != null && sinceLastMs >= rule.forceAfterSec * 1000;
+    if (moved < rule.minDistanceM && !overdue) return false;
+  }
+
   lastQueuedAt = location.timestamp;
+  lastQueuedAtCoord = { latitude: location.latitude, longitude: location.longitude };
 
   const battery = await readBattery();
   const satellites = getSatellites();
@@ -142,8 +167,8 @@ export async function flushIfDue(uploadIntervalSec: number): Promise<void> {
   if (!canCollect()) return;
   const { count, oldest } = await outboxStats();
   if (count === 0) return;
-  // 너무 많이 쌓였으면 주기와 상관없이 먼저 비웁니다
-  if (count < BATCH_SIZE) {
+  // 0 = 기다리지 말고 바로 (누가 지도를 보고 있을 때)
+  if (uploadIntervalSec > 0 && count < BATCH_SIZE) {
     if (!oldest) return;
     const waitedMs = Date.now() - new Date(oldest).getTime();
     if (waitedMs < uploadIntervalSec * 1000) return;

@@ -1,7 +1,6 @@
-import { forwardRef, type Ref } from 'react';
+import { forwardRef, lazy, Suspense, type Ref } from 'react';
 
 import { GoogleMapImpl } from './GoogleMapImpl';
-import { MapboxImpl } from './MapboxImpl';
 import { NaverMapImpl } from './NaverMapImpl';
 import { resolveMapProvider } from './region';
 import type { MapImplHandle, MapImplProps } from './types';
@@ -17,6 +16,14 @@ type AppMapViewProps = Omit<MapImplProps, 'initialDelta' | 'mapType' | 'nightMod
 };
 
 const DEFAULT_DELTA = 0.012; // 약 1.3km 범위
+
+/**
+ * 해외 지도는 필요할 때만 불러옵니다.
+ *
+ * 그냥 import 하면 국내에서만 쓰는 사람도 앱이 켜질 때 Mapbox 네이티브 지도가 함께 올라옵니다.
+ * 안 쓰는 지도 표면이 떠 있으면 다른 화면을 뚫고 비쳐 보이는 문제가 생깁니다 (09-21 확인).
+ */
+const MapboxImpl = lazy(() => import('./MapboxImpl').then((m) => ({ default: m.MapboxImpl })));
 
 /**
  * 지도 공통 컴포넌트.
@@ -35,6 +42,8 @@ export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function
     overseas: can('overseasMap'),
   });
   const Impl = provider === 'naver' ? NaverMapImpl : provider === 'mapbox' ? MapboxImpl : GoogleMapImpl;
+  const map = <Impl ref={ref} {...props} initialDelta={props.initialDelta ?? DEFAULT_DELTA} mapType={mapType} nightMode={mapTheme === 'dark'} />;
 
-  return <Impl ref={ref} {...props} initialDelta={props.initialDelta ?? DEFAULT_DELTA} mapType={mapType} nightMode={mapTheme === 'dark'} />;
+  // Mapbox 만 나중에 불러오므로 그때만 기다림 처리가 필요합니다
+  return provider === 'mapbox' ? <Suspense fallback={null}>{map}</Suspense> : map;
 });

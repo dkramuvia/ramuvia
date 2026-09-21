@@ -23,6 +23,13 @@ export interface PlanPolicy {
    * 이상징후 판정 기준이 전부 시간 단위(30분·12·24·48시간)라 촘촘히 찍어도 얻는 게 없습니다.
    */
   gpsIntervalStillSec: number;
+  /** 이 값(%) 이하로 내려가면 저전력 수집으로 바꿉니다. GPS 보고서 2-1: 20% */
+  lowBatteryPercent: number;
+  /**
+   * 이동 중, 직전 점에서 이만큼(m) 못 움직였으면 건너뜁니다. GPS 보고서 2-2: 50~100m.
+   * 0 이면 거리 조건 없이 시간만 봅니다.
+   */
+  moveDistanceM: number;
   /** 모아서 서버로 보내는 주기(초). 확인 주기와 분리해 서버 요청 수를 줄입니다. 09-18 대표 결정: 60초 */
   uploadIntervalSec: number;
   /** 안심 장소(지오펜스) 등록 수 */
@@ -50,6 +57,8 @@ const base = {
   gpsIntervalMovingSec: 15,
   gpsIntervalStillSec: 60,
   uploadIntervalSec: 60,
+  lowBatteryPercent: 20,
+  moveDistanceM: 75,
   safeZoneLimit: 4,
   placeLimit: 10,
   geofenceAlertLimit: 0,
@@ -65,7 +74,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
   platinum: {
     planId: 'platinum',
     ...base,
-    gpsIntervalMovingSec: 10,
+    gpsIntervalMovingSec: 15,
     safeZoneLimit: 20,
     placeLimit: 50,
     geofenceAlertLimit: 10,
@@ -78,7 +87,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
   trinity: {
     planId: 'trinity',
     ...base,
-    gpsIntervalMovingSec: 10,
+    gpsIntervalMovingSec: 15,
     safeZoneLimit: 50,
     placeLimit: 100,
     geofenceAlertLimit: 30,
@@ -91,7 +100,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
   care: {
     planId: 'care',
     ...base,
-    gpsIntervalMovingSec: 10,
+    gpsIntervalMovingSec: 15,
     safeZoneLimit: 20,
     placeLimit: 10,
     geofenceAlertLimit: 10,

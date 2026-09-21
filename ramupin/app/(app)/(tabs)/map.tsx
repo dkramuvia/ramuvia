@@ -24,6 +24,7 @@ import { colors, layout, radius } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
+import { useWatchFriends } from '@/features/location/useWatchFriends';
 
 const FEED_ICONS: Partial<Record<FeedItemType, number>> = {
   stay: require('../../../assets/icons/feed-stay.png'),
@@ -71,6 +72,8 @@ export default function MapScreen() {
   const myBattery = deviceBattery >= 0 ? Math.round(deviceBattery * 100) : me?.batteryLevel;
   const areaName = useAreaName(location);
   const { data: friends = [] } = useFriends();
+  // 지도를 보고 있는 동안만 친구들 폰이 촘촘하게 위치를 보냅니다 (GPS 보고서 2-1 6번)
+  useWatchFriends(useMemo(() => friends.map((f) => f.id), [friends]));
   const { data: requests } = useFriendRequests();
   const { data: feed = [] } = useQuery({ queryKey: ['feed'], queryFn: feedApi.list });
   const hasNewRequests = (requests?.received.length ?? 0) > 0;

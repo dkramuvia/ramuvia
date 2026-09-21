@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
@@ -21,6 +22,16 @@ const COUNTDOWN_SECONDS = 10;
 const RECORD_SECONDS = 10;
 
 type Phase = 'idle' | 'countdown' | 'recording' | 'sending' | 'sent';
+
+/** 취소한 녹음 파일을 지웁니다. 지우지 못해도 SOS 흐름을 막지는 않습니다 */
+async function deleteRecording(uri: string | null) {
+  if (!uri) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch (error) {
+    console.warn('[sos] 녹음 파일 삭제 실패', String(error));
+  }
+}
 
 /**
  * 피그마: SOS (99:35983 대기 / 99:36017 취소됨 / 99:36053 카운트다운 / 99:36579 녹음)
@@ -128,9 +139,10 @@ export default function SosScreen() {
   const cancel = async () => {
     clearTimer();
     if (phase === 'recording' && recorder.isRecording) {
-      // 취소하면 녹음을 멈추고 전송하지 않음 (WBS 7.9)
-      // TODO(다음 네이티브 빌드): expo-file-system 추가 후 recorder.uri 파일 즉시 삭제. 지금은 앱 캐시에 남음
+      // 취소하면 녹음을 멈추고 전송하지 않음 (WBS 7.9).
+      // 취소한 녹음이 폰에 남아 있으면 안 됩니다 — 주변 소리가 담긴 파일입니다
       await recorder.stop();
+      await deleteRecording(recorder.uri);
     }
     setPhase('idle');
     setCancelledBanner(true);

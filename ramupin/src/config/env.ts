@@ -5,7 +5,7 @@
  */
 
 /** 서버에 연결할 수 있는 기능 이름. 서버 API 가 준비된 것부터 하나씩 추가합니다 */
-export type ServerFeature = 'auth' | 'me' | 'policy' | 'friends' | 'location' | 'groups' | 'chat' | 'places';
+export type ServerFeature = 'auth' | 'me' | 'policy' | 'friends' | 'location' | 'groups' | 'chat' | 'places' | 'gallery';
 
 const useMock = process.env.EXPO_PUBLIC_USE_MOCK !== 'false';
 const serverFeatures = new Set(

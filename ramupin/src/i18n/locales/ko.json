@@ -120,7 +120,10 @@
     "uploaded": "사진을 공유했어요.",
     "noGroup": "그룹방을 선택해 주세요.",
     "video": "동영상",
-    "emergency": "긴급 공지"
+    "emergency": "긴급 공지",
+    "uploadFailed": "업로드에 실패했습니다",
+    "storageFull": "공유 용량이 가득 찼습니다 ({{usedMb}}MB / {{limitMb}}MB)",
+    "planNoPhoto": "지금 등급에서는 사진 공유를 쓸 수 없습니다"
   },
   "plans": {
     "heroTitle": "지난 달의 이동기록도 언제든 다시",

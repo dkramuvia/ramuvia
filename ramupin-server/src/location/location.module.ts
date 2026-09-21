@@ -4,6 +4,7 @@ import pg from 'pg';
 import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
+import { RealtimeModule } from '../chat/chat.gateway.js';
 import { env } from '../config/env.js';
 import type { LocationDatabase } from './location.schema.js';
 import { LOCATION_DB, LocationService } from './location.service.js';
@@ -44,6 +45,8 @@ class LocationController {
 }
 
 @Module({
+  // 보고 있는 친구에게 위치를 즉시 전달하기 위해 (GPS 보고서 4-3)
+  imports: [RealtimeModule],
   controllers: [LocationController],
   providers: [
     {

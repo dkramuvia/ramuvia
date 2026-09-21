@@ -1,43 +1,17 @@
-import { Controller, Get, Inject, Logger, Module, Param, ParseUUIDPipe, Post, UseGuards, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { Inject, Logger, Module, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 
-import { AuthGuard } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
 import { LocationModule } from '../location/location.module.js';
 import { PushModule } from '../push/push.module.js';
 import { AnomalyService } from './anomaly.service.js';
-
-/**
- * 모니터링 사이트가 읽는 API (docs/anomaly-alerts.md).
- * 목록에 뜬 건은 회사가 직접 전화합니다. 확인콜·출동 기록은 만들지 않습니다.
- *
- * TODO(관리자 웹): 지금은 로그인한 사용자면 누구나 볼 수 있습니다.
- *   관리자 계정 개념(WBS 3.3 등급 0, 11.4 관리자 웹)이 생기면 관리자 전용으로 막아야 합니다.
- */
-@Controller('monitoring/anomalies')
-@UseGuards(AuthGuard)
-class AnomalyController {
-  constructor(private readonly anomaly: AnomalyService) {}
-
-  /** 아직 안 풀린 이상징후 목록 (최근 순) */
-  @Get()
-  list() {
-    return this.anomaly.openEvents();
-  }
-
-  /** 사람이 보고 "확인함"을 눌렀을 때 */
-  @Post(':id/acknowledge')
-  async acknowledge(@Param('id', ParseUUIDPipe) id: string) {
-    await this.anomaly.acknowledge(id);
-    return { ok: true };
-  }
-}
 
 /** 감시를 몇 분마다 돌릴지. 가장 짧은 단계가 30분이라 5분이면 충분합니다 */
 const SWEEP_INTERVAL_MS = 5 * 60_000;
 
 @Module({
   imports: [LocationModule, RealtimeModule, PushModule],
-  controllers: [AnomalyController],
+  // 모니터링 사이트 API 는 관리자 로그인으로 막아야 해서 admin/monitoring.controller.ts 에 있습니다.
+  // 남의 실시간 위치가 보이는 화면이라 앱 사용자 아무나 볼 수 있으면 안 됩니다
   providers: [AnomalyService],
   exports: [AnomalyService],
 })

@@ -12,8 +12,6 @@ import {
   Query,
   Res,
   UseGuards,
-  createParamDecorator,
-  type ExecutionContext,
 } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
@@ -23,7 +21,9 @@ import { z } from 'zod';
 import { appError, parseInput } from '../common/app-error.js';
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
-import { ADMIN_AUDIENCE, ADMIN_COOKIE, AdminGuard, assertCanEdit, type AdminUser } from './admin.guard.js';
+import { AnomalyModule } from '../anomaly/anomaly.module.js';
+import { ADMIN_AUDIENCE, ADMIN_COOKIE, AdminGuard, CurrentAdmin, assertCanEdit, type AdminUser } from './admin.guard.js';
+import { MonitoringController } from './monitoring.controller.js';
 import { hashPassword, verifyPassword } from './admin-password.js';
 import { POLICY_FIELDS, applyPatch, parsePolicyPatch } from './policy-fields.js';
 
@@ -31,10 +31,6 @@ const ADMIN_PAGE = new URL('./admin-page.html', import.meta.url);
 
 /** 관리자 로그인 유지 시간. 자리를 비웠을 때 오래 열려 있지 않게 짧게 둡니다 */
 const ADMIN_SESSION = '8h';
-
-const CurrentAdmin = createParamDecorator((_data: unknown, context: ExecutionContext): AdminUser => {
-  return context.switchToHttp().getRequest<Request & { admin: AdminUser }>().admin;
-});
 
 const loginBody = z.object({ loginId: z.string().min(1).max(64), password: z.string().min(1).max(200) });
 const publicIdParam = z.string().regex(/^\d{8}$/, '8자리 사용자 ID');
@@ -248,8 +244,8 @@ function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 const DUMMY_HASH = hashPassword('ramupin-dummy-password');
 
 @Module({
-  imports: [JwtModule.register({ secret: env.JWT_SECRET })],
-  controllers: [AdminPageController, AdminAuthController, AdminPolicyController],
+  imports: [JwtModule.register({ secret: env.JWT_SECRET }), AnomalyModule],
+  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, MonitoringController],
   providers: [AdminGuard],
 })
 export class AdminModule {}

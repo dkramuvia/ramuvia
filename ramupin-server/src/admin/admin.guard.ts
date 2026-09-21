@@ -1,4 +1,4 @@
-import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import { Injectable, createParamDecorator, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 
@@ -51,6 +51,11 @@ export class AdminGuard implements CanActivate {
     return true;
   }
 }
+
+/** 컨트롤러에서 로그인한 관리자: `@CurrentAdmin() admin: AdminUser` */
+export const CurrentAdmin = createParamDecorator((_data: unknown, context: ExecutionContext): AdminUser => {
+  return context.switchToHttp().getRequest<Request & { admin: AdminUser }>().admin;
+});
 
 /** 수정 권한 확인. viewer 는 보기만 됩니다 */
 export function assertCanEdit(admin: AdminUser) {

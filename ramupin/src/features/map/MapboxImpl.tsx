@@ -51,23 +51,35 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
   ref,
 ) {
   const camera = useRef<Camera>(null);
+  // 지도가 준비되기 전에 들어온 이동 요청은 준비된 뒤 실행합니다.
+  // 앱이 켜지면 친구들이 다 보이게 맞추는데(fitTo), 그 호출이 지도보다 먼저 와서 그냥 사라졌습니다
+  const ready = useRef(false);
+  const pending = useRef<(() => void) | null>(null);
+  const run = (action: () => void) => {
+    if (ready.current) action();
+    else pending.current = action;
+  };
 
   useImperativeHandle(ref, () => ({
     moveTo: (coordinate, zoomDelta = initialDelta) =>
-      camera.current?.setCamera({
-        centerCoordinate: [coordinate.longitude, coordinate.latitude],
-        zoomLevel: zoomFromDelta(zoomDelta),
-        animationDuration: 400,
-      }),
+      run(() =>
+        camera.current?.setCamera({
+          centerCoordinate: [coordinate.longitude, coordinate.latitude],
+          zoomLevel: zoomFromDelta(zoomDelta),
+          animationDuration: 400,
+        }),
+      ),
     fitTo: (coordinates) => {
       if (coordinates.length === 0) return;
       const lats = coordinates.map((c) => c.latitude);
       const lngs = coordinates.map((c) => c.longitude);
-      camera.current?.fitBounds(
-        [Math.max(...lngs), Math.max(...lats)],
-        [Math.min(...lngs), Math.min(...lats)],
-        [80, 60, 80, 60],
-        400,
+      run(() =>
+        camera.current?.fitBounds(
+          [Math.max(...lngs), Math.max(...lats)],
+          [Math.min(...lngs), Math.min(...lats)],
+          [80, 60, 80, 60],
+          400,
+        ),
       );
     },
   }));
@@ -112,6 +124,11 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
       rotateEnabled={interactive}
       pitchEnabled={interactive}
       onPress={onPress}
+      onDidFinishLoadingMap={() => {
+        ready.current = true;
+        pending.current?.();
+        pending.current = null;
+      }}
       onCameraChanged={
         onCenterChange
           ? (state) => onCenterChange({ latitude: state.properties.center[1], longitude: state.properties.center[0] })

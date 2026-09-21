@@ -149,6 +149,33 @@ export class AnomalyService {
       .execute();
   }
 
+  /**
+   * 모니터링 사이트 상세: 이 사람이 지금 어떤 상태인지.
+   * 전화를 걸지 말지 판단하는 데 필요한 것만 모읍니다 (마지막 위치·배터리·언제부터 그 자리인지).
+   */
+  async userDetail(publicId: string) {
+    const user = await this.db
+      .selectFrom('member.users')
+      .select(['id', 'public_id as publicId', 'nickname', 'plan', 'single_household as singleHousehold', 'last_active_at as lastActiveAt'])
+      .where('public_id', '=', publicId)
+      .executeTakeFirst();
+    if (!user) return null;
+
+    const statuses = await this.location.listStatuses();
+    const status = statuses.find((s) => s.userId === user.id) ?? null;
+
+    // 지난 기록까지 같이 봅니다. "처음인지 늘 그러시는지"로 판단이 갈립니다
+    const events = await this.db
+      .selectFrom('member.anomaly_events')
+      .select(['id', 'track', 'stage', 'target', 'detected_at as detectedAt', 'cleared_at as clearedAt', 'acknowledged_at as acknowledgedAt'])
+      .where('user_id', '=', user.id)
+      .orderBy('detected_at', 'desc')
+      .limit(30)
+      .execute();
+
+    return { user, status, events };
+  }
+
   /** 모니터링 사이트에서 "확인함" 표시 (전화는 사람이 직접 겁니다) */
   async acknowledge(eventId: string) {
     await this.db

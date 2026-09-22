@@ -79,13 +79,18 @@ export class JourneyService {
 
   /** 이 사람이 나에게 이동 경로를 공개했는지 (친구이면서 경로 공유를 켠 경우만) */
   private async canSeeRoute(viewerId: string, targetId: string): Promise<boolean> {
-    const row = await this.db
-      .selectFrom('social.friend_share_settings')
-      .select(['location_level', 'share_route'])
-      .where('owner_id', '=', targetId)
-      .where('friend_id', '=', viewerId)
-      .executeTakeFirst();
-    return !!row && row.location_level !== 'hidden' && row.share_route;
+    const [share, user] = await Promise.all([
+      this.db
+        .selectFrom('social.friend_share_settings')
+        .select(['location_level', 'share_route'])
+        .where('owner_id', '=', targetId)
+        .where('friend_id', '=', viewerId)
+        .executeTakeFirst(),
+      this.db.selectFrom('member.users').select(['hide_all', 'hide_until']).where('id', '=', targetId).executeTakeFirst(),
+    ]);
+    // 숨김 모드를 켜 두었으면 경로 공유와 상관없이 가립니다 (WBS 9.5)
+    if (user?.hide_all && (!user.hide_until || user.hide_until.getTime() > Date.now())) return false;
+    return !!share && share.location_level !== 'hidden' && share.share_route;
   }
 
   /** 좌표에 주소·건물 이름을 붙입니다. 실패해도 여정은 보여 줍니다 */

@@ -27,7 +27,7 @@ const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 export const profileApi = {
   /** 닉네임 중복 확인 (WBS 3.9) */
   async isNicknameAvailable(nickname: string): Promise<boolean> {
-    if (env.useMock) {
+    if (!isLive('me')) {
       const taken = mockFriends.some((f) => f.nickname === nickname);
       return mockResponse(!taken);
     }
@@ -36,7 +36,7 @@ export const profileApi = {
   },
 
   async update(patch: Pick<Partial<User>, 'nickname' | 'avatarUrl' | 'gender' | 'statusMessage'>): Promise<User> {
-    if (env.useMock) {
+    if (!isLive('me')) {
       Object.assign(mockMe, patch);
       return mockResponse(clone(mockMe));
     }
@@ -46,19 +46,19 @@ export const profileApi = {
 
   /** 회원 탈퇴 (WBS 11.2: 전체 삭제, 복구 불가) */
   async withdraw(reason: string): Promise<void> {
-    if (env.useMock) return mockResponse(undefined, 600);
+    if (!isLive('me')) return mockResponse(undefined, 600);
     await apiClient.delete('/me', { data: { reason } });
   },
 };
 
 export const hideModeApi = {
   async get(): Promise<HideModeSetting> {
-    if (env.useMock) return mockResponse(clone(mockHideMode));
+    if (!isLive('me')) return mockResponse(clone(mockHideMode));
     const { data } = await apiClient.get<HideModeSetting>('/me/hide-mode');
     return data;
   },
   async save(setting: HideModeSetting): Promise<void> {
-    if (env.useMock) {
+    if (!isLive('me')) {
       Object.assign(mockHideMode, setting);
       return mockResponse(undefined);
     }

@@ -66,6 +66,8 @@ class FriendsService {
         'u.public_id',
         'u.nickname',
         'u.avatar_url',
+        'u.hide_all',
+        'u.hide_until',
         'mine.location_level as my_level',
         'theirs.location_level as their_level',
         'theirs.show_status as their_show_status',
@@ -76,8 +78,11 @@ class FriendsService {
       .orderBy('u.nickname')
       .execute();
 
-    // 2) 위치 모듈에 "나에게 위치를 공개한 친구"의 현재 위치만 요청
-    const visibleIds = rows.filter((r) => r.their_level && r.their_level !== 'hidden').map((r) => r.id);
+    // 2) 위치 모듈에 "나에게 위치를 공개한 친구"의 현재 위치만 요청.
+    //    숨김 모드를 켠 친구는 아예 묻지 않습니다 (WBS 9.5) — 안 묻는 것이 확실합니다
+    const now = Date.now();
+    const hiding = (r: { hide_all: boolean; hide_until: Date | null }) => r.hide_all && (!r.hide_until || r.hide_until.getTime() > now);
+    const visibleIds = rows.filter((r) => r.their_level && r.their_level !== 'hidden' && !hiding(r)).map((r) => r.id);
     const current = await this.location.getCurrent(visibleIds);
     await this.location.logAccess([...current.keys()], me, 'friend_list');
 

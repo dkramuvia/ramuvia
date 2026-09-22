@@ -149,7 +149,7 @@ export class LocationService {
 
     // 지금 이 사람 지도를 보고 있는 친구에게만 즉시 전달.
     // 아무도 안 보면 Redis 갱신까지만 하고 끝냅니다 — 쓸데없는 네트워크를 만들지 않습니다
-    if (await this.gateway.hasWatchers(userId)) this.gateway.emitLocation(userId, current);
+    if (await this.gateway.hasWatchers(userId)) await this.gateway.emitLocation(userId, current);
   }
 
   /**
@@ -278,6 +278,23 @@ export class LocationService {
       )
       .execute();
     return rows.map(toSnapshot);
+  }
+
+  /**
+   * 탈퇴한 사용자의 위치를 지웁니다 (WBS 11.2).
+   *
+   * 위치 DB 는 본 DB 와 다른 데이터베이스라, 사용자 행을 지워도 따라 지워지지 않습니다.
+   *
+   * `location_access_logs` 는 **지우지 않습니다.** 위치정보 이용·제공 사실 확인자료는
+   * 위치정보법상 보관 의무가 있는 자료입니다 (retention.service.ts 설명 참고).
+   */
+  async deleteUserData(userId: string): Promise<{ points: number }> {
+    const points = await this.db.deleteFrom('location.location_points').where('user_id', '=', userId).executeTakeFirst();
+    await this.db.deleteFrom('location.user_status').where('user_id', '=', userId).execute();
+    await this.redis.del(currentKey(userId));
+    const deleted = Number(points.numDeletedRows ?? 0);
+    this.logger.log(`탈퇴 사용자 위치 삭제: ${deleted}건`);
+    return { points: deleted };
   }
 
   /** 위치정보 이용·제공 사실 확인자료 (위치정보법) */

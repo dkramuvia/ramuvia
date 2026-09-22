@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpStatus, Inject, Module, NotFoundException, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpStatus, Inject, Module, NotFoundException, Patch, Put, Query, UseGuards } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
 
@@ -8,9 +8,21 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { REDIS } from '../redis/redis.module.js';
 import { USER_SUMMARY_COLUMNS, toUserSummary } from './user-summary.js';
 import { resolvePolicy } from '../config/policy.js';
+import { LocationModule } from '../location/location.module.js';
+import { NICKNAME_MAX, ProfileService } from './profile.service.js';
 
 const singleHouseholdBody = z.object({ enabled: z.boolean() });
 const lookupQuery = z.object({ publicId: z.string().regex(/^\d{8}$/) });
+const nicknameQuery = z.object({ nickname: z.string().min(1).max(NICKNAME_MAX) });
+const profileBody = z.object({
+  nickname: z.string().min(1).max(NICKNAME_MAX).optional(),
+  avatarUrl: z.string().max(500).nullish(),
+  gender: z.enum(['male', 'female']).nullish(),
+  statusMessage: z.string().max(100).nullish(),
+});
+const hideModeBody = z.object({ hideAll: z.boolean(), until: z.iso.datetime().nullish() });
+// 탈퇴 사유는 비워 둘 수 있습니다. 이유를 꼭 적게 하면 그냥 아무 글자나 넣습니다
+const withdrawBody = z.object({ reason: z.string().max(500).default('') });
 
 /** 8자리 ID 를 차례로 넣어 가입자를 훑어보지 못하게 분당 조회 수 제한 */
 const LOOKUP_PER_MINUTE = 20;
@@ -18,7 +30,10 @@ const LOOKUP_PER_MINUTE = 20;
 @Controller('me')
 @UseGuards(AuthGuard)
 class MeController {
-  constructor(@Inject(MAIN_DB) private readonly db: MainDb) {}
+  constructor(
+    @Inject(MAIN_DB) private readonly db: MainDb,
+    private readonly profile: ProfileService,
+  ) {}
 
   @Get()
   async me(@CurrentUser() user: AuthUser) {
@@ -47,6 +62,32 @@ class MeController {
     return resolvePolicy(this.db, user.id);
   }
 
+  /** 프로필 수정 (WBS 3.9) */
+  @Patch()
+  update(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const input = parseInput(profileBody, body);
+    return this.profile.update(user.id, input);
+  }
+
+  /** 회원 탈퇴 (WBS 11.2: 전체 삭제, 복구 불가) */
+  @Delete()
+  withdraw(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const { reason } = parseInput(withdrawBody, body ?? {});
+    return this.profile.withdraw(user.id, reason);
+  }
+
+  /** 숨김 모드 (WBS 9.5) */
+  @Get('hide-mode')
+  hideMode(@CurrentUser() user: AuthUser) {
+    return this.profile.getHideMode(user.id);
+  }
+
+  @Put('hide-mode')
+  setHideMode(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const input = parseInput(hideModeBody, body);
+    return this.profile.setHideMode(user.id, { hideAll: input.hideAll, until: input.until ?? null });
+  }
+
   /** 1인 가구 모드 켜기/끄기 (첫 친구 수락 후 해제 안내에서 사용) */
   @Put('single-household')
   async setSingleHousehold(@CurrentUser() user: AuthUser, @Body() body: unknown) {
@@ -62,7 +103,15 @@ class UsersController {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     @Inject(REDIS) private readonly redis: Redis,
+    private readonly profile: ProfileService,
   ) {}
+
+  /** 닉네임 중복 확인 (WBS 3.9) */
+  @Get('nickname-availability')
+  async nicknameAvailability(@CurrentUser() user: AuthUser, @Query() query: unknown) {
+    const { nickname } = parseInput(nicknameQuery, query);
+    return { available: await this.profile.isNicknameAvailable(user.id, nickname) };
+  }
 
   /**
    * 8자리 ID(친구 추가 ID 입력·QR)로 사용자 찾기 → 사용자 요약 + 나와의 관계
@@ -113,5 +162,11 @@ class UsersController {
   }
 }
 
-@Module({ controllers: [MeController, UsersController] })
+@Module({
+  // 탈퇴할 때 위치 DB 의 자료도 지워야 합니다 (다른 데이터베이스라 따라 지워지지 않습니다)
+  imports: [LocationModule],
+  controllers: [MeController, UsersController],
+  providers: [ProfileService],
+  exports: [ProfileService],
+})
 export class UsersModule {}

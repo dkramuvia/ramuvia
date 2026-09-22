@@ -23,6 +23,8 @@ import { WatchRegistry } from './watch.registry.js';
 
 /** 보는 사람이 살아 있다고 알리는 주기. 폰 쪽 만료(3분)보다 넉넉히 짧아야 합니다 */
 const HEARTBEAT_MS = 60_000;
+/** 숨김 여부를 다시 확인하기까지의 시간 */
+const HIDE_CACHE_MS = 30_000;
 
 @Injectable()
 @WebSocketGateway({ cors: { origin: '*' }, path: '/ws' })
@@ -35,6 +37,8 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
   /** 이 서버에서 마지막으로 알린 값. 같은 말을 반복해서 보내지 않기 위한 것뿐입니다 */
   private readonly watchMode = new Map<string, boolean>();
   private heartbeat: NodeJS.Timeout | null = null;
+  /** 숨김 여부를 잠깐 기억해 둡니다. 위치는 1분에 한 번 올라오므로 매번 DB 를 읽을 이유가 없습니다 */
+  private readonly hideCache = new Map<string, { hidden: boolean; at: number }>();
 
   constructor(
     private readonly jwt: JwtService,
@@ -155,9 +159,30 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
     return rows.map((r) => r.friend_id);
   }
 
-  /** 보고 있는 사람에게만 위치를 즉시 전달. 아무도 안 보면 Redis 갱신만 하고 끝냅니다 */
-  emitLocation(userId: string, location: unknown) {
+  /**
+   * 보고 있는 사람에게만 위치를 즉시 전달. 아무도 안 보면 Redis 갱신만 하고 끝냅니다.
+   *
+   * 숨김 모드(WBS 9.5)인 사람의 위치는 보내지 않습니다. 보는 사람이 있을 때만 확인하므로
+   * 평소에는 DB 를 읽지 않고, 확인한 결과는 잠깐 기억해 둡니다.
+   */
+  async emitLocation(userId: string, location: unknown) {
+    if (await this.isHidden(userId)) return;
     this.server?.to(watchRoom(userId)).emit('friend-location', { userId, location });
+  }
+
+  /**
+   * 지금 위치를 숨기고 있는지. 숨김을 켠 직후 최대 {@link HIDE_CACHE_MS} 동안은
+   * 예전 값이 쓰일 수 있어, 그 사이 한두 건이 더 갈 수 있습니다.
+   * 친구 목록과 이동 기록은 DB 를 그대로 읽으므로 그쪽은 바로 반영됩니다.
+   */
+  private async isHidden(userId: string): Promise<boolean> {
+    const cached = this.hideCache.get(userId);
+    if (cached && cached.at > Date.now() - HIDE_CACHE_MS) return cached.hidden;
+
+    const row = await this.db.selectFrom('member.users').select(['hide_all', 'hide_until']).where('id', '=', userId).executeTakeFirst();
+    const hidden = !!row?.hide_all && (!row.hide_until || row.hide_until.getTime() > Date.now());
+    this.hideCache.set(userId, { hidden, at: Date.now() });
+    return hidden;
   }
 
   /**

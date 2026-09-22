@@ -19,6 +19,10 @@ export interface UsersTable {
   plan: Generated<string>;
   single_household: Generated<boolean>;
   status: Generated<'active' | 'suspended' | 'withdrawn'>;
+  /** 숨김 모드: 지금은 아무에게도 내 위치를 보이지 않기 (WBS 9.5) */
+  hide_all: Generated<boolean>;
+  /** 숨김이 저절로 풀리는 시각. 없으면 직접 끌 때까지 */
+  hide_until: Date | null;
   last_active_at: Date | null;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -291,6 +295,15 @@ export interface AnomalyEventsTable {
   acknowledged_at: Date | null;
 }
 
+/** 탈퇴 사유. 사용자 행은 지우므로 사유만 남깁니다 (누가 썼는지는 남기지 않습니다) */
+export interface WithdrawalReasonsTable {
+  id: Generated<string>;
+  reason: string;
+  plan: string;
+  used_days: number;
+  created_at: Generated<Date>;
+}
+
 /** 안심장소(지오펜스) (WBS 8.8, 9.4) */
 export interface SafeZonesTable {
   id: Generated<string>;
@@ -363,6 +376,7 @@ export interface MainDatabase {
   'config.policy_audit': PolicyAuditTable;
   'member.anomaly_events': AnomalyEventsTable;
   'member.push_tokens': PushTokensTable;
+  'member.withdrawal_reasons': WithdrawalReasonsTable;
   'member.safe_zones': SafeZonesTable;
   'member.safe_zone_recipients': SafeZoneRecipientsTable;
   'member.safe_zone_events': SafeZoneEventsTable;

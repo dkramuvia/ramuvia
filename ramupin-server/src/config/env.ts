@@ -37,6 +37,13 @@ const schema = z.object({
   STORAGE_SECRET_KEY: z.string().default(''),
   /** 앱이 파일을 주고받을 때 쓸 주소. 비우면 STORAGE_ENDPOINT 를 씁니다 */
   STORAGE_PUBLIC_URL: z.string().default(''),
+  /**
+   * 위치 이력 보관 개월 수 (WBS 4.3: 6개월).
+   *
+   * 법무 확인 결과에 따라 바뀔 수 있어 환경변수로 뺍니다. 코드를 고치지 않고 조정합니다.
+   * 0 이면 파기 배치를 돌리지 않습니다 (개발 중 실수로 지우지 않도록).
+   */
+  LOCATION_KEEP_MONTHS: z.coerce.number().int().min(0).max(120).default(6),
   PHONE_ENC_KEY: z.string().min(40),
   PHONE_HASH_KEY: z.string().min(40),
   DEV_LOGIN_ENABLED: z

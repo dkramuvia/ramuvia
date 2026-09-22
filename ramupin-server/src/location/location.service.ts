@@ -73,7 +73,7 @@ const currentKey = (userId: string) => `loc:current:${userId}`;
  *   (위치 DB 를 다른 서버로 옮겨도 이 파일 밖은 바뀌지 않게)
  */
 @Injectable()
-export class LocationService implements OnModuleInit {
+export class LocationService {
   private readonly logger = new Logger(LocationService.name);
 
   constructor(
@@ -81,11 +81,6 @@ export class LocationService implements OnModuleInit {
     @Inject(REDIS) private readonly redis: Redis,
     private readonly gateway: ChatGateway,
   ) {}
-
-  async onModuleInit() {
-    // 이번 달·다음 달 파티션 준비. TODO(6단계): worker 배치로 매일 실행 + 6개월 지난 파티션 삭제
-    await sql`SELECT location.ensure_month_partition(now()::date), location.ensure_month_partition((now() + interval '1 month')::date)`.execute(this.db);
-  }
 
   /**
    * 앱이 모아서 보낸 위치 저장.

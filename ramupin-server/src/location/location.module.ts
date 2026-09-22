@@ -10,6 +10,7 @@ import type { LocationDatabase } from './location.schema.js';
 import { LocationQueue } from './location.queue.js';
 import { LOCATION_DB, LocationService } from './location.service.js';
 import { LocationWorker } from './location.worker.js';
+import { RetentionService } from './retention.service.js';
 
 const pointSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -71,6 +72,7 @@ class LocationController {
     LocationService,
     LocationQueue,
     LocationWorker,
+    RetentionService,
   ],
   exports: [LocationService],
 })

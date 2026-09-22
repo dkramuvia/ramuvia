@@ -7,7 +7,9 @@ import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
 import { env } from '../config/env.js';
 import type { LocationDatabase } from './location.schema.js';
+import { LocationQueue } from './location.queue.js';
 import { LOCATION_DB, LocationService } from './location.service.js';
+import { LocationWorker } from './location.worker.js';
 
 const pointSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -33,14 +35,23 @@ const uploadBody = z.object({ points: z.array(pointSchema).min(1).max(500) });
 @Controller('locations')
 @UseGuards(AuthGuard)
 class LocationController {
-  constructor(private readonly location: LocationService) {}
+  constructor(
+    private readonly location: LocationService,
+    private readonly queue: LocationQueue,
+  ) {}
 
   /** 앱 → 서버 위치 전송 (배치) */
   @Post()
   async upload(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const parsed = uploadBody.safeParse(body);
     if (!parsed.success) throw new BadRequestException(z.prettifyError(parsed.error));
-    return this.location.savePoints(user.id, parsed.data.points);
+    const points = parsed.data.points;
+
+    // 현재 위치와 실시간 전달은 지금(메모리 작업), 이력 저장은 큐로 (GPS 보고서 4장).
+    // DB 를 기다리지 않으므로 순간적으로 몰려도 앱 응답이 느려지지 않습니다
+    await this.location.updateCurrent(user.id, points);
+    await this.queue.enqueue(user.id, points);
+    return { received: points.length, queued: true };
   }
 }
 
@@ -58,6 +69,8 @@ class LocationController {
         }),
     },
     LocationService,
+    LocationQueue,
+    LocationWorker,
   ],
   exports: [LocationService],
 })

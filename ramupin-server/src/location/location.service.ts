@@ -76,10 +76,10 @@ export class LocationService implements OnModuleInit {
 
   /**
    * 앱이 모아서 보낸 위치 저장.
-   * TODO(6단계): 바로 DB 에 쓰지 않고 큐(Redis Stream → 나중에 SQS)에 넣고 worker 가 묶어서 저장 (GPS 보고서 4장)
+   * 이 메서드는 **워커가 부릅니다.** 앱 요청은 큐에 넣고 바로 응답합니다 (location.queue.ts).
    */
   async savePoints(userId: string, points: LocationPointInput[]) {
-    if (points.length === 0) return { saved: 0 };
+    if (points.length === 0) return { received: 0, saved: 0 };
     const sorted = [...points].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
 
     const results = await this.db
@@ -109,7 +109,22 @@ export class LocationService implements OnModuleInit {
       .onConflict((oc) => oc.columns(['user_id', 'measured_at']).doNothing())
       .execute();
 
-    const latest = sorted[sorted.length - 1];
+    await this.updateStatus(userId, sorted[sorted.length - 1]);
+
+    const saved = results.reduce((sum, r) => sum + Number(r.numInsertedOrUpdatedRows ?? 0), 0);
+    return { received: sorted.length, saved };
+  }
+
+  /**
+   * 받자마자 해야 하는 것 (GPS 보고서 4-2, 4-3).
+   *
+   * 현재 위치는 Redis 에 바로 덮어쓰고, 보고 있는 친구에게 바로 전달합니다.
+   * 이건 메모리 작업이라 빠르고, 늦추면 "실시간 위치"가 아니게 됩니다.
+   * 반대로 이력 저장(location_points)은 몇 초 늦어도 아무도 모르므로 큐로 넘깁니다.
+   */
+  async updateCurrent(userId: string, points: LocationPointInput[]): Promise<void> {
+    if (points.length === 0) return;
+    const latest = [...points].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt))[points.length - 1];
     const current: CurrentLocation = {
       latitude: latest.latitude,
       longitude: latest.longitude,
@@ -123,14 +138,10 @@ export class LocationService implements OnModuleInit {
     if (!prev || (JSON.parse(prev) as CurrentLocation).measuredAt <= current.measuredAt) {
       await this.redis.set(currentKey(userId), JSON.stringify(current));
     }
-    await this.updateStatus(userId, latest);
 
-    // 지금 이 사람 지도를 보고 있는 친구에게만 즉시 전달 (GPS 보고서 4-3).
+    // 지금 이 사람 지도를 보고 있는 친구에게만 즉시 전달.
     // 아무도 안 보면 Redis 갱신까지만 하고 끝냅니다 — 쓸데없는 네트워크를 만들지 않습니다
     if (this.gateway.hasWatchers(userId)) this.gateway.emitLocation(userId, current);
-
-    const saved = results.reduce((sum, r) => sum + Number(r.numInsertedOrUpdatedRows ?? 0), 0);
-    return { received: sorted.length, saved };
   }
 
   /**

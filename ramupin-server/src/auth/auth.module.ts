@@ -13,9 +13,11 @@ import {
   NotFoundException,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { parseInput } from '../common/app-error.js';
@@ -46,6 +48,16 @@ const deviceSchema = z.object({
 const devLoginBody = z.object({ publicId: z.string().min(1), device: deviceSchema });
 const kakaoLoginBody = z.object({ accessToken: z.string().min(10).max(500), device: deviceSchema });
 // X 는 토큰이 아니라 인가 코드를 받습니다. 토큰 교환은 서버가 직접 합니다 (x.service.ts 설명 참고)
+/** 앱을 여는 주소. app.json 의 scheme 과 같아야 합니다 */
+const APP_SCHEME = 'ramupin';
+
+const naverCallbackQuery = z.object({
+  code: z.string().max(500).optional(),
+  state: z.string().max(200).optional(),
+  error: z.string().max(100).optional(),
+  error_description: z.string().max(300).optional(),
+});
+
 // 네이버는 PKCE 대신 state 로 흐름을 맞춥니다 (앱이 만든 임의 값이 그대로 돌아왔는지 앱에서 확인)
 const naverLoginBody = z.object({
   code: z.string().min(1).max(500),
@@ -145,6 +157,26 @@ class AuthController {
   async kakaoLogin(@Body() body: unknown): Promise<LoginResult> {
     const { accessToken, device } = parseInput(kakaoLoginBody, body);
     return this.continueWith('kakao', await this.kakao.verify(accessToken), device);
+  }
+
+  /**
+   * 네이버가 로그인을 마치고 돌아오는 자리.
+   *
+   * **왜 이 중간 단계가 필요한가**: 카카오·X·구글은 `ramupin://` 같은 앱 주소로 바로
+   * 돌려보낼 수 있는데, **네이버는 http(s) 주소만 콜백으로 받습니다.** 그래서 네이버는
+   * 여기로 보내고, 여기서 앱으로 넘깁니다. 하는 일은 넘겨받은 값을 그대로 전달하는 것뿐입니다.
+   *
+   * 로그인 자체와는 무관하므로 토큰도 비밀값도 여기서는 다루지 않습니다.
+   * 실제 확인은 앱이 이어서 부르는 `POST /auth/naver` 에서 합니다.
+   */
+  @Get('naver/callback')
+  naverCallback(@Query() query: unknown, @Res() res: Response) {
+    const { code, state, error, error_description: detail } = parseInput(naverCallbackQuery, query);
+    // 값은 전부 붙여 넣기 전에 인코딩합니다. 주소에 그대로 끼워 넣으면 안 됩니다
+    const params = new URLSearchParams(
+      code && state ? { code, state } : { error: error ?? 'NAVER_FAILED', ...(detail ? { error_description: detail } : {}) },
+    );
+    res.redirect(`${APP_SCHEME}://naver-auth?${params.toString()}`);
   }
 
   /**

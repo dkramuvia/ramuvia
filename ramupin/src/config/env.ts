@@ -33,6 +33,15 @@ export const env = {
     googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '',
     /** 네이버 로그인 Client ID. 지도 키와 다른 앱입니다 (Secret 은 서버에만) */
     naverClientId: process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID ?? '',
+    /**
+     * 네이버가 로그인을 마치고 돌아올 주소.
+     *
+     * 네이버는 `ramupin://` 같은 앱 주소를 받지 않아 우리 서버로 먼저 보냅니다.
+     * **네이버 개발자센터에 등록한 것과 글자 하나까지 같아야** 합니다.
+     * 비워 두면 API 주소 뒤에 붙여 쓰지만, 개발 중에는 대개 따로 적어야 합니다
+     * (네이버가 127.0.0.1 을 받지 않아 localhost 로 등록하게 되기 때문).
+     */
+    naverCallbackUrl: process.env.EXPO_PUBLIC_NAVER_CALLBACK_URL ?? '',
     facebookAppId: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? '',
     xClientId: process.env.EXPO_PUBLIC_X_CLIENT_ID ?? '',
   },

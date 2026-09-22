@@ -1,4 +1,6 @@
 import * as AuthSession from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
+import * as WebBrowser from 'expo-web-browser';
 
 import { env } from '@/config/env';
 
@@ -59,31 +61,64 @@ export function signInWithX(): Promise<CodeAuthResult> {
 
 /* ─── 네이버 ────────────────────────────────────────────────────── */
 
-const NAVER_DISCOVERY: AuthSession.DiscoveryDocument = {
-  authorizationEndpoint: 'https://nid.naver.com/oauth2.0/authorize',
-  tokenEndpoint: 'https://nid.naver.com/oauth2.0/token',
-};
+const NAVER_AUTHORIZE = 'https://nid.naver.com/oauth2.0/authorize';
 
-/** 네이버 개발자센터 > 애플리케이션 > API 설정 > 서비스 URL·Callback URL 에 등록 */
-export const NAVER_REDIRECT_URI = AuthSession.makeRedirectUri({ scheme: 'ramupin', path: 'naver-auth' });
+/**
+ * 네이버가 로그인을 마치고 돌아올 주소.
+ *
+ * **다른 소셜과 다릅니다.** 네이버는 `ramupin://` 같은 앱 주소를 콜백으로 받지 않고
+ * **http(s) 주소만** 받습니다. 그래서 우리 서버로 먼저 보내고, 서버가 앱으로 넘겨 줍니다
+ * (서버 auth.module.ts 의 `GET /auth/naver/callback`).
+ *
+ * 네이버 개발자센터 > API 설정 > Callback URL 에 **이 주소를 그대로** 등록해야 합니다.
+ */
+export const NAVER_REDIRECT_URI = env.auth.naverCallbackUrl || `${env.apiBaseUrl}/auth/naver/callback`;
+
+/** 서버가 앱으로 넘길 때 쓰는 주소 */
+const NAVER_APP_RETURN = AuthSession.makeRedirectUri({ scheme: 'ramupin', path: 'naver-auth' });
 
 /**
  * 네이버 로그인.
  *
  * 노인 무료 등급을 판단할 **출생연도**를 받아 오는 것이 이 로그인의 핵심입니다 (WBS 3.6).
  * 네이버 개발자센터에서 "출생연도" 를 **필수 동의 항목**으로 켜 두어야 실제로 옵니다.
+ *
+ * 다른 소셜처럼 expo-auth-session 에 맡기지 못합니다. 네이버에 알려 줄 주소(우리 서버)와
+ * 앱이 돌아오기를 기다릴 주소(`ramupin://naver-auth`)가 서로 다르기 때문입니다.
  */
-export function signInWithNaver(): Promise<CodeAuthResult> {
+export async function signInWithNaver(): Promise<CodeAuthResult> {
   if (!env.auth.naverClientId) throw new Error('EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID 가 없습니다');
-  return promptForCode({
-    label: 'naver',
-    discovery: NAVER_DISCOVERY,
-    clientId: env.auth.naverClientId,
-    redirectUri: NAVER_REDIRECT_URI,
-    scopes: [],
-    // 네이버는 PKCE 를 지원하지 않습니다. 대신 state 로 확인합니다
-    usePKCE: false,
-  });
+  if (!NAVER_REDIRECT_URI) throw new Error('EXPO_PUBLIC_NAVER_CALLBACK_URL 이 없습니다');
+
+  // 내가 시작한 로그인이 맞는지 확인할 임의의 값. 돌아온 것과 같아야 합니다
+  const state = Crypto.randomUUID();
+  const authUrl =
+    `${NAVER_AUTHORIZE}?` +
+    new URLSearchParams({
+      response_type: 'code',
+      client_id: env.auth.naverClientId,
+      redirect_uri: NAVER_REDIRECT_URI,
+      state,
+    }).toString();
+
+  if (__DEV__) {
+    console.log('[naver] redirectUri =', NAVER_REDIRECT_URI);
+    console.log('[naver] authUrl =', authUrl);
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, NAVER_APP_RETURN);
+  if (result.type !== 'success') throw new SocialAuthCancelled();
+
+  const params = new URL(result.url).searchParams;
+  const error = params.get('error');
+  if (error) throw new Error(`네이버 로그인 오류: ${error}`);
+  if (params.get('state') !== state) throw new Error('네이버 로그인 응답이 올바르지 않습니다');
+
+  const code = params.get('code');
+  if (!code) throw new Error('네이버 로그인에 실패했습니다');
+
+  // 서버가 토큰으로 바꿀 때 네이버에 알려 준 주소와 **똑같이** 보내야 합니다
+  return { code, state, redirectUri: NAVER_REDIRECT_URI };
 }
 
 /* ─── 구글 ──────────────────────────────────────────────────────── */

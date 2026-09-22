@@ -163,7 +163,7 @@ export const historyApi = {
       return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     };
 
-    if (env.useMock) {
+    if (!isLive('me')) {
       return mockResponse(merge(mockHistory.filter((e) => !category || e.category === category)));
     }
     try {
@@ -178,7 +178,7 @@ export const historyApi = {
 
   /** 하루 여정. 친구의 이동 경로 공유가 꺼져 있으면 서버가 null (기획: '최근 여정' 미표시) */
   async journey(userId: string): Promise<JourneyDay | null> {
-    if (env.useMock) {
+    if (!isLive('location')) {
       if (isMeId(userId)) return mockResponse(mockJourney(userId, mockMe.batteryLevel));
       const friend = mockFriends.find((f) => f.id === userId);
       // 목업: caramel001(f5)은 이동 경로를 공개하지 않은 친구로 가정

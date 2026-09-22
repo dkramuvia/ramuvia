@@ -219,6 +219,23 @@ export class LocationService {
     return result;
   }
 
+  /**
+   * 하루치 위치 (이동 기록 화면, WBS 4.5).
+   *
+   * 하루 최대 1,800건이라 그대로 읽어도 되지만, 화면에 필요한 것은 좌표와 시각뿐이라
+   * 그 세 칸만 가져옵니다. 배터리·위성 같은 것까지 끌어오면 전송량이 몇 배가 됩니다.
+   */
+  async dayPoints(userId: string, from: Date, to: Date) {
+    return this.db
+      .selectFrom('location.location_points')
+      .select(['latitude', 'longitude', 'measured_at'])
+      .where('user_id', '=', userId)
+      .where('measured_at', '>=', from)
+      .where('measured_at', '<', to)
+      .orderBy('measured_at')
+      .execute();
+  }
+
   /** 한 사람의 마지막 상태 (모니터링 상세 화면) */
   async getStatus(userId: string): Promise<UserStatusSnapshot | null> {
     const row = await this.db.selectFrom('location.user_status').selectAll().where('user_id', '=', userId).executeTakeFirst();

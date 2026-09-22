@@ -27,9 +27,9 @@ export const mockSafety: SafetySetting = {
 };
 
 export const mockGeofences: Geofence[] = [
-  { id: 'g1', name: '우리 집', address: '서울특별시 금천구 가산디지털2로 169-23', center: { latitude: 37.4786, longitude: 126.8776 }, radiusM: 150, enabled: true },
-  { id: 'g2', name: '직장', address: '서울특별시 강남구 영동대로 513', center: { latitude: 37.5116, longitude: 127.0595 }, radiusM: 200, enabled: true },
-  { id: 'g3', name: '부모님 댁', address: '경기도 오산시 가수동 390-12', center: { latitude: 37.1498, longitude: 127.0772 }, radiusM: 150, enabled: false },
+  { id: 'g1', name: '우리 집', address: '서울특별시 금천구 가산디지털2로 169-23', center: { latitude: 37.4786, longitude: 126.8776 }, radiusM: 150, enabled: true, recipientFriendIds: ['f2'] },
+  { id: 'g2', name: '직장', address: '서울특별시 강남구 영동대로 513', center: { latitude: 37.5116, longitude: 127.0595 }, radiusM: 200, enabled: true, recipientFriendIds: [] },
+  { id: 'g3', name: '부모님 댁', address: '경기도 오산시 가수동 390-12', center: { latitude: 37.1498, longitude: 127.0772 }, radiusM: 150, enabled: false, recipientFriendIds: [] },
 ];
 
 export const mockScheduledMessages: ScheduledMessage[] = [

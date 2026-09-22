@@ -79,7 +79,10 @@ export interface StateInput {
   lowBatteryPercent?: number;
   /** SOS 진행 중 (TODO: SOS 화면에서 켜 주기) */
   sos?: boolean;
-  /** 안심 장소 반경 근처 (TODO: 지오펜스 붙일 때) */
+  /**
+   * 안심 장소 반경 근처 (geofenceSnapshot.ts).
+   * 들어갔다·나갔다 판정은 서버가 합니다. 폰은 경계를 넘은 시각이 정확해지도록 촘촘하게 모읍니다
+   */
   nearGeofence?: boolean;
   /** 지금 누가 내 위치를 보고 있음 (서버가 소켓으로 알려 줍니다) */
   watched?: boolean;

@@ -291,6 +291,41 @@ export interface AnomalyEventsTable {
   acknowledged_at: Date | null;
 }
 
+/** 안심장소(지오펜스) (WBS 8.8, 9.4) */
+export interface SafeZonesTable {
+  id: Generated<string>;
+  user_id: string;
+  name: string;
+  address: Generated<string>;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+  enabled: Generated<boolean>;
+  /** 지금 이 안에 있는지. 진입·이탈은 달라졌을 때만 알립니다 */
+  inside: Generated<boolean>;
+  inside_since: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/** 이 장소를 드나들 때 알림을 받을 친구 */
+export interface SafeZoneRecipientsTable {
+  zone_id: string;
+  friend_id: string;
+}
+
+/** 진입·이탈 기록 (알림을 보낸 근거) */
+export interface SafeZoneEventsTable {
+  id: Generated<string>;
+  zone_id: string;
+  user_id: string;
+  kind: 'enter' | 'leave';
+  occurred_at: Date;
+  latitude: number;
+  longitude: number;
+  created_at: Generated<Date>;
+}
+
 /** 푸시 알림 토큰 (WBS 6단계) */
 export interface PushTokensTable {
   token: string;
@@ -328,4 +363,7 @@ export interface MainDatabase {
   'config.policy_audit': PolicyAuditTable;
   'member.anomaly_events': AnomalyEventsTable;
   'member.push_tokens': PushTokensTable;
+  'member.safe_zones': SafeZonesTable;
+  'member.safe_zone_recipients': SafeZoneRecipientsTable;
+  'member.safe_zone_events': SafeZoneEventsTable;
 }

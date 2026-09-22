@@ -451,7 +451,10 @@
     "save": "수정 저장",
     "addedTitle": "{{name}} 추가됨",
     "addedMessage": "{{address}},\n'{{name}}'(으)로 추가됨",
-    "empty": "등록된 안심존이 없어요."
+    "empty": "등록된 안심존이 없어요.",
+    "alertFriends": "알림 받을 친구",
+    "alertFriendsNone": "아무도 고르지 않으면 알림을 보내지 않아요",
+    "alertNotAllowed": "지금 요금제에서는 진입·이탈 알림을 쓸 수 없어요"
   },
   "safety": {
     "sosEnabled": "SOS 사용 설정",

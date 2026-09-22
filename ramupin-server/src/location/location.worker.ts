@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 
+import { SafeZoneService } from '../safe-zones/safe-zone.service.js';
 import { LocationQueue } from './location.queue.js';
 import { LocationService } from './location.service.js';
 
@@ -27,6 +28,7 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
   constructor(
     private readonly queue: LocationQueue,
     private readonly location: LocationService,
+    private readonly zones: SafeZoneService,
   ) {}
 
   onModuleInit() {
@@ -53,6 +55,9 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
         for (const batch of batches) {
           try {
             await this.location.savePoints(batch.userId, batch.points);
+            // 안심장소를 드나들었는지 (WBS 9.4). 판정이 실패해도 저장은 끝난 뒤라
+            // 이 건을 다시 처리하지 않습니다 — check() 는 예외를 밖으로 내지 않습니다
+            await this.checkSafeZones(batch.userId, batch.points);
             done.push(batch.messageId);
           } catch (error) {
             // 이 건만 ack 하지 않습니다. 큐에 남아 있다가 다시 시도됩니다
@@ -67,6 +72,24 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
       }
     }
     this.logger.log('위치 저장 워커 종료');
+  }
+
+  /**
+   * 이 묶음의 **마지막 위치**로만 판정합니다.
+   *
+   * 한 묶음에 1분치(정지 1건, 이동 4건)가 들어 있는데, 그 사이에 들어갔다 나온 경우까지
+   * 모두 잡으려면 점마다 판정해야 합니다. 다만 안심장소는 보통 반경 100m 이상이라
+   * 1분 안에 들어갔다 나오는 일은 드물고, 매 점마다 보면 DB 쓰기가 5배가 됩니다.
+   * 진입·이탈을 놓치지 않는 건 폰 쪽 5초 수집이 맡습니다 (GPS 보고서 2-1 2번).
+   */
+  private async checkSafeZones(userId: string, points: { latitude: number; longitude: number; accuracy?: number | null; measuredAt: string }[]) {
+    const latest = points.reduce((a, b) => (a.measuredAt >= b.measuredAt ? a : b));
+    await this.zones.check(userId, {
+      latitude: latest.latitude,
+      longitude: latest.longitude,
+      accuracy: latest.accuracy ?? null,
+      measuredAt: new Date(latest.measuredAt),
+    });
   }
 }
 

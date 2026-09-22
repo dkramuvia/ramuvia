@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Button, ChipTabs, Popup, TextField } from '@/components/ui';
@@ -11,6 +11,8 @@ import { useAreaName } from '@/features/location/useAreaName';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle } from '@/features/map/AppMapView';
 import { PlacePin } from '@/features/map/PlacePin';
+import { useFriends } from '@/features/friends/queries';
+import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useSaveGeofence } from '@/features/settings/queries';
 import { colors, layout, radius, typography } from '@/theme';
 import type { LatLng } from '@/types/models';
@@ -34,6 +36,10 @@ export default function GeofenceEditScreen() {
   const save = useSaveGeofence();
   const mapRef = useRef<AppMapViewHandle>(null);
   const { location } = useMyLocation();
+  const { data: friends = [] } = useFriends();
+  const { limit } = usePlan();
+  // 0 이면 이 등급에서는 진입·이탈 알림을 쓸 수 없습니다 (서버도 같은 값으로 막습니다)
+  const alertLimit = limit('geofenceAlertLimit');
 
   const [center, setCenter] = useState<LatLng | null>(existing?.center ?? null);
   const [address, setAddress] = useState('');
@@ -41,6 +47,7 @@ export default function GeofenceEditScreen() {
   const [radiusM, setRadiusM] = useState<(typeof RADII)[number]>(String(existing?.radiusM ?? 100) as (typeof RADII)[number]);
   const [query, setQuery] = useState('');
   const [added, setAdded] = useState<{ name: string; address: string } | null>(null);
+  const [alertFriendIds, setAlertFriendIds] = useState<string[]>(existing?.recipientFriendIds ?? []);
   const areaName = useAreaName(center);
 
   // 새로 등록할 때는 내 위치에서 시작
@@ -72,10 +79,30 @@ export default function GeofenceEditScreen() {
     setCenter(found);
   };
 
+  const toggleAlertFriend = (friendId: string) => {
+    if (alertFriendIds.includes(friendId)) {
+      setAlertFriendIds(alertFriendIds.filter((id) => id !== friendId));
+      return;
+    }
+    if (alertFriendIds.length >= alertLimit) {
+      showToast(alertLimit === 0 ? t('geofence.alertNotAllowed') : t('safety.limit', { limit: alertLimit }));
+      return;
+    }
+    setAlertFriendIds([...alertFriendIds, friendId]);
+  };
+
   const onSave = () => {
     if (!center) return;
     save.mutate(
-      { id: existing?.id, name: name.trim(), address, center, radiusM: Number(radiusM), enabled: existing?.enabled ?? true },
+      {
+        id: existing?.id,
+        name: name.trim(),
+        address,
+        center,
+        radiusM: Number(radiusM),
+        enabled: existing?.enabled ?? true,
+        recipientFriendIds: alertFriendIds,
+      },
       { onSuccess: () => setAdded({ name: name.trim(), address }) },
     );
   };
@@ -140,6 +167,36 @@ export default function GeofenceEditScreen() {
             <ChipTabs tone="dark" value={radiusM} onChange={setRadiusM} options={RADII.map((r) => ({ value: r, label: `${r}m` }))} />
           </View>
         </View>
+        {alertLimit > 0 && friends.length > 0 ? (
+          <View style={styles.alertBlock}>
+            <AppText variant="label1" color={colors.textSecondary}>
+              {t('geofence.alertFriends')}
+            </AppText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRow}>
+              {friends.map((friend) => {
+                const picked = alertFriendIds.includes(friend.id);
+                return (
+                  <Pressable
+                    key={friend.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: picked }}
+                    onPress={() => toggleAlertFriend(friend.id)}
+                    style={[styles.friendChip, picked && styles.friendChipOn]}
+                  >
+                    <AppText variant="label2" color={picked ? colors.white : colors.textSecondary}>
+                      {friend.nickname}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            {alertFriendIds.length === 0 ? (
+              <AppText variant="caption" color={colors.textTertiary}>
+                {t('geofence.alertFriendsNone')}
+              </AppText>
+            ) : null}
+          </View>
+        ) : null}
         <Button
           label={t(existing ? 'geofence.save' : 'geofence.register')}
           variant="brownLight"
@@ -196,6 +253,15 @@ const styles = StyleSheet.create({
   },
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginTop: 12 },
   addressBlock: { gap: 6 },
+  alertBlock: { gap: 8 },
+  friendRow: { gap: 8, paddingRight: 4 },
+  friendChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceStrong,
+  },
+  friendChipOn: { backgroundColor: colors.brown },
   radiusRow: { flexDirection: 'row', alignItems: 'center' },
   radiusChips: { backgroundColor: colors.surfaceStrong, borderRadius: radius.full },
 });

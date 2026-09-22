@@ -179,6 +179,10 @@ export interface Geofence {
   center: LatLng;
   radiusM: number;
   enabled: boolean;
+  /** 드나들 때 알림을 받을 친구 (등급별 인원 제한: geofenceAlertLimit) */
+  recipientFriendIds: string[];
+  /** 서버가 판단한 "지금 이 안에 있는지" */
+  inside?: boolean;
 }
 
 export interface JourneyStop extends LatLng {

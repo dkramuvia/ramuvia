@@ -15,6 +15,7 @@ import {
 } from '../../../modules/ramupin-gps';
 import { ADAPTIVE, decideState, intervalSecFor, type MoveState } from './adaptive';
 import { distanceM } from './geo';
+import { isNearGeofence } from './geofenceSnapshot';
 import { isSosActive } from './sosMode';
 import { isWatched } from './watchMode';
 import { enqueueLocation, flushIfDue } from './uploader';
@@ -139,7 +140,12 @@ async function setAnchor(location: MyLocation) {
 /** 지금이 정지인지 이동인지 저배터리인지 (배터리·활동 인식·기준점까지 같이 봅니다) */
 async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise<MoveState> {
   await loadAnchor();
-  const [battery, watched, sos] = await Promise.all([readBatteryForState(), isWatched(), isSosActive()]);
+  const [battery, watched, sos, nearGeofence] = await Promise.all([
+    readBatteryForState(),
+    isWatched(),
+    isSosActive(),
+    isNearGeofence(latest),
+  ]);
   const { state, reanchor } = decideState({
     speedKmh: latest.speedKmh,
     battery: battery.level,
@@ -147,6 +153,7 @@ async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise
     activity: getActivity(),
     distanceFromAnchorM: anchor ? distanceM(anchor, latest) : null,
     lowBatteryPercent: policy.lowBatteryPercent,
+    nearGeofence,
     watched,
     sos,
   });

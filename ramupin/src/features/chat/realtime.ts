@@ -10,6 +10,7 @@ import { messageStore } from '@/db/messages';
 import { setWatchMode } from '@/features/location/watchMode';
 import { friendKeys } from '@/features/friends/queries';
 import { groupKeys } from '@/features/groups/queries';
+import { useAlertStore } from '@/features/alerts/alertStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { ChatMessage } from '@/types/models';
 
@@ -57,6 +58,11 @@ function connect(token: string) {
   // 30초 주기 재조회(FRIENDS_REFETCH_MS)는 소켓이 끊겼을 때를 위한 대비로 남겨 둡니다
   socket.on('friend-location', () => {
     queryClient.invalidateQueries({ queryKey: friendKeys.list, exact: true });
+  });
+
+  // 친구가 안심장소를 드나들면 (WBS 9.4). 받을 사람은 서버가 정합니다
+  socket.on('geofence', ({ nickname, zoneName, kind }: { nickname: string; zoneName: string; kind: 'enter' | 'leave' }) => {
+    useAlertStore.getState().pushCard({ kind: kind === 'enter' ? 'arrive' : 'leave', name: nickname, place: zoneName });
   });
 
   socket.on('rooms-changed', () => {

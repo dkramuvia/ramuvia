@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import {
   geofencesApi,
@@ -9,6 +10,7 @@ import {
   scheduledMessagesApi,
 } from '@/api/endpoints/settings';
 import { useAuthStore } from '@/stores/authStore';
+import { saveGeofenceSnapshot } from '@/features/location/geofenceSnapshot';
 import type { Geofence, HideModeSetting, HistoryCategory, SafetySetting, ScheduledMessage, User } from '@/types/models';
 
 const keys = {
@@ -38,7 +40,15 @@ export function useSaveSafetySetting() {
   });
 }
 
-export const useGeofences = () => useQuery({ queryKey: keys.geofences, queryFn: geofencesApi.list });
+export function useGeofences() {
+  const query = useQuery({ queryKey: keys.geofences, queryFn: geofencesApi.list });
+  // 백그라운드 수집은 react-query 캐시를 볼 수 없어, 근처 판단에 필요한 것만 기기에 저장해 둡니다.
+  // 안심장소 근처에서는 5초 주기로 올려, 경계를 넘은 시각이 정확해집니다 (GPS 보고서 2-1 2번)
+  useEffect(() => {
+    if (query.data) void saveGeofenceSnapshot(query.data);
+  }, [query.data]);
+  return query;
+}
 export function useSaveGeofence() {
   const queryClient = useQueryClient();
   return useMutation({

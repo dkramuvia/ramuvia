@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
+import { SafeZoneModule } from '../safe-zones/safe-zone.module.js';
 import { env } from '../config/env.js';
 import type { LocationDatabase } from './location.schema.js';
 import { LocationQueue } from './location.queue.js';
@@ -58,7 +59,8 @@ class LocationController {
 
 @Module({
   // 보고 있는 친구에게 위치를 즉시 전달하기 위해 (GPS 보고서 4-3)
-  imports: [RealtimeModule],
+  // 안심장소 판정은 위치가 저장될 때 함께 합니다 (WBS 9.4)
+  imports: [RealtimeModule, SafeZoneModule],
   controllers: [LocationController],
   providers: [
     {

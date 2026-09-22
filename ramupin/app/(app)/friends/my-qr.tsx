@@ -2,26 +2,31 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Image, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Avatar, BatteryBadge } from '@/components/ui';
+import { useFriendQrToken } from '@/features/friends/queries';
 import { buildFriendQr } from '@/features/friends/qr';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, layout, radius } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const DECOR_HEIGHT = 150;
+const QR_SIZE = 150;
 
 /** 피그마: 내 QR코드 (348:14774) */
 export default function MyQrScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.user);
+  // QR 에는 8자리 ID 가 아니라 3분짜리 일회용 토큰이 들어갑니다 (qr.ts 설명 참고).
+  // 화면을 보고 있는 동안 서버가 새 토큰을 계속 내려 줍니다
+  const { data: qr } = useFriendQrToken();
   if (!me) return null;
 
-  const qrValue = buildFriendQr(me.publicId);
+  const qrValue = qr ? buildFriendQr(qr.token) : null;
 
   const copyId = async () => {
     await Clipboard.setStringAsync(me.publicId);
@@ -69,16 +74,26 @@ export default function MyQrScreen() {
               </AppText>
               <Ionicons name="copy" size={16} color={colors.white} />
             </Pressable>
-            <QRCode value={qrValue} size={150} color="#DCDCDC" backgroundColor="#2E2E2E" />
+            {/* 토큰을 받기 전에는 빈 자리를 그대로 둡니다. 잠깐이라 안내 문구가 더 어수선합니다 */}
+            {qrValue ? (
+              <QRCode value={qrValue} size={QR_SIZE} color="#DCDCDC" backgroundColor="#2E2E2E" />
+            ) : (
+              <View style={styles.qrPlaceholder}>
+                <ActivityIndicator color="#DCDCDC" />
+              </View>
+            )}
           </View>
 
           <View style={styles.actions}>
-            {/* TODO: QR 이미지 저장 (expo-media-library 필요). 지금은 공유 시트로 대신 */}
-            <RoundAction icon="download" label={t('friendAdd.saveQr')} onPress={() => Share.share({ message: qrValue })} />
+            {/*
+              QR 은 3분이면 만료되므로 이미지로 저장하거나 링크로 보내는 것이 의미가 없습니다.
+              멀리 있는 사람을 초대할 때는 바뀌지 않는 8자리 ID 를 보냅니다 (WBS 3.6)
+            */}
+            <RoundAction icon="copy" label={t('friendAdd.copyId')} onPress={copyId} />
             <RoundAction
               icon="arrow-redo"
               label={t('friendAdd.shareInvite')}
-              onPress={() => Share.share({ message: t('friendAdd.inviteMessage', { id: me.publicId, link: qrValue }) })}
+              onPress={() => Share.share({ message: t('friendAdd.inviteMessage', { id: me.publicId }) })}
             />
             <RoundAction icon="scan" label={t('friendAdd.byQrScan')} onPress={() => router.replace('/friends/qr-scan')} />
           </View>
@@ -97,7 +112,7 @@ export default function MyQrScreen() {
   );
 }
 
-function RoundAction({ icon, label, onPress }: { icon: 'download' | 'arrow-redo' | 'scan'; label: string; onPress: () => void }) {
+function RoundAction({ icon, label, onPress }: { icon: 'copy' | 'arrow-redo' | 'scan'; label: string; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.roundAction}>
       <Ionicons name={icon} size={20} color={colors.textStrong} />
@@ -119,6 +134,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surfaceStrong,
   },
+  qrPlaceholder: { width: QR_SIZE, height: QR_SIZE, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2E2E2E' },
   qrCard: {
     alignSelf: 'center',
     width: 260,

@@ -6,6 +6,7 @@ import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { appError, parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { REDIS } from '../redis/redis.module.js';
+import { relationBetween } from './relation.js';
 import { USER_SUMMARY_COLUMNS, toUserSummary } from './user-summary.js';
 import { resolvePolicy } from '../config/policy.js';
 import { LocationModule } from '../location/location.module.js';
@@ -134,32 +135,9 @@ class UsersController {
       .executeTakeFirst();
     if (!row) throw appError(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', '사용자가 없습니다');
 
-    return { ...toUserSummary(row), relation: await this.relation(user.id, row.id) };
+    return { ...toUserSummary(row), relation: await relationBetween(this.db, user.id, row.id) };
   }
 
-  private async relation(me: string, other: string): Promise<'self' | 'friend' | 'request_sent' | 'request_received' | 'none'> {
-    if (me === other) return 'self';
-    const friend = await this.db
-      .selectFrom('social.friendships')
-      .select('user_id')
-      .where('user_id', '=', me)
-      .where('friend_id', '=', other)
-      .executeTakeFirst();
-    if (friend) return 'friend';
-    const pending = await this.db
-      .selectFrom('social.friend_requests')
-      .select('from_user_id')
-      .where('status', '=', 'pending')
-      .where((eb) =>
-        eb.or([
-          eb.and([eb('from_user_id', '=', me), eb('to_user_id', '=', other)]),
-          eb.and([eb('from_user_id', '=', other), eb('to_user_id', '=', me)]),
-        ]),
-      )
-      .executeTakeFirst();
-    if (!pending) return 'none';
-    return pending.from_user_id === me ? 'request_sent' : 'request_received';
-  }
 }
 
 @Module({

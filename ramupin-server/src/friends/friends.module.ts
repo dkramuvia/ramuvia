@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
@@ -19,6 +20,8 @@ import { z } from 'zod';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { parseInput } from '../common/app-error.js';
 import { FriendRequestsService } from './friend-requests.service.js';
+import { QrTokenService } from './qr-token.service.js';
+import { summaryWithRelation } from '../users/relation.js';
 import { ShareSettingsService, shareSettingBody } from './share-settings.service.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { ShareLevel } from '../database/main.schema.js';
@@ -113,14 +116,25 @@ class FriendsService {
   }
 }
 
-const sendRequestBody = z.object({ userId: z.uuid(), message: z.string().max(100).nullish() });
+// 상대를 가리키는 방법은 둘 중 하나입니다: 8자리 ID 로 찾은 사용자 ID, 또는 QR 토큰
+const sendRequestBody = z
+  .object({
+    userId: z.uuid().optional(),
+    /** QR 로 추가할 때. 요청이 만들어지면 그 토큰은 바로 버립니다 (일회용) */
+    qrToken: z.string().min(10).max(100).optional(),
+    message: z.string().max(100).nullish(),
+  })
+  .refine((v) => !!v.userId || !!v.qrToken, { message: 'userId 또는 qrToken 이 필요합니다' });
+const qrQuery = z.object({ token: z.string().min(10).max(100) });
 
 @Controller('friends')
 @UseGuards(AuthGuard)
 class FriendsController {
   constructor(
+    @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly friends: FriendsService,
     private readonly requests: FriendRequestsService,
+    private readonly qr: QrTokenService,
     private readonly shareSettings: ShareSettingsService,
   ) {}
 
@@ -141,9 +155,27 @@ class FriendsController {
 
   /** 친구 요청 보내기 → { requestId, status: 'pending' | 'accepted' } (상대가 먼저 요청했으면 바로 친구) */
   @Post('requests')
-  sendRequest(@CurrentUser() user: AuthUser, @Body() body: unknown) {
-    const { userId, message } = parseInput(sendRequestBody, body);
-    return this.requests.send(user.id, userId, message);
+  async sendRequest(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const { userId, qrToken, message } = parseInput(sendRequestBody, body);
+    const targetId = qrToken ? await this.qr.resolve(qrToken) : userId!;
+    const result = await this.requests.send(user.id, targetId, message);
+    // 요청이 만들어진 뒤에 버립니다. 거절당하는 요청에 토큰을 써 버리면 다시 보여 달라고 해야 합니다
+    if (qrToken) await this.qr.consume(qrToken);
+    return result;
+  }
+
+  /** 내 QR 에 넣을 일회용 토큰 (WBS 3.6) */
+  @Post('qr-token')
+  @HttpCode(HttpStatus.OK)
+  issueQr(@CurrentUser() user: AuthUser) {
+    return this.qr.issue(user.id);
+  }
+
+  /** QR 토큰으로 상대 찾기. 읽는 것만으로는 토큰을 버리지 않습니다 */
+  @Get('by-qr')
+  async byQr(@CurrentUser() user: AuthUser, @Query() query: unknown) {
+    const { token } = parseInput(qrQuery, query);
+    return summaryWithRelation(this.db, user.id, await this.qr.resolve(token));
   }
 
   @Post('requests/:requestId/accept')
@@ -179,6 +211,6 @@ class FriendsController {
 @Module({
   imports: [LocationModule],
   controllers: [FriendsController],
-  providers: [FriendsService, FriendRequestsService, ShareSettingsService],
+  providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService],
 })
 export class FriendsModule {}

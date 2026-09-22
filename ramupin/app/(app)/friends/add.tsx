@@ -116,7 +116,7 @@ function UserIdModal({ visible, onClose, onSent }: { visible: boolean; onClose: 
       setError(t(blocked));
       return;
     }
-    send.mutate(user.id, {
+    send.mutate({ userId: user.id }, {
       onSuccess: (result) => {
         setUserId('');
         if (result.status === 'accepted') {

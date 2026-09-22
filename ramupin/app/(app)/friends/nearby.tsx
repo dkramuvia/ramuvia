@@ -45,7 +45,7 @@ export default function NearbyFriendsScreen() {
             key={s.user.id}
             suggestion={s}
             pending={send.isPending}
-            onRequest={() => send.mutate(s.user.id, { onSuccess: () => setSentTo(s.user.nickname) })}
+            onRequest={() => send.mutate({ userId: s.user.id }, { onSuccess: () => setSentTo(s.user.nickname) })}
           />
         ))}
       </View>

@@ -45,7 +45,9 @@ export type FriendErrorCode =
   | 'LOOKUP_LIMIT'
   | 'REQUEST_NOT_FOUND'
   | 'REQUEST_NOT_PENDING'
-  | 'NOT_FRIEND';
+  | 'NOT_FRIEND'
+  /** QR 토큰이 만료됨 (3분) */
+  | 'QR_EXPIRED';
 
 export function friendErrorCode(error: unknown): FriendErrorCode | undefined {
   return (error as { response?: { data?: { code?: FriendErrorCode } } }).response?.data?.code;
@@ -99,15 +101,40 @@ export const friendsApi = {
     }
   },
 
-  /** 친구 요청. 상대가 이미 나에게 요청했으면 서버가 바로 수락 처리 (status: 'accepted') */
-  async sendRequest(userId: string): Promise<SendRequestResult> {
+  /** 내 QR 에 넣을 일회용 토큰 (WBS 3.6). 3분 뒤 만료되므로 화면에서 주기적으로 다시 받습니다 */
+  async qrToken(): Promise<{ token: string; expiresInSec: number }> {
+    if (!isLive('friends')) return mockResponse({ token: `mock-${mockMe.publicId}`, expiresInSec: 180 });
+    const { data } = await apiClient.post<{ token: string; expiresInSec: number }>('/friends/qr-token');
+    return data;
+  },
+
+  /** QR 토큰으로 상대 찾기. 읽는 것만으로는 토큰이 사라지지 않습니다 */
+  async findByQr(token: string): Promise<FoundUser | null> {
+    if (!isLive('friends')) {
+      const user = mockUsers.find((u) => `mock-${u.id}` === token) ?? mockUsers[0];
+      return mockResponse(user ? { ...user, relation: 'none' } : null);
+    }
+    try {
+      const { data } = await apiClient.get<UserSummaryResponse & { relation: FoundUser['relation'] }>('/friends/by-qr', { params: { token } });
+      return { ...toUserSummary(data), relation: data.relation };
+    } catch (error) {
+      if (friendErrorCode(error) === 'QR_EXPIRED') return null;
+      throw error;
+    }
+  },
+
+  /**
+   * 친구 요청. 상대가 이미 나에게 요청했으면 서버가 바로 수락 처리 (status: 'accepted').
+   * QR 로 추가할 때는 사용자 ID 대신 토큰을 넘깁니다 — 요청이 만들어지면 그 토큰은 버려집니다
+   */
+  async sendRequest(userId: string, qrToken?: string): Promise<SendRequestResult> {
     if (!isLive('friends')) {
       [...mockContactSuggestions, ...mockNearbySuggestions]
         .filter((s) => s.user.id === userId)
         .forEach((s) => (s.requested = true));
       return mockResponse({ requestId: `mock-${userId}`, status: 'pending' });
     }
-    const { data } = await apiClient.post<SendRequestResult>('/friends/requests', { userId });
+    const { data } = await apiClient.post<SendRequestResult>('/friends/requests', qrToken ? { qrToken } : { userId });
     return data;
   },
 

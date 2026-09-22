@@ -26,6 +26,8 @@ export default function QrScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [found, setFound] = useState<FoundUser | null>(null);
+  // 친구 요청을 보낼 때 같이 넘깁니다. 서버가 요청을 만든 뒤 이 토큰을 버립니다
+  const [qrToken, setQrToken] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
   // 같은 코드를 연속으로 여러 번 읽지 않도록 잠금
   const scanning = useRef(true);
@@ -34,20 +36,22 @@ export default function QrScanScreen() {
   const onScanned = async ({ data }: BarcodeScanningResult) => {
     if (!scanning.current) return;
     scanning.current = false;
-    const userId = parseFriendQr(data);
-    if (!userId) {
+    // QR 에는 사용자 ID 가 아니라 서버가 발급한 3분짜리 토큰이 들어 있습니다 (WBS 3.6)
+    const token = parseFriendQr(data);
+    if (!token) {
       showToast(t('friendAdd.invalidQr'));
       setTimeout(() => (scanning.current = true), 1500);
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const user = await friendsApi.findUser(userId).catch(() => null);
-    const blocked = user ? blockedRequestReason(user) : 'friendAdd.userNotFound';
+    const user = await friendsApi.findByQr(token).catch(() => null);
+    const blocked = user ? blockedRequestReason(user) : 'friendAdd.qrExpired';
     if (!user || blocked) {
-      showToast(t(blocked ?? 'friendAdd.userNotFound'));
+      showToast(t(blocked ?? 'friendAdd.qrExpired'));
       setTimeout(() => (scanning.current = true), 1500);
       return;
     }
+    setQrToken(token);
     setFound(user);
   };
 
@@ -128,7 +132,7 @@ export default function QrScanScreen() {
               size="lg"
               disabled={send.isPending}
               onPress={() =>
-                send.mutate(found.id, {
+                send.mutate({ userId: found.id, qrToken: qrToken ?? undefined }, {
                   onSuccess: (result) => {
                     if (result.status === 'pending') {
                       setSentTo(found.nickname);

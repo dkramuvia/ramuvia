@@ -44,7 +44,7 @@ export default function ContactFriendsScreen() {
   };
 
   const request = (s: FriendSuggestion) =>
-    send.mutate(s.user.id, {
+    send.mutate({ userId: s.user.id }, {
       onSuccess: () => {
         setSuggestions((list) => list.map((x) => (x.user.id === s.user.id ? { ...x, requested: true } : x)));
         setSentTo(s.user.nickname);

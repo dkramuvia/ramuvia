@@ -149,7 +149,7 @@ export class LocationService {
 
     // 지금 이 사람 지도를 보고 있는 친구에게만 즉시 전달.
     // 아무도 안 보면 Redis 갱신까지만 하고 끝냅니다 — 쓸데없는 네트워크를 만들지 않습니다
-    if (this.gateway.hasWatchers(userId)) this.gateway.emitLocation(userId, current);
+    if (await this.gateway.hasWatchers(userId)) this.gateway.emitLocation(userId, current);
   }
 
   /**

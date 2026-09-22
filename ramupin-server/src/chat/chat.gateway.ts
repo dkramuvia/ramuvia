@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Module } from '@nestjs/common';
+import { Inject, Injectable, Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OnGatewayConnection, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
@@ -7,31 +7,66 @@ import type { AccessTokenPayload } from '../auth/session.service.js';
 import { SessionService } from '../auth/session.service.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { ChatMessageResponse } from './chat.service.js';
+import { WatchRegistry } from './watch.registry.js';
 
 /**
  * 실시간 전달 (WBS 7.5).
  * 앱은 로그인 토큰으로 연결하고, 내가 속한 방에 자동으로 들어갑니다.
  * 방 이름은 `room:{groupId}`, 개인 알림용으로 `user:{userId}` 에도 들어갑니다.
  *
- * TODO(서버 여러 대): @socket.io/redis-adapter 로 서버 간 전달
+ * 서버가 여러 대여도 동작합니다 — main.ts 에서 Redis 어댑터를 끼워, 다른 서버에 붙은
+ * 사람에게도 그대로 전달됩니다. "누가 보고 있는가" 만은 방 참여자 수로 셀 수 없어
+ * (그건 자기 프로세스 것만 보입니다) {@link WatchRegistry} 로 따로 셉니다.
+ *
  * TODO(푸시 단계): 연결되지 않은 사람에게는 푸시 알림
  */
+
+/** 보는 사람이 살아 있다고 알리는 주기. 폰 쪽 만료(3분)보다 넉넉히 짧아야 합니다 */
+const HEARTBEAT_MS = 60_000;
+
 @Injectable()
 @WebSocketGateway({ cors: { origin: '*' }, path: '/ws' })
-export class ChatGateway implements OnGatewayConnection {
+export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
   private readonly logger = new Logger(ChatGateway.name);
 
   @WebSocketServer()
   private server!: Server;
 
-  /** 사용자별 "지금 누가 보고 있는가". 값이 바뀔 때만 폰에 알립니다 */
+  /** 이 서버에서 마지막으로 알린 값. 같은 말을 반복해서 보내지 않기 위한 것뿐입니다 */
   private readonly watchMode = new Map<string, boolean>();
+  private heartbeat: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly jwt: JwtService,
     private readonly sessions: SessionService,
+    private readonly watchers: WatchRegistry,
     @Inject(MAIN_DB) private readonly db: MainDb,
-  ) {}
+  ) {
+    this.heartbeat = setInterval(() => void this.sendHeartbeat(), HEARTBEAT_MS);
+  }
+
+  onApplicationShutdown() {
+    if (this.heartbeat) clearInterval(this.heartbeat);
+  }
+
+  /**
+   * 60초마다 "아직 보고 있다" 를 알립니다.
+   *
+   * 두 가지를 동시에 해결합니다.
+   *   1. 폰은 마지막 신호로부터 3분이 지나면 조회 모드를 끕니다. 오래 보고 있으면 갱신이 필요합니다
+   *   2. Redis 장부의 만료 시각을 미뤄, 살아 있는 서버의 기록이 사라지지 않게 합니다
+   */
+  private async sendHeartbeat() {
+    if (!this.server) return;
+    const targets = new Set<string>();
+    for (const socket of this.server.sockets.sockets.values()) {
+      const watching = (socket.data.watching as string[] | undefined) ?? [];
+      if (watching.length === 0) continue;
+      await this.watchers.touch(watching, socket.id);
+      for (const id of watching) targets.add(id);
+    }
+    for (const id of targets) this.server.to(`user:${id}`).emit('watch-mode', { on: true });
+  }
 
   async handleConnection(client: Socket) {
     const token = (client.handshake.auth?.token as string | undefined) ?? (client.handshake.query.token as string | undefined);
@@ -74,32 +109,35 @@ export class ChatGateway implements OnGatewayConnection {
       const targets = await this.friendsAmong(me, toIdList(payload));
       const before = (client.data.watching as string[] | undefined) ?? [];
       // 이번에 빠진 대상은 먼저 정리합니다
-      for (const id of before) if (!targets.includes(id)) await this.leaveWatch(client, id);
+      const dropped = before.filter((id) => !targets.includes(id));
+      // 이번에 빠진 대상은 먼저 정리합니다
+      for (const id of dropped) await client.leave(watchRoom(id));
       for (const id of targets) if (!before.includes(id)) await client.join(watchRoom(id));
       client.data.watching = targets;
-      for (const id of targets) this.syncWatchMode(id);
+
+      await this.watchers.touch(targets, client.id);
+      await this.watchers.remove(dropped, client.id);
+      for (const id of [...targets, ...dropped]) await this.syncWatchMode(id);
     });
 
-    client.on('unwatch', async () => {
-      for (const id of ((client.data.watching as string[] | undefined) ?? [])) await this.leaveWatch(client, id);
-      client.data.watching = [];
-    });
+    client.on('unwatch', () => void this.stopWatching(client));
 
-    client.on('disconnect', () => {
-      // 연결이 끊기면 socket.io 가 방에서 자동으로 빼지만, 상대 폰에 알리는 것은 우리가 해야 합니다
-      for (const id of ((client.data.watching as string[] | undefined) ?? [])) setTimeout(() => this.syncWatchMode(id), 0);
-    });
+    // 연결이 끊기면 socket.io 가 방에서 자동으로 빼지만, 장부 정리와 상대 폰 알림은 우리가 해야 합니다
+    client.on('disconnect', () => void this.stopWatching(client));
   }
 
-  private async leaveWatch(client: Socket, targetId: string) {
-    await client.leave(watchRoom(targetId));
-    this.syncWatchMode(targetId);
+  private async stopWatching(client: Socket) {
+    const watching = (client.data.watching as string[] | undefined) ?? [];
+    client.data.watching = [];
+    if (watching.length === 0) return;
+    for (const id of watching) await client.leave(watchRoom(id));
+    await this.watchers.remove(watching, client.id);
+    for (const id of watching) await this.syncWatchMode(id);
   }
 
   /** 보는 사람이 있는지 세어 보고, 달라졌으면 그 사람 폰에 알립니다 */
-  private syncWatchMode(targetId: string) {
-    const watchers = this.server?.sockets.adapter.rooms.get(watchRoom(targetId))?.size ?? 0;
-    const on = watchers > 0;
+  private async syncWatchMode(targetId: string) {
+    const on = (await this.watchers.count(targetId)) > 0;
     if (this.watchMode.get(targetId) === on) return;
     this.watchMode.set(targetId, on);
     this.server?.to(`user:${targetId}`).emit('watch-mode', { on });
@@ -122,9 +160,12 @@ export class ChatGateway implements OnGatewayConnection {
     this.server?.to(watchRoom(userId)).emit('friend-location', { userId, location });
   }
 
-  /** 지금 이 사람을 보고 있는 사람이 있는지 (위치 저장 쪽에서 확인) */
-  hasWatchers(userId: string): boolean {
-    return (this.server?.sockets.adapter.rooms.get(watchRoom(userId))?.size ?? 0) > 0;
+  /**
+   * 지금 이 사람을 보고 있는 사람이 있는지 (위치 저장 쪽에서 확인).
+   * 방 참여자 수로는 셀 수 없습니다 — 그건 이 서버에 붙은 연결만 보입니다.
+   */
+  async hasWatchers(userId: string): Promise<boolean> {
+    return (await this.watchers.count(userId)) > 0;
   }
 
   /** 새 메시지를 방 참여자에게 전달 */
@@ -166,7 +207,7 @@ export class ChatGateway implements OnGatewayConnection {
 }
 
 /** 실시간 연결은 그룹·채팅 어디서나 쓰므로 별도 모듈로 둡니다 (순환 의존 방지) */
-@Module({ providers: [ChatGateway], exports: [ChatGateway] })
+@Module({ providers: [ChatGateway, WatchRegistry], exports: [ChatGateway] })
 export class RealtimeModule {}
 
 /** 이 사람의 위치를 보고 있는 사람들이 모이는 방 */

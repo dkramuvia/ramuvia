@@ -9,7 +9,7 @@ import { AppText } from '@/components/ui';
 import { env, isLive } from '@/config/env';
 import { getDeviceInput } from '@/features/auth/device';
 import { signInWithKakao } from '@/features/auth/kakao';
-import { signInWithX, XAuthCancelled } from '@/features/auth/x';
+import { SocialAuthCancelled, signInWithGoogle, signInWithNaver, signInWithX } from '@/features/auth/social';
 import { applyLoginResult } from '@/features/auth/session';
 import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
@@ -19,18 +19,38 @@ import { showToast } from '@/utils/toast';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
+/**
+ * Instagram 은 빠져 있습니다 — 일반 사용자 로그인 API 가 종료되어 더 이상 쓸 수 없습니다
+ * (docs/wbs-check.md 2-6). 대표님 확인 뒤 피그마에서도 빼는 것이 좋겠습니다.
+ */
 const PROVIDERS: { id: SocialProvider; label: string; icon: ReactNode }[] = [
   { id: 'x', label: 'X', icon: <Ionicons name={'logo-x' as IconName} size={24} color={colors.black} /> },
   { id: 'facebook', label: 'Facebook', icon: <Ionicons name="logo-facebook" size={26} color="#1877F2" /> },
   { id: 'google', label: 'Google', icon: <Ionicons name="logo-google" size={24} color="#EA4335" /> },
   { id: 'apple', label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={colors.black} /> },
-  { id: 'instagram', label: 'Instagram', icon: <Ionicons name="logo-instagram" size={26} color="#E1306C" /> },
 ];
 
+/** 브라우저에서 인가 코드를 받아 오는 제공자들. 토큰 교환은 서버가 합니다 */
+const CODE_LOGINS = {
+  x: signInWithX,
+  naver: signInWithNaver,
+  google: signInWithGoogle,
+} as const;
+
 /**
- * 피그마: 가입/로그인 선택 (348:14951)
- * TODO(5단계 마지막): 각 소셜 SDK 연결. 지금은 목업 토큰으로 서버 흐름만 진행
+ * 아직 붙이지 않은 제공자.
+ * Apple 은 iOS 단계(3단계), Facebook 은 앱 등록·검수가 끝나야 붙일 수 있습니다.
+ * 누르면 아무 일도 안 일어나거나 오류가 나는 것보다, 준비 중이라고 알려 주는 편이 낫습니다.
  */
+const NOT_READY: Partial<Record<SocialProvider, string>> = {
+  apple: 'onboarding.appleLater',
+  facebook: 'onboarding.notReady',
+  instagram: 'onboarding.notReady',
+};
+
+const PROVIDER_LABELS: Record<keyof typeof CODE_LOGINS, string> = { x: 'X', naver: '네이버', google: '구글' };
+
+/** 피그마: 가입/로그인 선택 (348:14951) */
 export default function WelcomeScreen() {
   const { t } = useTranslation();
   const signIn = useAuthStore((s) => s.signIn);
@@ -38,10 +58,13 @@ export default function WelcomeScreen() {
   const [pending, setPending] = useState(false);
 
   const login = async (provider: SocialProvider) => {
-    if (provider === 'kakao' && isLive('auth')) return loginWithKakao();
-    if (provider === 'x' && isLive('auth')) return loginWithX();
+    if (isLive('auth')) {
+      if (provider === 'kakao') return loginWithKakao();
+      if (provider in CODE_LOGINS) return loginWithCode(provider as keyof typeof CODE_LOGINS);
+      return showToast(t(NOT_READY[provider] ?? 'onboarding.notReady'));
+    }
     try {
-      // TODO(로그인 단계): 나머지 소셜 SDK 연결. 지금은 목업
+      // 목업 단계: 서버 없이 화면 흐름만 확인합니다
       const result = await authApi.socialLogin(provider, 'mock-token');
       signIn(result.accessToken, result.user);
       if (result.isNewUser) router.push('/profile-setup');
@@ -51,20 +74,20 @@ export default function WelcomeScreen() {
     }
   };
 
-  /** X 로그인: 브라우저에서 인가 코드를 받아 서버가 토큰으로 바꿉니다 */
-  const loginWithX = async () => {
+  /** X·네이버·구글: 브라우저에서 인가 코드를 받아 서버가 토큰으로 바꿉니다 */
+  const loginWithCode = async (provider: keyof typeof CODE_LOGINS) => {
     if (pending) return;
     setPending(true);
     try {
-      const auth = await signInWithX();
-      const outcome = await applyLoginResult(await authApi.xLogin(auth, await getDeviceInput()));
+      const auth = await CODE_LOGINS[provider]();
+      const outcome = await applyLoginResult(await authApi.codeLogin(provider, auth, await getDeviceInput()));
       if (outcome === 'sign-up') router.push('/profile-setup');
       else if (outcome === 'device-verification') router.push('/device-verify');
     } catch (e) {
-      if (e instanceof XAuthCancelled) return;
+      if (e instanceof SocialAuthCancelled) return;
       const message = e instanceof Error ? e.message : String(e);
-      if (__DEV__) console.warn('[x] 실패', message, JSON.stringify(authErrorOf(e) ?? {}));
-      showToast(t('onboarding.xFailed'));
+      if (__DEV__) console.warn(`[${provider}] 실패`, message, JSON.stringify(authErrorOf(e) ?? {}));
+      showToast(t('onboarding.socialFailed', { provider: PROVIDER_LABELS[provider] }));
     } finally {
       setPending(false);
     }

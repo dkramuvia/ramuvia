@@ -28,9 +28,10 @@ const DAILY_REQUEST_LIMIT = 50;
 
 const notFound = () => appError(HttpStatus.NOT_FOUND, 'REQUEST_NOT_FOUND', '친구 요청이 없습니다');
 
-function ageOf(birthDate: Date | null): number | null {
+function ageOf(birthDate: string | null): number | null {
   if (!birthDate) return null;
   const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return null;
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
   if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age -= 1;

@@ -13,12 +13,15 @@ export interface UsersTable {
   public_id: string;
   nickname: string;
   gender: 'male' | 'female' | null;
-  birth_date: ColumnType<Date | null, string | null, string | null>;
+  /** 'YYYY-MM-DD'. 시각이 없는 값이라 글자 그대로 읽습니다 (main-database.module.ts 설명) */
+  birth_date: ColumnType<string | null, string | null, string | null>;
   avatar_url: string | null;
   status_message: string | null;
   plan: Generated<string>;
   single_household: Generated<boolean>;
   status: Generated<'active' | 'suspended' | 'withdrawn'>;
+  /** 나이를 소셜(카카오·네이버)이 확인해 줬는지. false 면 본인이 적은 값 (WBS 3.6) */
+  age_verified: Generated<boolean>;
   /** 숨김 모드: 지금은 아무에게도 내 위치를 보이지 않기 (WBS 9.5) */
   hide_all: Generated<boolean>;
   /** 숨김이 저절로 풀리는 시각. 없으면 직접 끌 때까지 */

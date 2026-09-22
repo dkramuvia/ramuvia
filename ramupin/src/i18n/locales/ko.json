@@ -670,7 +670,12 @@
     "singleTitle": "Ramupin에 오신것을 환영합니다.\n1인가구 이신가요?",
     "singleYes": "1인 가구 모드를 활성화 할게요",
     "singleNo": "아니요",
-    "xFailed": "X 로그인에 실패했어요. 잠시 후 다시 시도해 주세요."
+    "xFailed": "X 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.",
+    "socialFailed": "{{provider}} 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.",
+    "notReady": "아직 준비 중인 로그인이에요.",
+    "appleLater": "Apple 로그인은 아이폰 버전에서 제공됩니다.",
+    "birthVerified": "{{provider}}에서 확인한 출생연도({{year}}년)예요. 월·일만 채워 주세요.",
+    "birthYearMismatch": "{{year}}년으로 확인됐어요. 연도는 바꿀 수 없습니다."
   },
   "auth": {
     "singleHouseholdQuestion": "1인 가구 이신가요?",

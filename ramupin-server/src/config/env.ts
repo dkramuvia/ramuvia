@@ -24,6 +24,15 @@ const schema = z.object({
   KAKAO_APP_ID: z.coerce.number().int().positive(),
   /** X(트위터) OAuth 2.0 Client ID. 공개 클라이언트(PKCE)라 secret 은 쓰지 않습니다 */
   X_CLIENT_ID: z.string().min(10).default(''),
+  /**
+   * 네이버 로그인 (지도 키와 다른 앱입니다 — 네이버 개발자센터에서 따로 등록).
+   * 네이버는 PKCE 를 지원하지 않아 secret 이 필요하고, 그래서 토큰 교환은 서버에서만 합니다
+   */
+  NAVER_LOGIN_CLIENT_ID: z.string().default(''),
+  NAVER_LOGIN_CLIENT_SECRET: z.string().default(''),
+  /** 구글 로그인 OAuth 클라이언트. 안드로이드 클라이언트는 공개 클라이언트라 secret 이 없습니다 */
+  GOOGLE_CLIENT_ID: z.string().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().default(''),
   /** Firebase 서비스 계정 키 파일 경로 (푸시 발송용). 없으면 발송을 건너뜁니다 */
   FIREBASE_SERVICE_ACCOUNT_FILE: z.string().default(''),
   // 네이버 지도 REST (주소 검색·좌표→주소). 앱에는 Client ID 만 들어가고 Secret 은 서버 전용

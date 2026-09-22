@@ -28,7 +28,13 @@ export async function applyLoginResult(result: LoginResult): Promise<LoginOutcom
     return 'device-verification';
   }
   if (result.status === 'sign_up_required') {
-    useSignUpStore.getState().set({ signUpToken: result.signUpToken, nickname: result.suggestedNickname ?? '' });
+    useSignUpStore.getState().set({
+      signUpToken: result.signUpToken,
+      provider: result.provider,
+      nickname: result.suggestedNickname ?? '',
+      gender: result.suggestedGender,
+      verifiedBirthYear: result.verifiedBirthYear,
+    });
     return 'sign-up';
   }
   await secureStorage.set('refreshToken', result.refreshToken);

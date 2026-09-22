@@ -4,8 +4,23 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * app.json 의 기본 설정에 네이티브 빌드용 비밀값(.env)을 더합니다.
  * 키는 JS 번들에 들어가지 않도록 EXPO_PUBLIC_ 이 아닌 이름을 씁니다.
  */
+/**
+ * 구글 로그인이 되돌아올 주소의 scheme.
+ *
+ * 구글은 안드로이드 앱에 되돌아올 주소를 직접 정하게 해 주지 않습니다.
+ * **클라이언트 ID 를 뒤집은 것**이 곧 scheme 이라, 안드로이드 manifest 에 등록해 두어야
+ * 로그인이 끝나고 앱으로 돌아옵니다. 키가 없으면 아무것도 더하지 않습니다.
+ */
+const googleScheme = (() => {
+  const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+  if (!clientId) return null;
+  return `com.googleusercontent.apps.${clientId.replace(/\.apps\.googleusercontent\.com$/, '')}`;
+})();
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...(config as ExpoConfig),
+  // app.json 의 'ramupin' 에 구글 로그인용 scheme 을 더합니다 (키가 있을 때만)
+  scheme: googleScheme ? ['ramupin', googleScheme] : config.scheme,
   android: {
     ...config.android,
     // Firebase 푸시 알림 설정 (ramupin-3e75c). 비밀값이 아니라 저장소에 올려도 됩니다
@@ -39,7 +54,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isIosBackgroundLocationEnabled: false,
       },
     ],
-    // X 로그인은 브라우저(Custom Tabs)로 인증 화면을 엽니다
+    // X·네이버·구글 로그인은 브라우저(Custom Tabs)로 인증 화면을 엽니다
     'expo-web-browser',
     [
       'expo-camera',

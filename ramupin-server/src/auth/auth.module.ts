@@ -24,9 +24,11 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { authError } from './auth-error.js';
 import { AuthGuard, CurrentUser, type AuthUser } from './auth.guard.js';
 import { DeviceVerificationService } from './device-verification.service.js';
+import { GoogleService } from './google.service.js';
 import { KakaoService } from './kakao.service.js';
+import { NaverService } from './naver.service.js';
 import { XService } from './x.service.js';
-import { SignUpService } from './sign-up.service.js';
+import { SignUpService, type SocialIdentity } from './sign-up.service.js';
 import { SessionService, type DeviceInfo, type NewSession, type TokenPair } from './session.service.js';
 import { SmsService } from './sms.service.js';
 
@@ -44,6 +46,19 @@ const deviceSchema = z.object({
 const devLoginBody = z.object({ publicId: z.string().min(1), device: deviceSchema });
 const kakaoLoginBody = z.object({ accessToken: z.string().min(10).max(500), device: deviceSchema });
 // X 는 토큰이 아니라 인가 코드를 받습니다. 토큰 교환은 서버가 직접 합니다 (x.service.ts 설명 참고)
+// 네이버는 PKCE 대신 state 로 흐름을 맞춥니다 (앱이 만든 임의 값이 그대로 돌아왔는지 앱에서 확인)
+const naverLoginBody = z.object({
+  code: z.string().min(1).max(500),
+  state: z.string().min(1).max(200),
+  redirectUri: z.string().url().max(200),
+  device: deviceSchema,
+});
+const googleLoginBody = z.object({
+  code: z.string().min(10).max(1000),
+  codeVerifier: z.string().min(43).max(128),
+  redirectUri: z.string().max(200),
+  device: deviceSchema,
+});
 const xLoginBody = z.object({
   code: z.string().min(10).max(500),
   codeVerifier: z.string().min(43).max(128),
@@ -119,6 +134,8 @@ class AuthController {
     private readonly verification: DeviceVerificationService,
     private readonly kakao: KakaoService,
     private readonly x: XService,
+    private readonly naver: NaverService,
+    private readonly google: GoogleService,
     private readonly signUp: SignUpService,
   ) {}
 
@@ -127,17 +144,43 @@ class AuthController {
   @HttpCode(HttpStatus.OK)
   async kakaoLogin(@Body() body: unknown): Promise<LoginResult> {
     const { accessToken, device } = parseInput(kakaoLoginBody, body);
-    const kakaoUser = await this.kakao.verify(accessToken);
+    return this.continueWith('kakao', await this.kakao.verify(accessToken), device);
+  }
 
+  /**
+   * 네이버 로그인 (WBS 3.6).
+   * X 와 같이 앱은 인가 코드만 받아 오고 토큰 교환은 서버가 합니다.
+   * 네이버는 PKCE 대신 client secret 을 쓰므로 교환은 반드시 서버에서만 합니다.
+   */
+  @Post('naver')
+  @HttpCode(HttpStatus.OK)
+  async naverLogin(@Body() body: unknown): Promise<LoginResult> {
+    const { code, state, redirectUri, device } = parseInput(naverLoginBody, body);
+    return this.continueWith('naver', await this.naver.verify(code, state, redirectUri), device);
+  }
+
+  /** 구글 로그인. 앱은 인가 코드만 받아 오고, 서버가 우리 client_id 로 교환합니다 */
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async googleLogin(@Body() body: unknown): Promise<LoginResult> {
+    const { code, codeVerifier, redirectUri, device } = parseInput(googleLoginBody, body);
+    return this.continueWith('google', await this.google.verify(code, codeVerifier, redirectUri), device);
+  }
+
+  /**
+   * 소셜 확인이 끝난 뒤는 어느 제공자든 같습니다.
+   * 이미 연결된 계정이면 로그인, 처음이면 가입 흐름으로 넘깁니다.
+   */
+  private async continueWith(provider: string, social: SocialIdentity, device: DeviceInput): Promise<LoginResult> {
     const account = await this.db
       .selectFrom('member.social_accounts')
       .select('user_id')
-      .where('provider', '=', 'kakao')
-      .where('provider_user_id', '=', kakaoUser.providerUserId)
+      .where('provider', '=', provider)
+      .where('provider_user_id', '=', social.providerUserId)
       .executeTakeFirst();
-    if (account) return this.login.login(account.user_id, device, 'kakao');
+    if (account) return this.login.login(account.user_id, device, provider);
 
-    return { status: 'sign_up_required', ...(await this.signUp.start('kakao', kakaoUser.providerUserId, kakaoUser.nickname, kakaoUser.avatarUrl)) };
+    return { status: 'sign_up_required', ...(await this.signUp.start(provider, social)) };
   }
 
   /**
@@ -149,17 +192,7 @@ class AuthController {
   @HttpCode(HttpStatus.OK)
   async xLogin(@Body() body: unknown): Promise<LoginResult> {
     const { code, codeVerifier, redirectUri, device } = parseInput(xLoginBody, body);
-    const xUser = await this.x.verify(code, codeVerifier, redirectUri);
-
-    const account = await this.db
-      .selectFrom('member.social_accounts')
-      .select('user_id')
-      .where('provider', '=', 'x')
-      .where('provider_user_id', '=', xUser.providerUserId)
-      .executeTakeFirst();
-    if (account) return this.login.login(account.user_id, device, 'x');
-
-    return { status: 'sign_up_required', ...(await this.signUp.start('x', xUser.providerUserId, xUser.nickname, xUser.avatarUrl)) };
+    return this.continueWith('x', await this.x.verify(code, codeVerifier, redirectUri), device);
   }
 
   /** 개발용: 카카오 없이 가입 흐름을 시험 (DEV_LOGIN_ENABLED=true 일 때만) */
@@ -168,7 +201,7 @@ class AuthController {
   devSignUpToken(@Body() body: unknown) {
     if (!env.DEV_LOGIN_ENABLED) throw new ForbiddenException('개발용 기능이 꺼져 있습니다');
     const { providerUserId, nickname } = parseInput(devSignUpTokenBody, body);
-    return this.signUp.start('dev', providerUserId, nickname ?? null, null);
+    return this.signUp.start('dev', { providerUserId, nickname: nickname ?? null, avatarUrl: null });
   }
 
   /** 가입 화면: 닉네임 중복 확인 (WBS 3.9) */
@@ -246,7 +279,18 @@ class AuthController {
 @Module({
   imports: [JwtModule.register({ secret: env.JWT_SECRET, signOptions: { expiresIn: env.JWT_EXPIRES_IN as never } })],
   controllers: [AuthController],
-  providers: [AuthGuard, SessionService, SmsService, DeviceVerificationService, LoginService, KakaoService, XService, SignUpService],
+  providers: [
+    AuthGuard,
+    SessionService,
+    SmsService,
+    DeviceVerificationService,
+    LoginService,
+    KakaoService,
+    XService,
+    NaverService,
+    GoogleService,
+    SignUpService,
+  ],
   exports: [AuthGuard, JwtModule, SessionService, LoginService],
 })
 export class AuthModule {}

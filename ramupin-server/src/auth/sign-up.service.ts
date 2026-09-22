@@ -1,6 +1,6 @@
 import { createHash, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Redis } from 'ioredis';
 
@@ -18,6 +18,10 @@ interface SignUpState {
   providerUserId: string;
   suggestedNickname: string | null;
   avatarUrl: string | null;
+  /** 소셜이 확인해 준 출생연도 (WBS 3.6). 동의 항목이 없으면 없습니다 */
+  verifiedBirthYear?: number;
+  /** 소셜이 알려 준 성별. 가입 화면 기본값으로만 씁니다 */
+  suggestedGender?: 'male' | 'female';
   /** 인증번호를 보낸 번호 */
   pendingPhone?: string;
   codeHash?: string;
@@ -27,6 +31,16 @@ interface SignUpState {
   attempts: number;
   /** 문자 인증을 통과한 번호 */
   verifiedPhone?: string;
+}
+
+/** 소셜에서 받아 온 사람. 제공자마다 주는 항목이 달라 없는 것은 null 입니다 */
+export interface SocialIdentity {
+  providerUserId: string;
+  nickname: string | null;
+  avatarUrl: string | null;
+  /** 제공자가 확인해 준 출생연도 (카카오 비즈앱·네이버 동의 항목) */
+  birthYear?: number | null;
+  gender?: 'male' | 'female' | null;
 }
 
 export interface SignUpProfile {
@@ -54,6 +68,8 @@ const NICKNAME_RE = /^[가-힣a-zA-Z0-9._-]{2,8}$/;
  */
 @Injectable()
 export class SignUpService {
+  private readonly logger = new Logger(SignUpService.name);
+
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     @Inject(REDIS) private readonly redis: Redis,
@@ -64,12 +80,29 @@ export class SignUpService {
   ) {}
 
   /** 소셜 로그인 후 신규 회원이면 가입 토큰 발급 */
-  async start(provider: string, providerUserId: string, nickname: string | null, avatarUrl: string | null) {
+  async start(provider: string, social: SocialIdentity) {
     const id = randomUUID();
-    const state: SignUpState = { provider, providerUserId, suggestedNickname: nickname, avatarUrl, sends: 0, attempts: 0 };
+    const state: SignUpState = {
+      provider,
+      providerUserId: social.providerUserId,
+      suggestedNickname: social.nickname,
+      avatarUrl: social.avatarUrl,
+      ...(social.birthYear != null ? { verifiedBirthYear: social.birthYear } : {}),
+      ...(social.gender ? { suggestedGender: social.gender } : {}),
+      sends: 0,
+      attempts: 0,
+    };
     await this.redis.set(stateKey(id), JSON.stringify(state), 'EX', SIGN_UP_TTL_SEC);
     const signUpToken = await this.jwt.signAsync({ sub: id, typ: 'sign-up' }, { expiresIn: `${SIGN_UP_TTL_SEC}s` });
-    return { signUpToken, suggestedNickname: nickname, expiresInSec: SIGN_UP_TTL_SEC };
+    return {
+      signUpToken,
+      provider,
+      suggestedNickname: social.nickname,
+      // 앱이 가입 화면 기본값으로 씁니다. 출생연도는 소셜이 확인해 준 것이라 바꿀 수 없게 보여 줍니다
+      suggestedGender: social.gender ?? null,
+      verifiedBirthYear: social.birthYear ?? null,
+      expiresInSec: SIGN_UP_TTL_SEC,
+    };
   }
 
   async checkNickname(nickname: string): Promise<{ available: boolean; reason?: 'format' | 'taken' }> {
@@ -142,9 +175,13 @@ export class SignUpService {
     if (!check.available) throw authError(HttpStatus.CONFLICT, 'NICKNAME_TAKEN');
     if (await this.phones.isRegistered(state.verifiedPhone)) throw authError(HttpStatus.CONFLICT, 'PHONE_ALREADY_REGISTERED');
 
-    const age = this.ageOf(profile.birthDate);
-    // 노인 무료 등급 (WBS 3.7). 나이 기준은 위 SENIOR_AGE
-    const plan = age !== null && age >= SENIOR_AGE ? 'care' : 'basic';
+    const decision = decidePlan(state.verifiedBirthYear ?? null, profile.birthDate);
+    if (decision.mismatch) {
+      // 막지는 않습니다 — 생일이 안 지났거나 잘못 눌렀을 수도 있습니다. 다만 기록은 남깁니다
+      this.logger.warn(`적은 나이와 ${state.provider} 확인 나이가 다릅니다 (${decision.age}세로 처리)`);
+    }
+    const { plan } = decision;
+    const verified = state.verifiedBirthYear;
 
     const user = await this.db.transaction().execute(async (trx) => {
       const created = await trx
@@ -156,6 +193,7 @@ export class SignUpService {
           birth_date: profile.birthDate,
           avatar_url: state.avatarUrl,
           plan,
+          age_verified: verified != null,
           single_household: profile.singleHousehold,
           last_active_at: new Date(),
         })
@@ -196,15 +234,6 @@ export class SignUpService {
     throw new Error('8자리 ID 를 만들지 못했습니다');
   }
 
-  private ageOf(birthDate: string): number | null {
-    const birth = new Date(birthDate);
-    if (Number.isNaN(birth.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - birth.getFullYear();
-    if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age -= 1;
-    return age;
-  }
-
   private async load(signUpToken: string): Promise<{ id: string; state: SignUpState }> {
     let payload: { sub: string; typ?: string };
     try {
@@ -225,4 +254,38 @@ export class SignUpService {
   private hashCode(id: string, code: string) {
     return createHash('sha256').update(`${id}:${code}`).digest('hex');
   }
+}
+
+/**
+ * 노인 무료 등급을 줄지 (WBS 3.6·3.7).
+ *
+ * **소셜이 확인해 준 출생연도가 있으면 그것만 봅니다.** 본인이 적은 생년월일로 정하면
+ * 아무나 1950년생이라고 적어 유료 등급을 공짜로 받을 수 있습니다. 카카오는 비즈 앱 전환,
+ * 네이버는 "출생연도" 동의 항목이 있어야 값이 옵니다 — 없으면 적은 값을 쓸 수밖에 없습니다.
+ *
+ * 확인된 연도가 있을 때는 나이를 **연도 차이**로만 셉니다. 생일이 지났는지까지는 알 수 없고,
+ * 그 하루 이틀 때문에 무료 등급이 갈리는 것이 더 이상합니다.
+ */
+export function decidePlan(
+  verifiedBirthYear: number | null,
+  declaredBirthDate: string,
+  now = new Date(),
+): { age: number | null; plan: 'care' | 'basic'; ageVerified: boolean; mismatch: boolean } {
+  const declared = ageOf(declaredBirthDate, now);
+  const age = verifiedBirthYear != null ? now.getFullYear() - verifiedBirthYear : declared;
+  return {
+    age,
+    plan: age !== null && age >= SENIOR_AGE ? 'care' : 'basic',
+    ageVerified: verifiedBirthYear != null,
+    // 생일이 아직 안 지났으면 1살 차이는 정상입니다
+    mismatch: verifiedBirthYear != null && declared != null && age != null && Math.abs(age - declared) > 1,
+  };
+}
+
+function ageOf(birthDate: string, now: Date): number | null {
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return null;
+  let age = now.getFullYear() - birth.getFullYear();
+  if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age -= 1;
+  return age;
 }

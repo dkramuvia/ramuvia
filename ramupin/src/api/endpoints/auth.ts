@@ -6,6 +6,14 @@ import type { Gender, User } from '@/types/models';
 /** WBS 3.8: Google, Apple, X, Facebook, Instagram, Naver, Kakao (Instagram 은 API 종료로 1차 제외 검토, wbs-check §2-6) */
 export type SocialProvider = 'google' | 'x' | 'facebook' | 'apple' | 'instagram' | 'kakao' | 'naver';
 
+/** 브라우저에서 받아 온 인가 코드 (제공자마다 딸려 오는 값이 조금 다릅니다) */
+export interface CodeAuth {
+  code: string;
+  codeVerifier?: string;
+  state?: string;
+  redirectUri: string;
+}
+
 export interface AuthResult {
   accessToken: string;
   refreshToken: string;
@@ -49,7 +57,17 @@ export interface SessionTokens {
 export type LoginResult =
   | ({ status: 'ok'; deviceKey: string } & SessionTokens)
   | { status: 'device_verification_required'; challengeId: string; expiresInSec: number }
-  | { status: 'sign_up_required'; signUpToken: string; suggestedNickname: string | null; expiresInSec: number };
+  | {
+      status: 'sign_up_required';
+      signUpToken: string;
+      /** 어느 소셜로 들어왔는지 (가입 화면 안내 문구에 씁니다) */
+      provider: string;
+      suggestedNickname: string | null;
+      suggestedGender: 'male' | 'female' | null;
+      /** 카카오·네이버가 확인해 준 출생연도. 없으면 본인이 적습니다 (WBS 3.6) */
+      verifiedBirthYear: number | null;
+      expiresInSec: number;
+    };
 
 /** 서버 인증 오류 코드 (ramupin-server src/auth/auth-error.ts) */
 export type AuthErrorCode =
@@ -132,15 +150,15 @@ export const authApi = {
   },
 
   /**
-   * X(트위터) 로그인.
-   * 앱은 인가 코드만 받아 보내고, 토큰 교환은 서버가 합니다 (features/auth/x.ts 설명 참고)
+   * 브라우저로 여는 소셜 로그인 (X · 네이버 · 구글).
+   * 앱은 인가 코드만 받아 보내고, 토큰 교환은 서버가 합니다 (features/auth/social.ts 설명 참고)
    */
-  async xLogin(auth: { code: string; codeVerifier: string; redirectUri: string }, device: DeviceInput): Promise<LoginResult> {
-    const { data } = await apiClient.post<LoginResult>('/auth/x', { ...auth, device });
+  async codeLogin(provider: 'x' | 'naver' | 'google', auth: CodeAuth, device: DeviceInput): Promise<LoginResult> {
+    const { data } = await apiClient.post<LoginResult>(`/auth/${provider}`, { ...auth, device });
     return data;
   },
 
-  /** TODO(로그인 단계): 네이버·구글·애플 등 나머지 소셜. 서버는 같은 흐름을 씁니다 */
+  /** 아직 붙이지 않은 소셜 (목업 전용). 서버 연결 시에는 화면에서 막습니다 */
   async socialLogin(provider: SocialProvider, providerToken: string): Promise<AuthResult> {
     if (!isLive('auth')) {
       return mockResponse({ accessToken: `mock-${provider}`, refreshToken: 'mock', user: mockMe, isNewUser: true });

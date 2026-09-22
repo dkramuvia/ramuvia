@@ -7,6 +7,7 @@ import { authApi } from '@/api/endpoints/auth';
 import { AppText, Button, SegmentButtons, TextField } from '@/components/ui';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useSignUpStore } from '@/stores/signUpStore';
+import { colors } from '@/theme';
 import type { Gender } from '@/types/models';
 
 const NICKNAME_RULE = /^[가-힣a-zA-Z0-9]{2,8}$/;
@@ -27,6 +28,11 @@ function parseBirth(text: string): Date | null {
   return valid ? date : null;
 }
 
+/** 안내 문구에 쓸 이름 ('naver' → '네이버') */
+function providerLabel(provider: string): string {
+  return { kakao: '카카오', naver: '네이버', google: '구글', x: 'X' }[provider] ?? provider;
+}
+
 function ageOf(birth: Date) {
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
@@ -41,12 +47,21 @@ export default function ProfileSetupScreen() {
   const [nickname, setNickname] = useState(signUp.nickname);
   const [checked, setChecked] = useState<'unchecked' | 'available' | 'taken'>('unchecked');
   const [gender, setGender] = useState<Gender | null>(signUp.gender);
-  const [birth, setBirth] = useState(formatBirth(signUp.birthDate));
+  // 카카오·네이버가 출생연도를 확인해 줬으면 그 해로 시작합니다 (WBS 3.6)
+  const [birth, setBirth] = useState(formatBirth(signUp.birthDate) || (signUp.verifiedBirthYear ? String(signUp.verifiedBirthYear) : ''));
 
   const nicknameValid = NICKNAME_RULE.test(nickname);
   const birthDate = parseBirth(birth);
-  const isSenior = birthDate ? ageOf(birthDate) >= SENIOR_AGE : false;
-  const canNext = nicknameValid && checked === 'available' && gender && birthDate;
+  /**
+   * 적은 연도가 소셜이 확인해 준 연도와 다른 경우.
+   *
+   * 막아야 합니다. 서버는 무료 등급을 **확인된 연도**로 정하므로, 그냥 두면
+   * 화면에는 "노인 무료 안내"가 뜨는데 실제로는 유료로 가입되는 일이 생깁니다.
+   */
+  const yearMismatch = !!signUp.verifiedBirthYear && !!birthDate && birthDate.getFullYear() !== signUp.verifiedBirthYear;
+  const seniorAge = signUp.verifiedBirthYear ? new Date().getFullYear() - signUp.verifiedBirthYear : birthDate ? ageOf(birthDate) : null;
+  const isSenior = seniorAge !== null && seniorAge >= SENIOR_AGE;
+  const canNext = nicknameValid && checked === 'available' && gender && birthDate && !yearMismatch;
 
   const check = async () => {
     const { available } = await authApi.checkNickname(nickname);
@@ -108,10 +123,28 @@ export default function ProfileSetupScreen() {
         onChangeText={(v) => setBirth(formatBirth(v))}
         keyboardType="number-pad"
         maxLength={14}
-        helperText={isSenior ? t('onboarding.seniorNotice', { age: SENIOR_AGE }) : t('onboarding.birthHelp')}
-        errorText={birth.replace(/\D/g, '').length === 8 && !birthDate ? t('onboarding.birthInvalid') : undefined}
+        helperText={
+          signUp.verifiedBirthYear
+            ? t('onboarding.birthVerified', { provider: providerLabel(signUp.provider), year: signUp.verifiedBirthYear })
+            : isSenior
+              ? t('onboarding.seniorNotice', { age: SENIOR_AGE })
+              : t('onboarding.birthHelp')
+        }
+        errorText={
+          yearMismatch
+            ? t('onboarding.birthYearMismatch', { year: signUp.verifiedBirthYear })
+            : birth.replace(/\D/g, '').length === 8 && !birthDate
+              ? t('onboarding.birthInvalid')
+              : undefined
+        }
       />
-      {/* WBS 4.1: 노인 무료 등급은 국내 본인 인증(카카오·네이버·PASS) 후 적용. 5단계에서 연결 */}
+      {/* 노인 무료 등급(WBS 4.1)은 카카오·네이버가 확인해 준 출생연도로 정합니다.
+          확인 항목이 없는 소셜(구글·X)로 들어오면 본인이 적은 값을 씁니다 */}
+      {signUp.verifiedBirthYear && isSenior ? (
+        <AppText variant="label2" color={colors.brown}>
+          {t('onboarding.seniorNotice', { age: SENIOR_AGE })}
+        </AppText>
+      ) : null}
     </OnboardingLayout>
   );
 }

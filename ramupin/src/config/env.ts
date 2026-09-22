@@ -29,7 +29,10 @@ export const env = {
   auth: {
     /** 카카오 디벨로퍼스 RamuPin(1578376) 네이티브 앱 키. app.config.ts 에서 네이티브 설정에도 씁니다 */
     kakaoNativeAppKey: process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY ?? '',
-    googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
+    /** 구글 로그인 OAuth 클라이언트 ID (안드로이드용). Google Cloud 콘솔에서 발급 */
+    googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '',
+    /** 네이버 로그인 Client ID. 지도 키와 다른 앱입니다 (Secret 은 서버에만) */
+    naverClientId: process.env.EXPO_PUBLIC_NAVER_LOGIN_CLIENT_ID ?? '',
     facebookAppId: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? '',
     xClientId: process.env.EXPO_PUBLIC_X_CLIENT_ID ?? '',
   },

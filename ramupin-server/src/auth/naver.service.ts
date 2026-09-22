@@ -27,8 +27,9 @@ interface NaverMeResponse {
   response?: {
     id: string;
     nickname?: string;
-    name?: string;
     profile_image?: string;
+    /** 실명. **쓰지 않습니다** — 위 nickname 설명 참고 */
+    name?: string;
     /** 'YYYY' — "출생연도" 항목에 동의했을 때만 옵니다 */
     birthyear?: string;
     /** 'MM-DD' — "생일" 항목에 동의했을 때만 옵니다 */
@@ -75,7 +76,9 @@ export class NaverService {
     const birthYear = user.birthyear && /^\d{4}$/.test(user.birthyear) ? Number(user.birthyear) : null;
     return {
       providerUserId: user.id,
-      nickname: user.nickname ?? user.name ?? null,
+      // 별명만 씁니다. 네이버 "회원이름"은 실명이라, 닉네임 칸에 미리 채우면
+      // 그대로 넘기는 분들의 실명이 친구에게 보이는 공개 이름이 됩니다
+      nickname: user.nickname ?? null,
       avatarUrl: user.profile_image ?? null,
       birthYear,
       gender: user.gender === 'M' ? 'male' : user.gender === 'F' ? 'female' : null,

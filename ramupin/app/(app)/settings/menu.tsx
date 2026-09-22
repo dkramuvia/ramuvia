@@ -14,6 +14,7 @@ const MENU: { key: string; href: Href; danger?: boolean }[] = [
   { key: 'groups', href: '/settings/groups' },
   { key: 'safeZone', href: '/settings/geofences' },
   { key: 'safety', href: '/settings/safety', danger: true },
+  { key: 'sosReceived', href: '/sos-received', danger: true },
   { key: 'map', href: '/settings/map' },
   { key: 'location', href: '/settings/location' },
   { key: 'account', href: '/settings/account' },

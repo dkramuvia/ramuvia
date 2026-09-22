@@ -8,7 +8,7 @@ import {
   mockSafety,
   mockScheduledMessages,
 } from '../mock/settings';
-import { env } from '@/config/env';
+import { env, isLive } from '@/config/env';
 import { inbox } from '@/db/inbox';
 import { isMeId } from '@/stores/authStore';
 import type {
@@ -68,27 +68,32 @@ export const hideModeApi = {
 
 export const safetyApi = {
   async get(): Promise<SafetySetting> {
-    if (env.useMock) return mockResponse(clone(mockSafety));
-    const { data } = await apiClient.get<SafetySetting>('/me/safety');
-    return data;
+    if (!isLive('sos')) return mockResponse(clone(mockSafety));
+    const { data } = await apiClient.get<Omit<SafetySetting, 'agencies'>>('/me/safety');
+    // 관공서 연락처는 아직 서버에 두지 않았습니다 (WBS 8.4: 비워 두고 준비만)
+    return { ...data, agencies: [] };
   },
   async save(setting: SafetySetting): Promise<void> {
-    if (env.useMock) {
+    if (!isLive('sos')) {
       Object.assign(mockSafety, clone(setting));
       return mockResponse(undefined);
     }
-    await apiClient.put('/me/safety', setting);
+    await apiClient.put('/me/safety', {
+      sosEnabled: setting.sosEnabled,
+      recipientFriendIds: setting.recipientFriendIds,
+      recipientGroupIds: setting.recipientGroupIds,
+    });
   },
 };
 
 export const geofencesApi = {
   async list(): Promise<Geofence[]> {
-    if (env.useMock) return mockResponse(clone(mockGeofences));
+    if (!isLive('geofence')) return mockResponse(clone(mockGeofences));
     const { data } = await apiClient.get<Geofence[]>('/geofences');
     return data;
   },
   async save(geofence: Omit<Geofence, 'id'> & { id?: string }): Promise<Geofence> {
-    if (env.useMock) {
+    if (!isLive('geofence')) {
       if (geofence.id) {
         const index = mockGeofences.findIndex((g) => g.id === geofence.id);
         mockGeofences[index] = geofence as Geofence;
@@ -104,7 +109,7 @@ export const geofencesApi = {
     return data;
   },
   async remove(id: string): Promise<void> {
-    if (env.useMock) {
+    if (!isLive('geofence')) {
       const index = mockGeofences.findIndex((g) => g.id === id);
       if (index >= 0) mockGeofences.splice(index, 1);
       return mockResponse(undefined);

@@ -20,6 +20,17 @@ import type { ChatMessage } from '@/types/models';
  */
 let socket: Socket | null = null;
 
+interface ServerSos {
+  nickname: string;
+  latitude: number | null;
+  longitude: number | null;
+  placeName: string | null;
+  placeAddress: string | null;
+  startedAt: string;
+  status?: 'sent' | 'cancelled';
+  hasAudio?: boolean;
+}
+
 interface ServerMessage {
   id: string;
   roomId: string;
@@ -58,6 +69,25 @@ function connect(token: string) {
   // 30초 주기 재조회(FRIENDS_REFETCH_MS)는 소켓이 끊겼을 때를 위한 대비로 남겨 둡니다
   socket.on('friend-location', () => {
     queryClient.invalidateQueries({ queryKey: friendKeys.list, exact: true });
+  });
+
+  // 친구가 SOS 를 눌렀을 때 (WBS 7.9). 누구에게 보낼지는 서버가 정합니다
+  socket.on('sos', (payload: ServerSos) => {
+    queryClient.invalidateQueries({ queryKey: ['sos', 'received'] });
+    // 취소 알림은 팝업을 띄우지 않습니다 — 이미 지나간 일이라 놀라게만 합니다
+    if (payload.status === 'cancelled') return;
+    useAlertStore.getState().showPopup({
+      kind: 'sos',
+      name: payload.nickname,
+      place: {
+        placeName: payload.placeName ?? undefined,
+        address: payload.placeAddress ?? '',
+        latitude: payload.latitude ?? 0,
+        longitude: payload.longitude ?? 0,
+      },
+      sentAt: payload.startedAt,
+      hasVoice: payload.hasAudio ?? false,
+    });
   });
 
   // 친구가 안심장소를 드나들면 (WBS 9.4). 받을 사람은 서버가 정합니다

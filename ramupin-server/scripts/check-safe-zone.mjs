@@ -3,38 +3,15 @@
 // 지원이 안심장소를 만들고, 그 안으로 들어갔다 나올 때 강한에게 알림이 가는지 봅니다
 import { io } from 'socket.io-client';
 
-const API = 'http://localhost:3000';
+import { API, call, login, wait } from './dev-login.mjs';
+
 const CENTER = { latitude: 37.4763, longitude: 126.8879 };
 const north = (m) => ({ latitude: CENTER.latitude + m / 111_320, longitude: CENTER.longitude });
-
-const call = async (method, path, token, body) => {
-  const r = await fetch(API + path, {
-    method,
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${method} ${path} ${r.status} ${t}`);
-  return t ? JSON.parse(t) : null;
-};
-
-async function login(publicId) {
-  const device = { installationId: `test-${publicId}-fixed`, platform: 'android', model: 'test' };
-  let res = await call('POST', '/auth/dev-login', null, { publicId, device });
-  if (res.status === 'device_verification_required') {
-    await call('POST', '/auth/device-verification/send', null, { challengeId: res.challengeId });
-    res = await call('POST', '/auth/device-verification/verify', null, { challengeId: res.challengeId, code: '123456' });
-  }
-  res.id = JSON.parse(Buffer.from(res.accessToken.split('.')[1], 'base64url')).sub;
-  return res;
-}
 
 const upload = (token, coords) =>
   call('POST', '/locations', token, {
     points: [{ ...coords, accuracy: 10, battery: 80, measuredAt: new Date().toISOString() }],
   });
-
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const 지원 = await login('26460002'); // 안심장소 주인
 const 강한 = await login('26467878'); // 알림 받는 친구

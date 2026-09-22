@@ -4,23 +4,17 @@
 // 1번 서버에 붙은 사람이 2번 서버에 붙은 사람의 위치를 실시간으로 받는지 봅니다
 import { io } from 'socket.io-client';
 import { readFileSync } from 'node:fs';
+
+import { call, login } from './dev-login.mjs';
 const S1='http://localhost:3000', S2='http://localhost:3001';
-const post=async(base,path,body)=>{
-  const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-  const t=await r.text(); if(!r.ok) throw new Error(`${path} ${r.status} ${t}`); return JSON.parse(t);
-};
-async function login(base,publicId){
-  const device={installationId:`test-${publicId}-fixed`,platform:'android',model:'test'};
-  let res=await post(base,'/auth/dev-login',{publicId,device});
-  if(res.status==='device_verification_required'){
-    await post(base,'/auth/device-verification/send',{challengeId:res.challengeId});
-    res=await post(base,'/auth/device-verification/verify',{challengeId:res.challengeId,code:'123456'});
-  }
-  res.id=JSON.parse(Buffer.from(res.accessToken.split('.')[1],'base64url')).sub;
-  return res;
+// 2번 서버가 떠 있어야 합니다
+if (!(await fetch(S2 + '/health').then((r) => r.ok).catch(() => false))) {
+  console.error(`2번 서버(${S2})가 없습니다. API_PORT=3001 node dist/main.js 로 띄운 뒤 다시 실행하세요`);
+  process.exit(1);
 }
-const A=await login(S1,'26467878');   // 보는 사람 → 1번 서버
-const B=await login(S2,'26460002');   // 보여지는 사람 → 2번 서버
+
+const A=await login('26467878', S1);   // 보는 사람 → 1번 서버
+const B=await login('26460002', S2);   // 보여지는 사람 → 2번 서버
 
 const sockB=io(S2,{path:'/ws',transports:['websocket'],auth:{token:B.accessToken}});
 const got=[]; const locs=[];

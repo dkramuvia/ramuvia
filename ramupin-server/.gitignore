@@ -17,3 +17,4 @@ scripts/.simulator-device-keys.json
 
 # Firebase 서비스 계정 키 (절대 커밋 금지: 프로젝트 관리자 권한을 가집니다)
 *firebase-adminsdk*.json
+.dev-device-keys.json

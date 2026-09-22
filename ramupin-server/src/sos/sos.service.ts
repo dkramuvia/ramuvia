@@ -195,6 +195,8 @@ export class SosService {
       placeName: input.placeName,
       placeAddress: input.placeAddress,
       startedAt: input.startedAt.toISOString(),
+      // 팝업에 "음성 있음"을 표시할지. 녹음 업로드가 실패해도 SOS 는 보냅니다
+      hasAudio: input.audioAssetId != null,
     });
     // 앱이 꺼져 있어도 닿아야 합니다. SOS 는 놓치면 안 되는 알림입니다
     await this.push
@@ -202,7 +204,7 @@ export class SosService {
         title: `${nickname}님의 SOS 긴급 발신`,
         body: `${where} · 지금 확인해 주세요`,
         channel: 'sos',
-        route: `/sos/received/${sosId}`,
+        route: '/sos-received',
         data: { sosId, userId },
       })
       .catch((error: unknown) => this.logger.error(`SOS 푸시 실패: ${String(error)}`));

@@ -32,6 +32,19 @@ export interface LocationPointInput {
 }
 
 /** 이상징후 판정에 필요한 마지막 상태 (위치 DB 밖으로 나가는 유일한 모양) */
+/** 경계·시계 오차에 대비해 이만큼 일찍 가져옵니다 */
+const FETCH_MARGIN_MS = 60_000;
+
+/** 감시가 훑을 대상을 정하는 기준. anomaly.rules.ts 의 가장 이른 단계 값을 씁니다 */
+export interface StatusThresholds {
+  /** 신호 두절 1단계 (분) */
+  noSignalMinutes: number;
+  /** 위치 고정 1단계 (분) */
+  fixedMinutes: number;
+  /** 배터리 부족 기준 (%) */
+  lowBatteryPercent: number;
+}
+
 export interface UserStatusSnapshot {
   userId: string;
   lastMeasuredAt: Date;
@@ -211,22 +224,48 @@ export class LocationService implements OnModuleInit {
     return result;
   }
 
+  /** 한 사람의 마지막 상태 (모니터링 상세 화면) */
+  async getStatus(userId: string): Promise<UserStatusSnapshot | null> {
+    const row = await this.db.selectFrom('location.user_status').selectAll().where('user_id', '=', userId).executeTakeFirst();
+    return row ? toSnapshot(row) : null;
+  }
+
   /**
-   * 이상징후 감시 배치가 읽는 사용자별 마지막 상태 (docs/anomaly-alerts.md).
-   * 위치 DB 연결은 이 모듈 밖으로 나가지 않으므로, 배치는 이 메서드로만 읽습니다.
+   * 이상징후 감시가 봐야 할 사람만 골라 옵니다 (docs/anomaly-alerts.md).
+   *
+   * 전에는 user_status 를 통째로 읽었습니다. 10만 대면 버티지만 100만 대면
+   * 5분마다 100만 행이라 감당이 안 됩니다 (하루 2.9억 행).
+   *
+   * 실제로 봐야 하는 사람은 아래 넷 중 하나에 해당하는 소수뿐이라, 인덱스로 걸러냅니다.
+   * 조건은 anomaly.rules.ts 의 detect() 가 보는 것과 같습니다 — 한쪽만 바꾸면 안 됩니다.
+   *
+   * @param extraUserIds 지금 이상징후가 열려 있는 사람. 조건에서 벗어났어도 가져와야
+   *                     "다시 움직였으니 해제" 를 판단할 수 있습니다
    */
-  async listStatuses(): Promise<UserStatusSnapshot[]> {
-    const rows = await this.db.selectFrom('location.user_status').selectAll().execute();
-    return rows.map((r) => ({
-      userId: r.user_id,
-      lastMeasuredAt: r.last_measured_at,
-      lastBattery: r.last_battery,
-      lastCharging: r.last_charging,
-      fixedSince: r.fixed_since,
-      batteryZeroSince: r.battery_zero_since,
-      lastLatitude: r.last_latitude,
-      lastLongitude: r.last_longitude,
-    }));
+  async listStatusesToCheck(thresholds: StatusThresholds, extraUserIds: string[] = []): Promise<UserStatusSnapshot[]> {
+    // 경계에서 놓치지 않게 조금 일찍 가져옵니다.
+    // 판정은 "30분 이상"인데 조회가 "30분 초과"면 정확히 30분인 사람이 빠집니다.
+    // 서버와 폰의 시계가 조금 어긋나는 경우도 이 여유가 흡수합니다 (2026-09-22)
+    const now = Date.now() + FETCH_MARGIN_MS;
+    const rows = await this.db
+      .selectFrom('location.user_status')
+      .selectAll()
+      .where((eb) =>
+        eb.or([
+          // 신호가 끊긴 지 오래됨
+          eb('last_measured_at', '<', new Date(now - thresholds.noSignalMinutes * 60_000)),
+          // 한자리에 오래 머묾
+          eb('fixed_since', '<', new Date(now - thresholds.fixedMinutes * 60_000)),
+          // 배터리 0% 가 이어짐
+          eb('battery_zero_since', 'is not', null),
+          // 배터리가 얼마 안 남음
+          eb('last_battery', '<=', thresholds.lowBatteryPercent),
+          // 열려 있는 건은 해제 판단을 위해 항상 포함
+          ...(extraUserIds.length > 0 ? [eb('user_id', 'in', extraUserIds)] : []),
+        ]),
+      )
+      .execute();
+    return rows.map(toSnapshot);
   }
 
   /** 위치정보 이용·제공 사실 확인자료 (위치정보법) */
@@ -245,4 +284,27 @@ export class LocationService implements OnModuleInit {
   async close() {
     await this.db.destroy().catch((e: unknown) => this.logger.warn(String(e)));
   }
+}
+
+/** user_status 한 행 → 감시·화면이 쓰는 모양 */
+function toSnapshot(r: {
+  user_id: string;
+  last_measured_at: Date;
+  last_battery: number | null;
+  last_charging: boolean | null;
+  fixed_since: Date;
+  battery_zero_since: Date | null;
+  last_latitude: number;
+  last_longitude: number;
+}): UserStatusSnapshot {
+  return {
+    userId: r.user_id,
+    lastMeasuredAt: r.last_measured_at,
+    lastBattery: r.last_battery,
+    lastCharging: r.last_charging,
+    fixedSince: r.fixed_since,
+    batteryZeroSince: r.battery_zero_since,
+    lastLatitude: r.last_latitude,
+    lastLongitude: r.last_longitude,
+  };
 }

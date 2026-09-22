@@ -20,6 +20,7 @@ import {
   ShadingType,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
   WidthType,
@@ -117,13 +118,17 @@ function cellParagraph(cell, isHeader) {
 function table(token) {
   const border = { style: BorderStyle.SINGLE, size: 4, color: COLORS.border };
   const borders = { top: border, bottom: border, left: border, right: border };
+  // 열 너비를 직접 정해 줍니다. 안 주면 Word 가 알아서 나누는데,
+  // 한 열이 한 글자 폭까지 줄어들어 글씨가 세로로 쌓이는 일이 생깁니다 (09-22 확인)
+  const widths = columnWidths(token);
   const makeRow = (cells, isHeader) =>
     new TableRow({
       tableHeader: isHeader,
       children: cells.map(
-        (cell) =>
+        (cell, i) =>
           new TableCell({
             borders,
+            width: { size: widths[i], type: WidthType.DXA },
             margins: { top: 60, bottom: 60, left: 100, right: 100 },
             shading: isHeader ? { type: ShadingType.CLEAR, fill: COLORS.tableHead, color: 'auto' } : undefined,
             children: [cellParagraph(cell, isHeader)],
@@ -131,9 +136,53 @@ function table(token) {
       ),
     });
   return [
-    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [makeRow(token.header, true), ...token.rows.map((r) => makeRow(r, false))] }),
+    new Table({
+      width: { size: TABLE_WIDTH, type: WidthType.DXA },
+      columnWidths: widths,
+      // 정해 준 너비를 Word 가 다시 계산하지 않게 고정합니다
+      layout: TableLayoutType.FIXED,
+      rows: [makeRow(token.header, true), ...token.rows.map((r) => makeRow(r, false))],
+    }),
     new Paragraph({ spacing: { after: 120 } }),
   ];
+}
+
+
+/** 본문 폭 (A4 11906 - 좌우 여백 1200*2) */
+const TABLE_WIDTH = 9506;
+/** 글자가 세로로 쌓이지 않을 최소 폭 */
+const MIN_COL = 900;
+
+/** 칸에 들어갈 글자 수로 열 너비를 나눕니다. 한글은 영문보다 넓게 잡습니다 */
+function columnWidths(token) {
+  const count = token.header.length;
+  const textOf = (cell) => (cell.text ?? '').toString();
+  const weightOf = (text) => {
+    let w = 0;
+    for (const ch of text) w += /[가-힣㄰-㆏]/.test(ch) ? 2 : 1;
+    // 아주 긴 칸이 표를 독차지하지 않게 상한을 둡니다
+    return Math.min(w, 60);
+  };
+
+  const weights = [];
+  for (let i = 0; i < count; i += 1) {
+    let max = weightOf(textOf(token.header[i]));
+    for (const row of token.rows) max = Math.max(max, weightOf(textOf(row[i])));
+    weights.push(Math.max(max, 4));
+  }
+
+  const total = weights.reduce((a, b) => a + b, 0);
+  let widths = weights.map((w) => Math.round((w / total) * TABLE_WIDTH));
+
+  // 최소 폭을 지키고, 넘친 만큼은 넓은 열에서 덜어냅니다
+  const deficit = widths.reduce((sum, w) => sum + Math.max(0, MIN_COL - w), 0);
+  if (deficit > 0) {
+    const spare = widths.reduce((sum, w) => sum + Math.max(0, w - MIN_COL), 0);
+    widths = widths.map((w) => (w < MIN_COL ? MIN_COL : Math.round(w - (deficit * (w - MIN_COL)) / spare)));
+  }
+  // 반올림 오차는 마지막 열에서 맞춥니다
+  widths[count - 1] += TABLE_WIDTH - widths.reduce((a, b) => a + b, 0);
+  return widths;
 }
 
 function list(token, level = 0) {

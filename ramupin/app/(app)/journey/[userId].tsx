@@ -189,15 +189,17 @@ export default function JourneyScreen() {
                     </View>
                   ) : null}
                   <Pressable onPress={() => mapRef.current?.moveTo(stop, 0.005)} style={styles.stop}>
-                    <View style={styles.flex}>
-                      <AppText variant="body2Bold">{stop.placeName ?? stop.address}</AppText>
+                    <View style={styles.stopText}>
+                      <AppText variant="listTitle" color={STOP_TITLE} numberOfLines={1}>
+                        {stop.placeName ?? stop.address}
+                      </AppText>
                       {stop.placeName ? (
-                        <AppText variant="label1" color={colors.textSecondary}>
+                        <AppText variant="body1" color={STOP_SUB} numberOfLines={1}>
                           {stop.address}
                         </AppText>
                       ) : null}
                     </View>
-                    <AppText variant="label2" color={colors.textSecondary}>
+                    <AppText variant="label1" color={STOP_SUB}>
                       {timeText(stop.arrivedAt)}
                     </AppText>
                   </Pressable>
@@ -238,6 +240,11 @@ function NowRow() {
   );
 }
 
+/** 피그마 값 그대로 (theme 토큰에 없는 색) */
+const STOP_TITLE = '#2E3438';
+const STOP_SUB = '#737373';
+const MOVE_CARD = '#EBEDEE';
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
@@ -260,6 +267,24 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   visited: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   timelineItem: { gap: 12 },
-  chip: { borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: 16, paddingVertical: 12 },
-  stop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  // 이동 구간 카드 (피그마: 높이 50, 채움 #EBEDEE, 모서리 14, 안쪽 12/16)
+  chip: {
+    justifyContent: 'center',
+    minHeight: 50,
+    borderRadius: 14,
+    backgroundColor: MOVE_CARD,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  // 머문 장소 (피그마: 높이 74, 모서리 10, 안쪽 10/12)
+  stop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    minHeight: 74,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  stopText: { flex: 1, gap: 4 },
 });

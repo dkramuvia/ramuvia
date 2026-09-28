@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, layout } from '@/theme';
+import { layout, useColors } from '@/theme';
 
 interface HeaderProps {
   title?: string;
@@ -16,6 +16,7 @@ interface HeaderProps {
 
 /** 피그마 상단 바: 높이 48, 뒤로가기 48x48 영역, 가운데 제목 (SUIT 16 bold) */
 export function Header({ title, showBack = router.canGoBack(), onBack, right }: HeaderProps) {
+  const colors = useColors();
   return (
     <View style={styles.container}>
       <AppText variant="body1Bold" align="center" numberOfLines={1} style={styles.title}>

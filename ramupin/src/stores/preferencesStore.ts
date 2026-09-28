@@ -5,6 +5,12 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 /** 기기에만 저장하는 화면 설정 (서버와 무관). 앱을 다시 켜도 유지됩니다 */
 export interface Preferences {
   distanceUnit: 'km' | 'mile';
+  /**
+   * 앱 전체 화면 색 (피그마 2026-09-28 다크 모드).
+   * 'auto' 는 기기 설정을 따라갑니다 — 안드로이드에서 다크를 켜면 앱도 어두워집니다.
+   * 지도 스타일(mapTheme)과는 별개입니다.
+   */
+  appTheme: 'auto' | 'light' | 'dark';
   mapTheme: 'light' | 'dark';
   mapDimension: '2d' | '3d';
   mapProvider: 'os' | 'naver' | 'mapbox';
@@ -27,6 +33,7 @@ export const usePreferencesStore = create<PreferencesState>()(
   persist(
     (set) => ({
       distanceUnit: 'km',
+      appTheme: 'auto',
       mapTheme: 'light',
       mapDimension: '2d',
       mapProvider: 'os',

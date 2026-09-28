@@ -26,3 +26,7 @@ export const layout = {
   headerHeight: 48,
   tabBarHeight: 72,
 } as const;
+
+// 다크 모드 (피그마 2026-09-28). 색이 들어가는 스타일은 makeStyles 로 만듭니다
+export * from './palettes';
+export * from './useTheme';

@@ -4,7 +4,7 @@ import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from './AppText';
-import { colors, layout, typography } from '@/theme';
+import { layout, makeStyles, typography, useColors } from '@/theme';
 
 export type TabName = 'gallery' | 'map' | 'people';
 
@@ -24,6 +24,8 @@ interface BottomNavProps {
 export function BottomNav({ active, onPressTab }: BottomNavProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const styles = useStyles();
+  const colors = useColors();
 
   const handlePress = (name: TabName) => {
     if (onPressTab) onPressTab(name);
@@ -65,7 +67,7 @@ export function BottomNav({ active, onPressTab }: BottomNavProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -94,4 +96,4 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.accent,
   },
-});
+}));

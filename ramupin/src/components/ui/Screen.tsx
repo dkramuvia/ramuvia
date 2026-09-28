@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNav, type TabName } from './BottomNav';
 import { Header } from './Header';
-import { colors, layout } from '@/theme';
+import { layout, useColors } from '@/theme';
 
 interface ScreenProps {
   title?: string;
@@ -32,11 +32,13 @@ export function Screen({
   header = true,
   tab,
   scroll = true,
-  background = colors.background,
+  background,
   footer,
   contentStyle,
   children,
 }: ScreenProps) {
+  const colors = useColors();
+
   const content = scroll ? (
     <ScrollView
       style={styles.flex}
@@ -50,7 +52,7 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView edges={tab ? ['top'] : ['top', 'bottom']} style={[styles.flex, { backgroundColor: background }]}>
+    <SafeAreaView edges={tab ? ['top'] : ['top', 'bottom']} style={[styles.flex, { backgroundColor: background ?? colors.background }]}>
       {header ? <Header title={title} showBack={showBack} right={headerRight} /> : null}
       {content}
       {footer ? <View style={styles.footer}>{footer}</View> : null}

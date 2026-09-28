@@ -25,3 +25,54 @@
 | 18 | 네이버 지도 마커: 커스텀 뷰(프로필 사진 아바타)가 모두 같은 그림으로 그려지는 SDK 문제 (09-16) | 색 원(18px) + 네이버 기본 caption 으로 이름 표시. 프로필 사진 마커는 이미지 URL 방식으로 교체 예정 |
 | 19 | 로드뷰(거리뷰) 화면 디자인 없음 (피그마 283:18258 에는 지도 위 "거리뷰" 글자만 있음) | 전체 화면 로드뷰 + 뒤로가기·장소 이름·"네이버 지도에서 보기" 버튼 |
 | 20 | 2026-09-28 디자인에서 `지오펜스` 용어가 `안심존`·`세이프존` 둘로 섞여 있음 (설정 메뉴는 "세이프존", 화면 본문과 알림 문구는 "안심존") | **안심존** 으로 통일. 본문에 더 많이 쓰인 쪽 |
+
+---
+
+## 다크 모드 전환 방법 (2026-09-28~)
+
+피그마에 다크 모드 130개 화면이 생겼습니다. 색을 쓰는 방식 자체를 바꿔야 합니다.
+
+### 왜 한꺼번에 못 바꾸나
+
+`colors` 를 쓰는 파일이 **98개**이고, 대부분 파일 맨 아래 `StyleSheet.create` 안에 있습니다.
+그건 앱이 뜰 때 **한 번만** 계산돼서, 나중에 테마가 바뀌어도 그 색 그대로 남습니다.
+
+### 바꾸는 방법
+
+**색이 들어가는 스타일**은 `makeStyles` 로 감쌉니다.
+
+```tsx
+// 전
+import { colors } from '@/theme';
+const styles = StyleSheet.create({ box: { backgroundColor: colors.surface } });
+
+// 후
+import { makeStyles } from '@/theme';
+const useStyles = makeStyles((colors) => ({ box: { backgroundColor: colors.surface } }));
+
+function Screen() {
+  const styles = useStyles();   // ← 이 줄 추가
+```
+
+**렌더에서 직접 쓰는 색**(`color={colors.text}`)은 `useColors()` 로 바꿉니다.
+
+```tsx
+const colors = useColors();
+```
+
+색이 안 들어가는 스타일(여백·크기)은 그대로 둬도 됩니다.
+
+### 어디까지 했나
+
+- [x] 팔레트 두 벌 (`src/theme/palettes.ts`)
+- [x] 테마 고르기 (`useColors`, `makeStyles`, `useThemeName`) — 기본은 **기기 설정을 따라감**
+- [x] 설정값 `appTheme` (auto / light / dark)
+- [x] Card · Screen · Header · BottomNav
+- [ ] 나머지 공용 컴포넌트 22개
+- [ ] 화면 58개
+- [ ] **다크 팔레트 실제 값** — 피그마 속도 제한으로 아직 못 뽑음. 지금은 임시값
+
+### 남은 것을 할 때
+
+`palettes.ts` 의 다크 값만 고치면 화면 코드는 건드릴 필요가 없습니다.
+그게 이렇게 나눈 이유입니다.

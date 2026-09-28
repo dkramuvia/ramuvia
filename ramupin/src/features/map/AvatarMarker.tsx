@@ -2,24 +2,43 @@ import { StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/ui';
 import { colors } from '@/theme';
+import { StatusBadge } from './StatusBadge';
 
 interface AvatarMarkerProps {
   name: string;
   imageUrl?: string;
   online?: boolean;
   isMe?: boolean;
+  /** 아바타 아래 상태 한 줄 (피그마 2026-09-28: "걸어서 이동중", "같은 자리에서 1시간 40분") */
+  status?: string | null;
+  battery?: number | null;
 }
 
-/** 지도 위 사람 마커: 흰 테두리 원형 아바타 (내 마커는 테두리 색으로 구분) */
-export function AvatarMarker({ name, imageUrl, online, isMe }: AvatarMarkerProps) {
+/**
+ * 지도 위 사람 마커: 흰 테두리 원형 아바타 (내 마커는 테두리 색으로 구분).
+ *
+ * 2026-09-28 디자인부터 **상태를 마커 아래에 붙입니다.** 예전에는 화면 아래 고정 칩
+ * 하나로 내 상태만 보여 줬는데, 그러면 친구가 어디서 얼마나 머물렀는지는 알 수 없었습니다.
+ */
+export function AvatarMarker({ name, imageUrl, online, isMe, status, battery }: AvatarMarkerProps) {
   return (
-    <View style={[styles.ring, isMe && styles.ringMe]}>
-      <Avatar name={name} imageUrl={imageUrl} size={40} online={online} />
+    <View style={styles.wrap}>
+      <View style={[styles.ring, isMe && styles.ringMe]}>
+        <Avatar name={name} imageUrl={imageUrl} size={40} online={online} />
+      </View>
+      {status ? (
+        <View style={styles.badge}>
+          <StatusBadge text={status} battery={battery} tone={isMe ? 'mine' : 'friend'} />
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { alignItems: 'center' },
+  // 배지가 아바타보다 넓어도 마커 자리가 밀리지 않게 띄워서 올립니다
+  badge: { marginTop: 4 },
   ring: {
     padding: 3,
     borderRadius: 30,

@@ -100,6 +100,8 @@ export interface Friend {
   myShareLevel: LocationShareLevel;
   location?: LatLng & { address?: string; updatedAt: string };
   speedKmh?: number;
+  /** 언제부터 한자리에 있는지 (ISO). 지도 마커의 "같은 자리에서 N분" */
+  stayedSince?: string;
   isOnline?: boolean;
 }
 

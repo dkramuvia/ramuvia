@@ -110,7 +110,7 @@ async function handleLocations(locations: Location.LocationObject[]) {
  * 이게 없으면 앱이 되살아날 때마다 기준점이 지금 위치로 잡혀, 집을 나선 것을 놓칩니다.
  */
 const ANCHOR_KEY = 'location-stay-anchor';
-let anchor: { latitude: number; longitude: number } | null = null;
+let anchor: { latitude: number; longitude: number; at?: number } | null = null;
 let anchorLoaded = false;
 
 async function loadAnchor() {
@@ -119,9 +119,9 @@ async function loadAnchor() {
   try {
     const raw = await Storage.getItem(ANCHOR_KEY);
     if (!raw) return;
-    const parsed = JSON.parse(raw) as { latitude?: unknown; longitude?: unknown };
+    const parsed = JSON.parse(raw) as { latitude?: unknown; longitude?: unknown; at?: unknown };
     if (typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number') {
-      anchor = { latitude: parsed.latitude, longitude: parsed.longitude };
+      anchor = { latitude: parsed.latitude, longitude: parsed.longitude, ...(typeof parsed.at === 'number' ? { at: parsed.at } : {}) };
     }
   } catch {
     // 못 읽으면 다음 정지 판정 때 다시 잡힙니다
@@ -129,7 +129,8 @@ async function loadAnchor() {
 }
 
 async function setAnchor(location: MyLocation) {
-  anchor = { latitude: location.latitude, longitude: location.longitude };
+  // 기준점을 옮긴 시각 = 그 자리에 도착한 시각. 지도 마커의 "같은 자리에서 N분" 에 씁니다
+  anchor = { latitude: location.latitude, longitude: location.longitude, at: Date.now() };
   try {
     await Storage.setItem(ANCHOR_KEY, JSON.stringify(anchor));
   } catch (e) {
@@ -363,3 +364,14 @@ export async function stopBackgroundTracking(): Promise<void> {
 
 /** 지금 걸려 있는 수집 주기(초). 설정 화면에서 보여 줍니다 */
 export const currentIntervalSec = () => appliedIntervalSec;
+
+/**
+ * 지금 자리에 언제부터 있었는지 (ISO). 없으면 null.
+ *
+ * 친구의 머문 시간은 서버가 주지만(`Friend.stayedSince`), 내 것은 서버를 거칠 이유가
+ * 없습니다. 수집이 이미 기준점을 옮긴 시각을 기기에 적어 두고 있어 그대로 읽습니다.
+ */
+export async function stayedSince(): Promise<string | null> {
+  await loadAnchor();
+  return anchor?.at ? new Date(anchor.at).toISOString() : null;
+}

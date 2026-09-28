@@ -63,6 +63,7 @@ export const friendsApi = {
       batteryLevel: f.batteryLevel ?? undefined,
       location: f.location ?? undefined,
       speedKmh: f.speedKmh ?? undefined,
+      stayedSince: f.stayedSince ?? undefined,
       isOnline: f.isOnline ?? undefined,
     }));
   },

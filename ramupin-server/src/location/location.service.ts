@@ -236,6 +236,24 @@ export class LocationService {
       .execute();
   }
 
+  /**
+   * "언제부터 한자리에 있는지" (지도 마커의 "같은 자리에서 1시간 40분", 2026-09-28 디자인).
+   *
+   * 이상징후 판정에 쓰려고 이미 갱신하고 있던 값(`fixed_since`)을 그대로 씁니다.
+   * 50m 밖으로 나가면 서버가 그 시각을 새로 잡으므로(updateStatus), 따로 계산할 것이 없습니다.
+   */
+  async getStayedSince(userIds: string[]): Promise<Map<string, Date>> {
+    const result = new Map<string, Date>();
+    if (userIds.length === 0) return result;
+    const rows = await this.db
+      .selectFrom('location.user_status')
+      .select(['user_id', 'fixed_since'])
+      .where('user_id', 'in', userIds)
+      .execute();
+    for (const row of rows) result.set(row.user_id, row.fixed_since);
+    return result;
+  }
+
   /** 한 사람의 마지막 상태 (모니터링 상세 화면) */
   async getStatus(userId: string): Promise<UserStatusSnapshot | null> {
     const row = await this.db.selectFrom('location.user_status').selectAll().where('user_id', '=', userId).executeTakeFirst();

@@ -39,6 +39,8 @@ interface FriendResponse {
   isOnline: boolean;
   batteryLevel?: number;
   speedKmh?: number;
+  /** 언제부터 한자리에 있는지. 지도 마커의 "같은 자리에서 N분" (2026-09-28 디자인) */
+  stayedSince?: string;
   location?: { latitude: number; longitude: number; updatedAt: string };
 }
 
@@ -87,6 +89,8 @@ class FriendsService {
     const hiding = (r: { hide_all: boolean; hide_until: Date | null }) => r.hide_all && (!r.hide_until || r.hide_until.getTime() > now);
     const visibleIds = rows.filter((r) => r.their_level && r.their_level !== 'hidden' && !hiding(r)).map((r) => r.id);
     const current = await this.location.getCurrent(visibleIds);
+    // 마커에 "같은 자리에서 1시간 40분" 을 띄우려면 언제부터 거기 있었는지가 필요합니다
+    const stayedSince = await this.location.getStayedSince([...current.keys()]);
     await this.location.logAccess([...current.keys()], me, 'friend_list');
 
     // 3) 앱에서 합치기
@@ -110,6 +114,9 @@ class FriendsService {
         };
         if (exact && loc.speed != null) friend.speedKmh = Math.round(loc.speed * 3.6);
         if (r.their_share_battery && loc.battery != null) friend.batteryLevel = loc.battery;
+        // 상태 공개를 끈 친구는 머문 시간도 보이지 않아야 합니다 (그 자체가 상태입니다)
+        const since = r.their_show_status ? stayedSince.get(r.id) : undefined;
+        if (since) friend.stayedSince = since.toISOString();
       }
       return friend;
     });

@@ -42,7 +42,15 @@
     "addFriend": "친구추가",
     "adArea": "배너 광고 영역",
     "profile": "나의 프로필",
-    "streetView": "로드뷰"
+    "streetView": "로드뷰",
+    "statusWalking": "걸어서 이동중",
+    "statusMoving": "{{speed}}km로 이동중",
+    "statusMovingPlain": "이동중",
+    "statusStaying": "같은 자리에서 {{duration}}",
+    "statusStill": "머무는 중",
+    "durationMinutes": "{{minutes}}분",
+    "durationHours": "{{hours}}시간",
+    "durationHoursMinutes": "{{hours}}시간 {{minutes}}분"
   },
   "streetView": {
     "openInNaver": "네이버 지도에서 보기",

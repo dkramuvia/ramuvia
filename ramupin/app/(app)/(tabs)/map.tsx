@@ -8,15 +8,18 @@ import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { feedApi } from '@/api';
-import { AppText, Avatar, BatteryBadge, SheetScrollView, SnapSheet } from '@/components/ui';
+import { AppText, Avatar, SheetScrollView, SnapSheet } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriendRequests, useFriends } from '@/features/friends/queries';
-import { gpsSignal, moveMode, type GpsSignal, type MoveMode } from '@/features/location/signal';
+import { gpsSignal, type GpsSignal } from '@/features/location/signal';
+import { getActivity } from '../../../modules/ramupin-gps';
+import { stayedSince } from '@/features/location/backgroundTask';
 import { useAreaName } from '@/features/location/useAreaName';
 import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
+import { statusText } from '@/features/map/statusText';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
@@ -44,15 +47,6 @@ const SIGNAL_COLORS: Record<GpsSignal, { fill: string; stroke: string; icon: str
   good: { fill: 'rgba(0,149,255,0.12)', stroke: 'rgba(0,149,255,0.5)', icon: colors.battery },
   fair: { fill: 'rgba(253,184,18,0.15)', stroke: 'rgba(253,184,18,0.6)', icon: '#FDB812' },
   poor: { fill: 'rgba(255,30,0,0.10)', stroke: 'rgba(255,30,0,0.45)', icon: colors.danger },
-};
-
-const MOVE_ICONS: Record<MoveMode, ComponentProps<typeof Ionicons>['name']> = {
-  stay: 'pause-circle',
-  walk: 'walk',
-  bike: 'bicycle',
-  car: 'car',
-  train: 'train',
-  plane: 'airplane',
 };
 
 type SheetContent = 'feed' | 'friends';
@@ -87,7 +81,23 @@ export default function MapScreen() {
   }, [location]);
 
   const signal = gpsSignal(location?.accuracy ?? null);
-  const mode = moveMode(location?.speedKmh ?? null);
+
+  // 내가 지금 자리에 언제부터 있었는지. 수집이 기기에 적어 둔 값이라 서버를 거치지 않습니다
+  const [myStayedSince, setMyStayedSince] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const read = () => void stayedSince().then((v) => alive && setMyStayedSince(v));
+    read();
+    // 머문 시간은 분 단위로 보여 주므로 1분마다 다시 읽으면 충분합니다
+    const timer = setInterval(read, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  // 내 상태는 활동 인식을 먼저 봅니다. 실내에서는 속도가 튀어 "이동중" 이 잘못 뜹니다
+  const myStatus = statusText({ activity: getActivity()?.type, speedKmh: location?.speedKmh, stayedSince: myStayedSince });
 
   const markers = useMemo<MapMarkerItem[]>(() => {
     const items: MapMarkerItem[] = friends
@@ -97,7 +107,15 @@ export default function MapScreen() {
         coordinate: f.location!,
         label: f.nickname,
         tintColor: f.isOnline ? colors.check : colors.textMuted,
-        children: <AvatarMarker name={f.nickname} imageUrl={f.avatarUrl} online={f.isOnline} />,
+        children: (
+          <AvatarMarker
+            name={f.nickname}
+            imageUrl={f.avatarUrl}
+            online={f.isOnline}
+            // 친구 배지는 머문 시간만 보여 줍니다 (피그마 2026-09-28: 검은 배지)
+            status={statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince })}
+          />
+        ),
         onPress: () => router.push(`/journey/${f.id}`),
       }));
     if (location && me) {
@@ -107,11 +125,19 @@ export default function MapScreen() {
         zIndex: 10,
         label: me.nickname,
         tintColor: colors.primary,
-        children: <AvatarMarker name={me.nickname} imageUrl={me.avatarUrl} isMe />,
+        children: (
+          <AvatarMarker
+            name={me.nickname}
+            imageUrl={me.avatarUrl}
+            isMe
+            status={myStatus}
+            battery={myBattery}
+          />
+        ),
       });
     }
     return items;
-  }, [friends, location, me]);
+  }, [friends, location, me, myStatus, myBattery]);
 
   // GPS 감도 원 (WBS 2.6): 오차 반경이 클수록 원이 커짐
   const circles = useMemo<MapCircleItem[]>(() => {
@@ -187,13 +213,10 @@ export default function MapScreen() {
         snapPoints={[SHEET_COLLAPSED, SHEET_HEIGHT]}
         above={
           <>
+            {/* 이동 상태·배터리는 2026-09-28 디자인부터 마커 아래 배지로 갑니다 (AvatarMarker).
+                GPS 감도는 배지에 자리가 없어 여기 작은 점으로만 남깁니다 (WBS 2.6) */}
             {location ? (
-              <View style={styles.statusChip}>
-                <Ionicons name={MOVE_ICONS[mode]} size={20} color={colors.text} />
-                <AppText variant="body2Bold">
-                  {mode === 'stay' ? t('map.staying') : t('map.moving', { speed: Math.round(location.speedKmh ?? 0) })}
-                </AppText>
-                {myBattery != null ? <BatteryBadge level={myBattery} textVariant="body2Bold" /> : null}
+              <View style={styles.signalRow}>
                 <View style={styles.signal} accessibilityLabel={t(`map.signal.${signal}`)}>
                   <Ionicons name="cellular" size={14} color={SIGNAL_COLORS[signal].icon} />
                 </View>
@@ -302,6 +325,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     backgroundColor: 'rgba(46,52,56,0.9)',
   },
+  signalRow: { alignSelf: 'center', marginBottom: 12 },
   statusChip: {
     alignSelf: 'center',
     flexDirection: 'row',

@@ -13,3 +13,9 @@ node_modules/
 !.env.example
 .DS_Store
 Thumbs.db
+
+# 피그마에서 받아 둔 원본 (ramupin/scripts/figma-screens.mjs 가 만듭니다). 22MB 라 넣지 않습니다
+figma-page-cache.json
+
+# 네이버 검수 제출용 캡처 (개인정보가 들어가 저장소에 두지 않습니다)
+naver-review/

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius, type TypographyName } from '@/theme';
+import { radius, useColors, type Palette, type TypographyName } from '@/theme';
 
 /**
  * 피그마 버튼 색 조합
@@ -17,7 +17,7 @@ import { colors, radius, type TypographyName } from '@/theme';
 export type ButtonVariant = 'primary' | 'primaryLight' | 'dark' | 'brown' | 'brownLight' | 'neutral' | 'white' | 'soft' | 'danger';
 export type ButtonSize = 'lg' | 'md' | 'sm' | 'xs';
 
-const variantStyles: Record<ButtonVariant, { bg: string; fg: string }> = {
+const variantStyles = (colors: Palette): Record<ButtonVariant, { bg: string; fg: string }> => ({
   primary: { bg: colors.primary, fg: colors.white },
   primaryLight: { bg: colors.primaryLight, fg: colors.textOnDark },
   dark: { bg: colors.brown, fg: colors.textOnDark },
@@ -28,7 +28,7 @@ const variantStyles: Record<ButtonVariant, { bg: string; fg: string }> = {
   soft: { bg: colors.softButton, fg: colors.softButtonText },
   // 안전 & SOS 화면의 빨간 버튼
   danger: { bg: colors.sos, fg: colors.white },
-};
+});
 
 const sizeStyles: Record<ButtonSize, { height: number; paddingHorizontal: number; text: TypographyName }> = {
   lg: { height: 56, paddingHorizontal: 16, text: 'body1' },
@@ -59,7 +59,8 @@ export function Button({
   style,
   ...rest
 }: ButtonProps) {
-  const v = variantStyles[disabled ? 'neutral' : variant];
+  const colors = useColors();
+  const v = variantStyles(colors)[disabled ? 'neutral' : variant];
   const s = sizeStyles[size];
   const borderRadius = shape === 'pill' ? radius.full : shape === 'rounded' ? radius.sm : radius.xs;
 

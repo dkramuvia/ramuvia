@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
 import { Switch } from './Switch';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface ToggleRowProps {
   title: string;
@@ -22,6 +22,8 @@ interface ToggleRowProps {
  * - 아이콘 있음: 친구별 상세 공유 카드 형태
  */
 export function ToggleRow({ title, description, value, onValueChange, disabled, icon, iconBackground }: ToggleRowProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const texts = (
     <View style={styles.texts}>
       <AppText variant="headline">{title}</AppText>
@@ -51,7 +53,7 @@ export function ToggleRow({ title, description, value, onValueChange, disabled, 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   plainRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   texts: { flex: 1, gap: 2 },
   card: {
@@ -64,4 +66,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSoft,
   },
   iconBox: { width: 36, height: 36, borderRadius: radius.xs, alignItems: 'center', justifyContent: 'center' },
-});
+}));

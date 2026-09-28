@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { colors } from '@/theme';
+import { makeStyles } from '@/theme';
 
 interface FabProps {
   icon: ReactNode;
@@ -12,6 +12,7 @@ interface FabProps {
 
 /** 피그마 "__btn-new-chat": 지름 54, 진한 갈색 원형 버튼 (화면 오른쪽 아래) */
 export function Fab({ icon, onPress, accessibilityLabel, bottom = 12 }: FabProps) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -24,7 +25,7 @@ export function Fab({ icon, onPress, accessibilityLabel, bottom = 12 }: FabProps
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   fab: {
     position: 'absolute',
     right: 24,
@@ -41,4 +42,4 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   pressed: { opacity: 0.85 },
-});
+}));

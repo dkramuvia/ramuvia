@@ -1,7 +1,7 @@
 import { Image, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 interface AvatarProps {
   name: string;
@@ -20,6 +20,8 @@ function initials(name: string) {
 
 /** 피그마 "Avatar Placeholder" / "Avatar With Status Badge" */
 export function Avatar({ name, imageUrl, size = 40, online }: AvatarProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const badge = Math.round(size / 4);
   return (
     <View style={{ width: size, height: size }}>
@@ -39,7 +41,7 @@ export function Avatar({ name, imageUrl, size = 40, online }: AvatarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   circle: {
     backgroundColor: colors.avatarBackground,
     borderWidth: 1,
@@ -56,4 +58,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.white,
   },
-});
+}));

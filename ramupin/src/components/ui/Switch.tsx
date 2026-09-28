@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
 
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 interface SwitchProps {
   value: boolean;
@@ -20,6 +20,8 @@ const KNOB = 18;
 
 /** 피그마 Switch: 40x22, 켜짐 #13C938 / 꺼짐 #ACB3B9, 흰 원 18 */
 export function Switch({ value, onValueChange, disabled, accessibilityLabel }: SwitchProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
 
   useEffect(() => {
@@ -45,8 +47,8 @@ export function Switch({ value, onValueChange, disabled, accessibilityLabel }: S
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   track: { width: WIDTH, height: HEIGHT, borderRadius: HEIGHT / 2, justifyContent: 'center' },
   knob: { width: KNOB, height: KNOB, borderRadius: KNOB / 2, backgroundColor: colors.white },
   disabled: { opacity: 0.4 },
-});
+}));

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface MenuItemProps {
   label: string;
@@ -17,7 +17,10 @@ interface MenuItemProps {
   color?: string;
 }
 
-export function MenuItem({ label, onPress, variant = 'card', icon, color = colors.text }: MenuItemProps) {
+export function MenuItem({ label, onPress, variant = 'card', icon, color }: MenuItemProps) {
+  const styles = useStyles();
+  const colors = useColors();
+  const fg = color ?? colors.text;
   return (
     <Pressable
       accessibilityRole="button"
@@ -33,7 +36,7 @@ export function MenuItem({ label, onPress, variant = 'card', icon, color = color
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     minHeight: 46,
     flexDirection: 'row',
@@ -48,4 +51,4 @@ const styles = StyleSheet.create({
   icon: { width: 24, alignItems: 'center' },
   label: { flex: 1 },
   pressed: { opacity: 0.7 },
-});
+}));

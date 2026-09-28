@@ -2,7 +2,7 @@ import type { ReactNode, Ref } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius, typography } from '@/theme';
+import { makeStyles, radius, typography, useColors } from '@/theme';
 
 interface TextFieldProps extends TextInputProps {
   label?: string;
@@ -18,6 +18,8 @@ interface TextFieldProps extends TextInputProps {
 
 /** 피그마 "Input field": 라벨 14, 입력창 높이 56 / 모서리 12 / 테두리 #C7CDD1, 도움말 12 */
 export function TextField({ label, helperText, errorText, showCount, right, maxLength, value = '', style, ...rest }: TextFieldProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const hasError = !!errorText;
   return (
     <View style={styles.container}>
@@ -55,7 +57,7 @@ export function TextField({ label, helperText, errorText, showCount, right, maxL
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: 4 },
   box: {
     minHeight: 56,
@@ -72,4 +74,4 @@ const styles = StyleSheet.create({
   input: { flex: 1, ...typography.body1, color: colors.text, paddingVertical: 12 },
   bottomRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   helper: { flex: 1 },
-});
+}));

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 /**
  * 불러오는 중 / 실패했을 때 보여 주는 화면.
@@ -30,6 +30,7 @@ export function QueryState({
   /** 어두운 배경 화면(갤러리)에서는 흰색으로 */
   tone?: 'light' | 'dark';
 }) {
+  const colors = useColors();
   const { t } = useTranslation();
   const fg = tone === 'dark' ? colors.white : colors.brown;
 

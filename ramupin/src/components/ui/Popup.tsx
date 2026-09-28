@@ -3,7 +3,7 @@ import { Image, Modal, Pressable, StyleSheet, View, type ImageSourcePropType } f
 
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { colors } from '@/theme';
+import { makeStyles } from '@/theme';
 
 interface PopupProps {
   visible: boolean;
@@ -33,6 +33,7 @@ export function Popup({
   onDismiss,
   children,
 }: PopupProps) {
+  const styles = useStyles();
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss ?? onCancel ?? onConfirm}>
       <Pressable style={styles.backdrop} onPress={onDismiss}>
@@ -61,7 +62,7 @@ export function Popup({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -82,4 +83,4 @@ const styles = StyleSheet.create({
   texts: { gap: 4 },
   buttons: { flexDirection: 'row', gap: 8, marginTop: 4 },
   button: { flex: 1 },
-});
+}));

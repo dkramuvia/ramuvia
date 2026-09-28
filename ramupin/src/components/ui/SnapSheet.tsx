@@ -3,7 +3,7 @@ import { useCallback, useRef, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
-import { colors } from '@/theme';
+import { makeStyles } from '@/theme';
 
 interface SnapSheetProps {
   /** 멈출 높이들 (작은 것부터). 숫자는 px, 문자열은 '55%' 처럼 화면 비율 */
@@ -29,6 +29,7 @@ interface SnapSheetProps {
  * 부모 View 전체 영역을 기준으로 바닥에 붙습니다 (부모는 화면 전체 크기여야 함).
  */
 export function SnapSheet({ snapPoints, initialIndex, bottomInset = 0, header, above, onIndexChange, children }: SnapSheetProps) {
+  const styles = useStyles();
   const sheetRef = useRef<BottomSheet>(null);
   const lastIndex = snapPoints.length - 1;
   const index = useRef(initialIndex ?? lastIndex);
@@ -85,7 +86,7 @@ export function SnapSheet({ snapPoints, initialIndex, bottomInset = 0, header, a
 /** 시트 안의 스크롤 영역 */
 export const SheetScrollView = BottomSheetScrollView;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   aboveAnchor: { position: 'absolute', top: 0, left: 0, right: 0, height: 0 },
   above: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   background: { borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: colors.background },
@@ -100,4 +101,4 @@ const styles = StyleSheet.create({
   },
   grabberArea: { paddingVertical: 12, alignItems: 'center' },
   grabber: { width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9' },
-});
+}));

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 interface TagProps {
   label: string;
@@ -11,6 +11,7 @@ interface TagProps {
 
 /** 피그마 이름 옆 작은 라벨 ("방장", "멤버", "나") */
 export function Tag({ label, tone = 'strong' }: TagProps) {
+  const colors = useColors();
   return (
     <View style={[styles.tag, { backgroundColor: tone === 'strong' ? colors.brownMedium : '#ACA09C' }]}>
       <AppText variant="label1Bold" color={colors.white}>

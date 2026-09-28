@@ -1,6 +1,6 @@
 import { Image } from 'react-native';
 
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import type { LocationShareLevel } from '@/types/models';
 
 const ICONS: Record<LocationShareLevel, number> = {
@@ -16,7 +16,9 @@ interface ShareLevelIconProps {
 }
 
 /** 위치 공유 상태 아이콘 (정확 = 화살표, 흐림 = 흐린 화살표, 비공개 = 사선 화살표) */
-export function ShareLevelIcon({ level, size = 16, color = colors.textStrong }: ShareLevelIconProps) {
+export function ShareLevelIcon({ level, size = 16, color }: ShareLevelIconProps) {
+  const colors = useColors();
+  const fg = color ?? colors.textStrong;
   return (
     <Image
       source={ICONS[level]}

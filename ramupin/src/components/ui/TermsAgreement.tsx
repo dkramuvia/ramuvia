@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 export interface TermItem {
   key: string;
@@ -22,6 +22,8 @@ interface TermsAgreementProps {
 
 /** 피그마 약관 동의 (가입 348:15195 / 결제 283:39554): 전체 동의 + 항목별 체크 + 펼치기 */
 export function TermsAgreement({ title, items, checked, onChange }: TermsAgreementProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const [openKey, setOpenKey] = useState<string | null>(null);
   const allChecked = items.every((i) => checked.includes(i.key));
 
@@ -75,11 +77,11 @@ export function requiredAgreed(items: TermItem[], checked: string[]) {
   return items.filter((i) => i.required).every((i) => checked.includes(i.key));
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: 12 },
   all: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.xs, backgroundColor: '#F1F1F9' },
   allChecked: { backgroundColor: '#E3F2FF' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, paddingLeft: 6 },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   body: { marginLeft: 36, marginBottom: 8, padding: 10, borderRadius: radius.xs, backgroundColor: colors.surface, maxHeight: 160 },
-});
+}));

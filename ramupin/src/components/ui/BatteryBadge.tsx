@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, type TypographyName } from '@/theme';
+import { makeStyles, type TypographyName, useColors } from '@/theme';
 
 interface BatteryBadgeProps {
   level: number; // 0~100
@@ -20,9 +20,11 @@ export function BatteryBadge({
   level,
   iconSize = 20,
   textVariant = 'microBold',
-  textColor = colors.textStrong,
+  textColor,
   showLabel = true,
 }: BatteryBadgeProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const clamped = Math.max(0, Math.min(100, level));
   const bodyW = iconSize * 0.45;
   const bodyH = iconSize * 0.72;
@@ -45,7 +47,7 @@ export function BatteryBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   cap: { backgroundColor: colors.textStrong, borderTopLeftRadius: 1, borderTopRightRadius: 1 },
   body: {
@@ -54,4 +56,4 @@ const styles = StyleSheet.create({
     padding: 1.2,
     justifyContent: 'flex-end',
   },
-});
+}));

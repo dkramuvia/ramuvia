@@ -20,6 +20,8 @@ import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
 import { statusText } from '@/features/map/statusText';
+import { WeatherBadge } from '@/features/weather/WeatherBadge';
+import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
@@ -65,6 +67,8 @@ export default function MapScreen() {
   const deviceBattery = Battery.useBatteryLevel();
   const myBattery = deviceBattery >= 0 ? Math.round(deviceBattery * 100) : me?.batteryLevel;
   const areaName = useAreaName(location);
+  // 지역명 아래 현재 날씨 (피그마 2026-09-28). 못 가져오면 그리지 않습니다
+  const { data: weather } = useWeather(location);
   const { data: friends = [] } = useFriends();
   // 지도를 보고 있는 동안만 친구들 폰이 촘촘하게 위치를 보냅니다 (GPS 보고서 2-1 6번)
   useWatchFriends(useMemo(() => friends.map((f) => f.id), [friends]));
@@ -158,9 +162,12 @@ export default function MapScreen() {
 
       <SafeAreaView edges={['top']} style={styles.overlayTop} pointerEvents="box-none">
         <View style={styles.topRow} pointerEvents="box-none">
-          <AppText variant="display" color={colors.textStrong} numberOfLines={1} style={styles.address}>
-            {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
-          </AppText>
+          <View style={styles.addressBlock}>
+            <AppText variant="display" color={colors.textStrong} numberOfLines={1}>
+              {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
+            </AppText>
+            <WeatherBadge weather={weather} />
+          </View>
           <View style={styles.topButtons}>
             <Pressable accessibilityLabel={t('map.profile')} onPress={() => router.push('/settings')}>
               <Avatar name={me?.nickname ?? ''} imageUrl={me?.avatarUrl} />
@@ -296,6 +303,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   overlayTop: { position: 'absolute', top: 0, left: 0, right: 0 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: layout.screenPadding, paddingTop: 8 },
+  addressBlock: { flex: 1, gap: 4 },
   address: { flex: 1 },
   topButtons: { alignItems: 'flex-end', gap: 12, paddingTop: 8 },
   pillButton: {
@@ -339,10 +347,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   signal: { marginLeft: 2 },
+  // 피그마: 343x50, 좌우 여백 30, 모서리 4. AdMob 배너가 이 자리에 그대로 들어갑니다
   adBanner: {
     height: AD_HEIGHT,
     marginHorizontal: 30,
     marginBottom: 20,
+    borderRadius: 4,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',

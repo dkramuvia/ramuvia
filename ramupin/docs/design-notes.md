@@ -67,10 +67,18 @@ const colors = useColors();
 - [x] 팔레트 두 벌 (`src/theme/palettes.ts`)
 - [x] 테마 고르기 (`useColors`, `makeStyles`, `useThemeName`) — 기본은 **기기 설정을 따라감**
 - [x] 설정값 `appTheme` (auto / light / dark)
-- [x] Card · Screen · Header · BottomNav
-- [ ] 나머지 공용 컴포넌트 22개
-- [ ] 화면 58개
+- [x] 공용 컴포넌트 전부
+- [x] 화면 전부 (`colors` 를 직접 쓰는 파일이 남지 않았습니다)
 - [ ] **다크 팔레트 실제 값** — 피그마 속도 제한으로 아직 못 뽑음. 지금은 임시값
+- [ ] 다크에서 눈으로 확인 (폰 필요)
+
+### 일부러 테마를 안 따르게 둔 것
+
+- **경로선 색** (`routeLayers.ts`) — 노랑=머무름, 파랑=이동. 지도 위에서 뜻을 나타내는
+  색이라 라이트·다크 어느 쪽에서도 같아야 합니다
+- **소셜 로고 색** (`welcome.tsx` 의 X·Apple 검정) — 각 회사가 정한 색입니다
+- **배지 색** (`StatusBadge.tsx`) — 피그마가 라이트·다크 배지를 따로 그려 둔 것이라
+  테마가 아니라 배지 종류(내 것/친구 것)로 갈립니다
 
 ### 남은 것을 할 때
 

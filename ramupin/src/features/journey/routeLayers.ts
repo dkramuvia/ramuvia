@@ -1,3 +1,5 @@
+// 경로선 색(노랑=머무름, 파랑=이동)은 지도 위에서 뜻을 나타내는 색이라
+// 라이트·다크 어느 쪽에서도 같습니다. 테마를 따라가면 오히려 뜻이 흐려집니다
 import { colors } from '@/theme';
 import type { JourneyDay, LatLng } from '@/types/models';
 import type { MapPolylineItem } from '@/features/map/AppMapView';

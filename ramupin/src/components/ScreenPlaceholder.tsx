@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Screen, type TabName } from '@/components/ui';
-import { colors, radius, spacing } from '@/theme';
+import { makeStyles, radius, spacing, useColors } from '@/theme';
 
 const FIGMA_FILE_URL = 'https://www.figma.com/design/B7PL60U8Z0122RaYWOjLWw';
 
@@ -24,6 +24,8 @@ interface ScreenPlaceholderProps {
  * 화면 이동 흐름을 확인하고, 피그마의 해당 프레임으로 바로 이동할 수 있습니다.
  */
 export function ScreenPlaceholder({ titleKey, figmaNodeId, links = [], tab, children }: ScreenPlaceholderProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const title = t(titleKey);
   const figmaUrl = `${FIGMA_FILE_URL}?node-id=${figmaNodeId.replace(':', '-')}`;
@@ -63,8 +65,8 @@ export function ScreenPlaceholder({ titleKey, figmaNodeId, links = [], tab, chil
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: spacing.md },
   links: { marginTop: spacing.lg, gap: spacing.sm },
   linkItem: { padding: spacing.lg, borderRadius: radius.sm, backgroundColor: colors.surface, gap: 2 },
-});
+}));

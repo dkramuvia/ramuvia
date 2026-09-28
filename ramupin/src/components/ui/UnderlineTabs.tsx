@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 interface UnderlineTabsProps<T extends string> {
   options: { value: T; label: string; count?: number }[];
@@ -14,6 +14,8 @@ interface UnderlineTabsProps<T extends string> {
  * 선택된 탭: 파란 글자 + 숫자 배지 + 파란 밑줄, 비선택: 회색 글자 + (숫자)
  */
 export function UnderlineTabs<T extends string>({ options, value, onChange }: UnderlineTabsProps<T>) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.row} accessibilityRole="tablist">
       {options.map((option) => {
@@ -46,7 +48,7 @@ export function UnderlineTabs<T extends string>({ options, value, onChange }: Un
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row' },
   item: { flex: 1, alignItems: 'center', paddingTop: 8 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 32 },
@@ -61,4 +63,4 @@ const styles = StyleSheet.create({
   },
   underline: { alignSelf: 'stretch', height: 2, marginTop: 4 },
   underlineSelected: { backgroundColor: colors.primarySoft },
-});
+}));

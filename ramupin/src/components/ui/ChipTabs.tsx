@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface ChipTabsProps<T extends string> {
   options: { value: T; label: string }[];
@@ -13,6 +13,8 @@ interface ChipTabsProps<T extends string> {
 
 /** 피그마 히스토리 "전체 / 긴급·안전 / 장소·이동", 지도 설정 "라이트 / 다크" 같은 알약형 칩 */
 export function ChipTabs<T extends string>({ options, value, onChange, tone = 'blue' }: ChipTabsProps<T>) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.row, tone === 'dark' && styles.rowDark]} accessibilityRole="tablist">
       {options.map((option) => {
@@ -42,7 +44,7 @@ export function ChipTabs<T extends string>({ options, value, onChange, tone = 'b
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', gap: 10 },
   rowDark: {
     gap: 0,
@@ -55,4 +57,4 @@ const styles = StyleSheet.create({
   chipBlue: { flex: 1, height: 36, backgroundColor: colors.surfaceStrong },
   chipDark: { height: 30, paddingHorizontal: 14 },
   chipDarkSelected: { backgroundColor: '#2A2A2A' },
-});
+}));

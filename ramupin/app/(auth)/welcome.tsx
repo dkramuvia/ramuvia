@@ -14,20 +14,24 @@ import { applyLoginResult } from '@/features/auth/session';
 import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
+
+/** X·Apple 로고의 검정. 다크 모드에서도 로고 색은 그대로입니다 */
+const BRAND_BLACK = '#000000';
 
 /**
  * Instagram 은 빠져 있습니다 — 일반 사용자 로그인 API 가 종료되어 더 이상 쓸 수 없습니다
  * (docs/wbs-check.md 2-6). 대표님 확인 뒤 피그마에서도 빼는 것이 좋겠습니다.
  */
 const PROVIDERS: { id: SocialProvider; label: string; icon: ReactNode }[] = [
-  { id: 'x', label: 'X', icon: <Ionicons name={'logo-x' as IconName} size={24} color={colors.black} /> },
+  // 소셜 로고 색은 각 회사가 정한 것이라 테마를 따라가지 않습니다
+  { id: 'x', label: 'X', icon: <Ionicons name={'logo-x' as IconName} size={24} color={BRAND_BLACK} /> },
   { id: 'facebook', label: 'Facebook', icon: <Ionicons name="logo-facebook" size={26} color="#1877F2" /> },
   { id: 'google', label: 'Google', icon: <Ionicons name="logo-google" size={24} color="#EA4335" /> },
-  { id: 'apple', label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={colors.black} /> },
+  { id: 'apple', label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={BRAND_BLACK} /> },
 ];
 
 /** 브라우저에서 인가 코드를 받아 오는 제공자들. 토큰 교환은 서버가 합니다 */
@@ -52,6 +56,8 @@ const PROVIDER_LABELS: Record<keyof typeof CODE_LOGINS, string> = { x: 'X', nave
 
 /** 피그마: 가입/로그인 선택 (348:14951) */
 export default function WelcomeScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const signIn = useAuthStore((s) => s.signIn);
   const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
@@ -184,7 +190,7 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   hero: { height: 210 },
   heroText: { paddingTop: 16 },
   cloud: { position: 'absolute', left: 60, bottom: -10, width: 200, height: 134 },
@@ -214,4 +220,4 @@ const styles = StyleSheet.create({
   round: { width: 60, height: 60, borderRadius: 30 },
   loginRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 16 },
   devSkip: { alignSelf: 'center', padding: 8 },
-});
+}));

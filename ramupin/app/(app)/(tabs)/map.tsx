@@ -25,7 +25,7 @@ import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, layout, radius } from '@/theme';
+import { layout, makeStyles, radius, useColors, type Palette } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
@@ -45,16 +45,18 @@ const SHEET_HEIGHT = 370;
 const SHEET_COLLAPSED = 78;
 const AD_HEIGHT = 50;
 
-const SIGNAL_COLORS: Record<GpsSignal, { fill: string; stroke: string; icon: string }> = {
+const signalColors = (colors: Palette): Record<GpsSignal, { fill: string; stroke: string; icon: string }> => ({
   good: { fill: 'rgba(0,149,255,0.12)', stroke: 'rgba(0,149,255,0.5)', icon: colors.battery },
   fair: { fill: 'rgba(253,184,18,0.15)', stroke: 'rgba(253,184,18,0.6)', icon: '#FDB812' },
   poor: { fill: 'rgba(255,30,0,0.10)', stroke: 'rgba(255,30,0,0.45)', icon: colors.danger },
-};
+});
 
 type SheetContent = 'feed' | 'friends';
 
 /** 피그마: 지도 메인 (283:17631 알림 / 283:18094 친구 리스트 / 283:17676 이동 중) */
 export default function MapScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const mapRef = useRef<AppMapViewHandle>(null);
@@ -146,7 +148,7 @@ export default function MapScreen() {
   // GPS 감도 원 (WBS 2.6): 오차 반경이 클수록 원이 커짐
   const circles = useMemo<MapCircleItem[]>(() => {
     if (!location?.accuracy) return [];
-    const c = SIGNAL_COLORS[signal];
+    const c = signalColors(colors)[signal];
     return [{ id: 'accuracy', center: location, radiusM: location.accuracy, fillColor: c.fill, strokeColor: c.stroke }];
   }, [location, signal]);
 
@@ -225,7 +227,7 @@ export default function MapScreen() {
             {location ? (
               <View style={styles.signalRow}>
                 <View style={styles.signal} accessibilityLabel={t(`map.signal.${signal}`)}>
-                  <Ionicons name="cellular" size={14} color={SIGNAL_COLORS[signal].icon} />
+                  <Ionicons name="cellular" size={14} color={signalColors(colors)[signal].icon} />
                 </View>
               </View>
             ) : null}
@@ -298,7 +300,7 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   overlayTop: { position: 'absolute', top: 0, left: 0, right: 0 },
@@ -378,4 +380,4 @@ const styles = StyleSheet.create({
   feedItem: { flexDirection: 'row', gap: 16, paddingVertical: 8 },
   feedIcon: { width: 48, height: 48 },
   feedTexts: { flex: 1, gap: 12 },
-});
+}));

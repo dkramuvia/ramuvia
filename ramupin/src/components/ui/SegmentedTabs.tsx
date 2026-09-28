@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface SegmentedTabsProps<T extends string> {
   options: { value: T; label: string }[];
@@ -11,6 +11,8 @@ interface SegmentedTabsProps<T extends string> {
 
 /** 피그마 사람들 화면 상단 "친구 / 메시지" 알약형 전환 (높이 60) */
 export function SegmentedTabs<T extends string>({ options, value, onChange }: SegmentedTabsProps<T>) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.track} accessibilityRole="tablist">
       {options.map((option) => {
@@ -33,7 +35,7 @@ export function SegmentedTabs<T extends string>({ options, value, onChange }: Se
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   track: {
     flexDirection: 'row',
     height: 60,
@@ -49,4 +51,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemSelected: { backgroundColor: colors.brownMedium },
-});
+}));

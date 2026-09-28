@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface SegmentButtonsProps<T extends string> {
   options: { value: T; label: string }[];
@@ -11,6 +11,8 @@ interface SegmentButtonsProps<T extends string> {
 
 /** 피그마 성별 선택 "남성 / 여성": 나란한 알약 버튼 2개, 선택 = 파랑 (높이 48) */
 export function SegmentButtons<T extends string>({ options, value, onChange }: SegmentButtonsProps<T>) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.row} accessibilityRole="radiogroup">
       {options.map((option) => {
@@ -33,8 +35,8 @@ export function SegmentButtons<T extends string>({ options, value, onChange }: S
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', gap: 8 },
   item: { flex: 1, height: 48, borderRadius: radius.full, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   itemSelected: { backgroundColor: colors.primary },
-});
+}));

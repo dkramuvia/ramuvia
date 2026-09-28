@@ -10,7 +10,7 @@ import { applyLoginResult } from '@/features/auth/session';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { useSignUpStore } from '@/stores/signUpStore';
-import { colors } from '@/theme';
+import { makeStyles } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -18,6 +18,7 @@ import { showToast } from '@/utils/toast';
  * WBS 4: 1인 가구 등록 시 친구가 없으면 회사 계정(RamuVia)이 친구가 됨 (서버)
  */
 export default function SingleHouseholdScreen() {
+  const styles = useStyles();
   const { t } = useTranslation();
   const signUp = useSignUpStore();
   const updateUser = useAuthStore((s) => s.updateUser);
@@ -70,9 +71,9 @@ export default function SingleHouseholdScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   art: { alignItems: 'center', paddingVertical: 48 },
   image: { width: 240, height: 240 },
   buttons: { gap: 16 },
   option: { borderWidth: 1.5, borderColor: colors.surfaceStrong, backgroundColor: '#FAF8F6' },
-});
+}));

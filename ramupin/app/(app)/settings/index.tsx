@@ -8,7 +8,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { AppText, MenuItem, Screen } from '@/components/ui';
 import { describePlace } from '@/features/location/address';
 import { ProfileCard } from '@/features/settings/ProfileCard';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface LocationInfo {
   address: string;
@@ -21,6 +21,8 @@ interface LocationInfo {
 
 /** 피그마: 나의 프로필 (283:25210) / 내 위치 정보 펼침 (283:25320) */
 export default function MyProfileScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<LocationInfo | null>(null);
@@ -110,7 +112,7 @@ export default function MyProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 8 },
   flex: { flex: 1 },
   locationCard: {
@@ -124,4 +126,4 @@ const styles = StyleSheet.create({
   locationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   loading: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   bullet: { flexDirection: 'row', gap: 8, paddingLeft: 8 },
-});
+}));

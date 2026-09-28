@@ -1,7 +1,7 @@
 import { Image, StyleSheet, View } from 'react-native';
 
 import { AppText, Button } from '@/components/ui';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 interface PermissionCardProps {
   title: string;
@@ -18,6 +18,8 @@ interface PermissionCardProps {
 
 /** 피그마 권한 안내 카드 (348:15289 ~ 348:15473): R 말풍선 + 구름 일러스트 위에 흰 카드 */
 export function PermissionCard({ title, description, hint, hintStrong, primaryLabel, onPrimary, secondaryLabel, onSecondary, busy }: PermissionCardProps) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.wrap}>
       <View style={styles.art}>
@@ -42,7 +44,7 @@ export function PermissionCard({ title, description, hint, hintStrong, primaryLa
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { alignItems: 'center' },
   flex: { flex: 1 },
   art: { width: 260, height: 190, marginBottom: -40 },
@@ -62,4 +64,4 @@ const styles = StyleSheet.create({
   },
   body: { padding: 16, gap: 12 },
   buttons: { flexDirection: 'row', gap: 8, padding: 16, backgroundColor: colors.background },
-});
+}));

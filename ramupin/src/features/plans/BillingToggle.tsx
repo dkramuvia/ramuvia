@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 interface BillingToggleProps {
   yearly: boolean;
@@ -12,6 +12,8 @@ interface BillingToggleProps {
 
 /** 피그마 "매달 / 연간 -20% off" 전환 */
 export function BillingToggle({ yearly, onChange, dark, labels = ['매달', '연간'] }: BillingToggleProps) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.track, dark ? styles.trackDark : styles.trackLight]} accessibilityRole="radiogroup">
       {[false, true].map((isYearly) => {
@@ -39,10 +41,10 @@ export function BillingToggle({ yearly, onChange, dark, labels = ['매달', '연
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   track: { flexDirection: 'row', height: 48, borderRadius: 24, padding: 4 },
   trackDark: { backgroundColor: '#111' },
   trackLight: { backgroundColor: colors.surfaceStrong },
   item: { flex: 1, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   itemSelected: { backgroundColor: colors.white },
-});
+}));

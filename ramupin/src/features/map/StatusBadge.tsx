@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 /**
  * 지도 마커에 붙는 상태 배지 (피그마 지도 메인, 2026-09-28판).
@@ -26,6 +26,8 @@ interface StatusBadgeProps {
 const BATTERY_LOW = 15;
 
 export function StatusBadge({ text, battery, tone = 'mine' }: StatusBadgeProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const mine = tone === 'mine';
   const fg = mine ? BADGE_TEXT : colors.white;
 
@@ -56,7 +58,7 @@ const BADGE_BORDER = '#E5E5E5';
 const BADGE_DARK = '#1E1E1E';
 const BATTERY_OK = '#19C93C';
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -67,4 +69,4 @@ const styles = StyleSheet.create({
   },
   mine: { height: 36, paddingHorizontal: 8, backgroundColor: colors.white },
   friend: { height: 24, paddingHorizontal: 8, backgroundColor: BADGE_DARK },
-});
+}));

@@ -7,10 +7,12 @@ import { profileApi } from '@/api/endpoints/settings';
 import { AppText, Button, Popup, Screen } from '@/components/ui';
 import { endSession } from '@/features/auth/session';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, radius, typography } from '@/theme';
+import { makeStyles, radius, typography, useColors } from '@/theme';
 
 /** 피그마: 회원 탈퇴 (283:27331 / 동의 체크 283:27419). WBS 11.2: 유료 사용자는 혜택 포기 확인 후 삭제 */
 export default function WithdrawScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const [agreed, setAgreed] = useState(false);
@@ -94,7 +96,7 @@ export default function WithdrawScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 28, paddingTop: 24 },
   flex: { flex: 1 },
   notices: { gap: 16 },
@@ -112,4 +114,4 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   withdrawButton: { backgroundColor: '#0A0A0A' },
-});
+}));

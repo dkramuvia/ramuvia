@@ -10,7 +10,7 @@ import { AppText, Avatar, BatteryBadge } from '@/components/ui';
 import { useFriendQrToken } from '@/features/friends/queries';
 import { buildFriendQr } from '@/features/friends/qr';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, layout, radius } from '@/theme';
+import { layout, makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const DECOR_HEIGHT = 150;
@@ -18,6 +18,8 @@ const QR_SIZE = 150;
 
 /** 피그마: 내 QR코드 (348:14774) */
 export default function MyQrScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.user);
@@ -113,6 +115,8 @@ export default function MyQrScreen() {
 }
 
 function RoundAction({ icon, label, onPress }: { icon: 'copy' | 'arrow-redo' | 'scan'; label: string; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.roundAction}>
       <Ionicons name={icon} size={20} color={colors.textStrong} />
@@ -120,7 +124,7 @@ function RoundAction({ icon, label, onPress }: { icon: 'copy' | 'arrow-redo' | '
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   body: { paddingHorizontal: layout.screenPadding, paddingTop: 24, gap: 20 },
@@ -177,4 +181,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

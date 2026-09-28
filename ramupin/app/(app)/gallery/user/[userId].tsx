@@ -9,10 +9,12 @@ import { useFriends } from '@/features/friends/queries';
 import { PostGrid } from '@/features/gallery/PostGrid';
 import { useUserPosts } from '@/features/gallery/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 
 /** 피그마: 사용자 게시물 모아보기 (119:42163) */
 export default function GalleryUserScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const me = useAuthStore((s) => s.user);
@@ -63,9 +65,9 @@ export default function GalleryUserScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: layout.screenPadding, gap: 16, paddingBottom: 16 },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 32 },
   profileTexts: { flex: 1, gap: 4 },
-});
+}));

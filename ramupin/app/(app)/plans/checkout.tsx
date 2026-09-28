@@ -10,7 +10,7 @@ import { BillingToggle } from '@/features/plans/BillingToggle';
 import { PlanCard } from '@/features/plans/PlanCard';
 import { PLANS } from '@/features/plans/planCatalog';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { PlanId } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -25,6 +25,8 @@ const TERMS: TermItem[] = [
  * params: planId (개인 구독) 또는 groupId (그룹 프리미엄), yearly
  */
 export default function CheckoutScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ planId?: PlanId; groupId?: string; yearly?: string }>();
@@ -118,7 +120,7 @@ export default function CheckoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 24 },
   flex: { flex: 1 },
   section: { gap: 12 },
@@ -128,4 +130,4 @@ const styles = StyleSheet.create({
   terms: { gap: 12, borderRadius: 20, backgroundColor: colors.white, padding: 16 },
   billingRow: { flexDirection: 'row', alignItems: 'center' },
   underline: { textDecorationLine: 'underline' },
-});
+}));

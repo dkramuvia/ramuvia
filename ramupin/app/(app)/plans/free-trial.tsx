@@ -10,7 +10,7 @@ import { billingApi } from '@/api/endpoints/billing';
 import { AppText } from '@/components/ui';
 import { BillingToggle } from '@/features/plans/BillingToggle';
 import { useAuthStore } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const BENEFITS: { key: string; icon: ComponentProps<typeof Ionicons>['name'] }[] = [
@@ -25,6 +25,8 @@ const BENEFITS: { key: string; icon: ComponentProps<typeof Ionicons>['name'] }[]
  * TODO(7단계): 스토어 구독의 무료 체험 기간(introductory offer)으로 구현
  */
 export default function FreeTrialScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const updateUser = useAuthStore((s) => s.updateUser);
   const [yearly, setYearly] = useState(true);
@@ -96,7 +98,7 @@ export default function FreeTrialScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   close: { position: 'absolute', top: 56, right: 20, zIndex: 2 },
   content: { flexGrow: 1, paddingTop: 48 },
@@ -110,4 +112,4 @@ const styles = StyleSheet.create({
   price: { height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceStrong },
   cta: { height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   dim: { opacity: 0.6 },
-});
+}));

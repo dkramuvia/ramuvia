@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAlertStore, type InAppCardPayload } from './alertStore';
 import { AppText, Avatar } from '@/components/ui';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 const ICONS: Record<InAppCardPayload['kind'], number> = {
   nearby: require('../../../assets/icons/feed-nearby.png'),
@@ -21,6 +21,7 @@ const AUTO_HIDE_MS = 6000;
 
 /** 피그마: 앱 안 알림 카드 (363:20164 ~ 363:20281) — 화면 위에 잠시 떴다 사라짐, 누르면 해당 화면으로 */
 export function InAppCardHost() {
+  const styles = useStyles();
   const cards = useAlertStore((s) => s.cards);
   const insets = useSafeAreaInsets();
   if (cards.length === 0) return null;
@@ -35,6 +36,8 @@ export function InAppCardHost() {
 }
 
 function InAppCard({ card }: { card: InAppCardPayload }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const remove = useAlertStore((s) => s.removeCard);
   const [expanded, setExpanded] = useState(true);
@@ -83,7 +86,7 @@ function InAppCard({ card }: { card: InAppCardPayload }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   stack: { position: 'absolute', left: 12, right: 12, gap: 8, zIndex: 100 },
   card: {
     borderRadius: radius.md,
@@ -102,4 +105,4 @@ const styles = StyleSheet.create({
   body: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingLeft: 12 },
   icon: { width: 40, height: 40 },
   flex: { flex: 1 },
-});
+}));

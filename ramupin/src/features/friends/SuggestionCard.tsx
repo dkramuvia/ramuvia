@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button } from '@/components/ui';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { FriendSuggestion } from '@/types/models';
 import { formatRelativeTime } from '@/utils/time';
 
@@ -15,6 +15,8 @@ interface SuggestionCardProps {
 
 /** 피그마 연락처 친구 / 근처 친구 카드: 이름 + 시간, 오른쪽 "친구 요청" 또는 "요청됨 ✓" */
 export function SuggestionCard({ suggestion, onRequest, pending }: SuggestionCardProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { user, requested } = suggestion;
 
@@ -52,7 +54,7 @@ export function SuggestionCard({ suggestion, onRequest, pending }: SuggestionCar
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     minHeight: 76,
     flexDirection: 'row',
@@ -75,4 +77,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: '#99D5FF',
   },
-});
+}));

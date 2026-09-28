@@ -9,7 +9,7 @@ import { useFriends } from '@/features/friends/queries';
 import { useMyGroups } from '@/features/groups/queries';
 import { usePlan } from '@/features/policy/usePlan';
 import { useSafetySetting, useSaveSafetySetting } from '@/features/settings/queries';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 type Mode = 'friends' | 'groups';
@@ -20,6 +20,7 @@ type Mode = 'friends' | 'groups';
  * WBS 10.8: 등급별 수신 인원 제한 (서버 정책값)
  */
 export default function SafetyRecipientsScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: setting } = useSafetySetting();
   const save = useSaveSafetySetting();

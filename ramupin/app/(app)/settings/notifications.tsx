@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText, Button, Screen, ToggleRow } from '@/components/ui';
 import { useAlertStore } from '@/features/alerts/alertStore';
 import { SAMPLE_CARDS, SAMPLE_POPUPS } from '@/features/alerts/samples';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, makeStyles, radius, useColors } from '@/theme';
 
 type SettingKey =
   | 'dnd'
@@ -30,6 +30,7 @@ const BATTERY_ALERT_LEVEL = 15;
 
 /** 피그마: 알림 설정 (283:27507) */
 export default function NotificationSettingsScreen() {
+  const styles = useStyles();
   const { t } = useTranslation();
   // TODO(5단계): 서버 알림 설정 API 연동. 지금은 화면 안에서만 유지
   const [values, setValues] = useState<Record<SettingKey, boolean>>({
@@ -86,6 +87,7 @@ export default function NotificationSettingsScreen() {
 
 /** 개발용: 서버 없이 긴급 팝업·알림 카드 모양 확인 */
 function AlertPreview() {
+  const styles = useStyles();
   const { t } = useTranslation();
   const showPopup = useAlertStore((s) => s.showPopup);
   const pushCard = useAlertStore((s) => s.pushCard);
@@ -107,6 +109,8 @@ function AlertPreview() {
 }
 
 function TimeRow({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.timeRow}>
       <AppText variant="label2" color={colors.textSecondary}>
@@ -119,7 +123,7 @@ function TimeRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 24 },
   group: { gap: 12 },
   sectionTitle: { paddingVertical: 12 },
@@ -129,4 +133,4 @@ const styles = StyleSheet.create({
   timeValue: { fontFamily: fontFamily.medium },
   divider: { height: 1, backgroundColor: colors.border },
   previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-});
+}));

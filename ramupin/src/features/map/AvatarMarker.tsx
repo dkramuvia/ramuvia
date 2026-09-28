@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/ui';
-import { colors } from '@/theme';
+import { makeStyles } from '@/theme';
 import { StatusBadge } from './StatusBadge';
 
 interface AvatarMarkerProps {
@@ -21,6 +21,7 @@ interface AvatarMarkerProps {
  * 하나로 내 상태만 보여 줬는데, 그러면 친구가 어디서 얼마나 머물렀는지는 알 수 없었습니다.
  */
 export function AvatarMarker({ name, imageUrl, online, isMe, status, battery }: AvatarMarkerProps) {
+  const styles = useStyles();
   return (
     <View style={styles.wrap}>
       <View style={[styles.ring, isMe && styles.ringMe]}>
@@ -35,7 +36,7 @@ export function AvatarMarker({ name, imageUrl, online, isMe, status, battery }: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { alignItems: 'center' },
   // 배지가 아바타보다 넓어도 마커 자리가 밀리지 않게 띄워서 올립니다
   badge: { marginTop: 4 },
@@ -50,4 +51,4 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   ringMe: { backgroundColor: colors.primary },
-});
+}));

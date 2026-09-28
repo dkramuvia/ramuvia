@@ -6,10 +6,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Avatar, BatteryBadge, Card } from '@/components/ui';
 import { avatarSource } from '@/features/settings/avatars';
 import { useAuthStore } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 /** 피그마 설정 화면들 상단의 내 프로필 카드 (아바타·이름·ID·배터리 + QR 바로가기) */
 export function ProfileCard({ onPress }: { onPress?: () => void }) {
+  const colors = useColors();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   if (!me) return null;

@@ -7,7 +7,7 @@ import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'reac
 
 import { AppText, Avatar, Screen } from '@/components/ui';
 import { useGroup } from '@/features/groups/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 const FEATURES: { n: number; icon: ComponentProps<typeof Ionicons>['name']; color: string }[] = [
   { n: 1, icon: 'ban', color: '#FFCDEF' },
@@ -22,6 +22,8 @@ const FEATURES: { n: number; icon: ComponentProps<typeof Ionicons>['name']; colo
  * 기획: 방장만 가입 버튼, 넘겨서 프리미엄 기능 확인 → 결제 정보
  */
 export default function GroupPremiumScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -92,7 +94,7 @@ export default function GroupPremiumScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 20, paddingHorizontal: 0 },
   carousel: { flexGrow: 0 },
   feature: { borderRadius: radius.md, backgroundColor: colors.white, overflow: 'hidden', elevation: 3, shadowColor: colors.black, shadowOpacity: 0.1, shadowRadius: 8 },
@@ -107,4 +109,4 @@ const styles = StyleSheet.create({
   section: { gap: 12, paddingHorizontal: 20 },
   members: { flexDirection: 'row', flexWrap: 'wrap', borderRadius: radius.md, backgroundColor: colors.surfaceStrong, padding: 12, rowGap: 12 },
   member: { width: '33%', alignItems: 'center', gap: 4 },
-});
+}));

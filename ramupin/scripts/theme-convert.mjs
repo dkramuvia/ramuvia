@@ -33,27 +33,40 @@ function findStyleBlock(text) {
 }
 
 /**
- * 컴포넌트 본문이 시작되는 자리(여는 중괄호 다음 줄).
- * 정규식으로 `function Foo(...)` 를 잡으면 매개변수 안의 `() => void` 에 걸려 끊깁니다.
+ * 파일 안 **모든** 컴포넌트 함수의 본문 시작 자리(여는 중괄호 다음 줄).
+ *
+ * 한 파일에 컴포넌트가 여럿인 경우가 많습니다 (화면 하나 + 그 안의 줄·카드).
+ * 첫 번째에만 훅을 넣으면 나머지에서 styles·colors 를 못 찾습니다.
+ *
+ * 정규식으로 `function Foo(...)` 를 잡으면 매개변수 안의 `() => void` 에 걸려 끊겨서,
+ * 괄호 짝을 직접 셉니다.
  */
-function findComponentBodyStart(text) {
-  const head = /(?:export )?(?:default )?function [A-Z][A-Za-z0-9_]*\(/.exec(text);
-  if (!head) return null;
-
-  let depth = 0;
-  let i = head.index + head[0].length - 1;
-  for (; i < text.length; i += 1) {
-    if (text[i] === '(') depth += 1;
-    else if (text[i] === ')') {
-      depth -= 1;
-      if (depth === 0) break;
+function findComponentBodyStarts(text) {
+  const starts = [];
+  const re = /(?:export )?(?:default )?function ([A-Z][A-Za-z0-9_]*)\(/g;
+  let head;
+  while ((head = re.exec(text))) {
+    let depth = 0;
+    let i = head.index + head[0].length - 1;
+    for (; i < text.length; i += 1) {
+      if (text[i] === '(') depth += 1;
+      else if (text[i] === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
     }
+    const brace = text.indexOf('{', i);
+    if (brace < 0) continue;
+    const lineEnd = text.indexOf('\n', brace);
+    if (lineEnd < 0) continue;
+    starts.push({ name: head[1], bodyStart: lineEnd + 1, end: text.length });
   }
-  const brace = text.indexOf('{', i);
-  if (brace < 0) return null;
-  const lineEnd = text.indexOf('\n', brace);
-  return lineEnd < 0 ? null : lineEnd + 1;
+  // 각 컴포넌트의 끝은 다음 컴포넌트가 시작하는 자리까지로 봅니다
+  for (let i = 0; i < starts.length - 1; i += 1) starts[i].end = starts[i + 1].bodyStart;
+  return starts;
 }
+
+const findComponentBodyStart = (text) => findComponentBodyStarts(text)[0]?.bodyStart ?? null;
 
 const withoutImports = (s) => s.replace(/^import .*$/gm, '');
 
@@ -94,11 +107,20 @@ for (const file of files) {
     text = text.replace(/\bconst styles = makeStyles\(/, 'const useStyles = makeStyles(');
   }
 
-  // 2) 컴포넌트 본문 첫 줄에 훅
-  const hooks = [needsStyles ? '  const styles = useStyles();' : null, needsColors ? '  const colors = useColors();' : null]
-    .filter(Boolean)
-    .join('\n');
-  text = text.slice(0, bodyStart) + hooks + '\n' + text.slice(bodyStart);
+  // 2) 컴포넌트마다 본문 첫 줄에 훅.
+  //    뒤에서부터 넣어야 앞쪽 위치가 밀리지 않습니다.
+  const components = findComponentBodyStarts(text);
+  for (let i = components.length - 1; i >= 0; i -= 1) {
+    const { bodyStart: at, end } = components[i];
+    const body = text.slice(at, end);
+    const hooks = [
+      needsStyles && /\bstyles\./.test(body) ? '  const styles = useStyles();' : null,
+      needsColors && /\bcolors\./.test(body) ? '  const colors = useColors();' : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    if (hooks) text = text.slice(0, at) + hooks + '\n' + text.slice(at);
+  }
 
   // 3) import 정리
   const want = [needsStyles ? 'makeStyles' : null, needsColors ? 'useColors' : null].filter(Boolean);

@@ -2,10 +2,11 @@ import { Stack } from 'expo-router';
 
 import { AlertPopupHost } from '@/features/alerts/AlertPopupHost';
 import { InAppCardHost } from '@/features/alerts/InAppCardHost';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 // 상단 바는 각 화면의 <Screen> 컴포넌트가 피그마 디자인으로 직접 그립니다.
 export default function AppLayout() {
+  const colors = useColors();
   return (
     <>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>

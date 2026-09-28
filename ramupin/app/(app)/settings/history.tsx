@@ -11,7 +11,7 @@ import i18n from '@/i18n';
 import { useHistory, useJourney } from '@/features/settings/queries';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, layout, radius } from '@/theme';
+import { layout, makeStyles, radius, useColors } from '@/theme';
 import type { HistoryEvent, HistoryEventType } from '@/types/models';
 
 type Tab = 'all' | 'safety' | 'place';
@@ -29,6 +29,7 @@ const PLACE_PIN = require('../../../assets/icons/place-pin.png');
  * 기획: 전체 = 알림 내역, 긴급/안전 = 긴급 알림만, 장소/이동 = 장소 기록과 이동 히스토리 (이동 기록을 누르면 하루 여정)
  */
 export default function HistoryScreen() {
+  const styles = useStyles();
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('all');
 
@@ -64,6 +65,8 @@ function dayLabel(iso: string) {
 }
 
 function EventHistory({ category }: { category?: 'safety' }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: events = [], isLoading, isError, refetch } = useHistory(category);
   const showPopup = useAlertStore((s) => s.showPopup);
@@ -119,6 +122,8 @@ function EventHistory({ category }: { category?: 'safety' }) {
 }
 
 function PlaceHistory() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const unit = usePreferencesStore((s) => s.distanceUnit);
@@ -185,7 +190,7 @@ function PlaceHistory() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   tabs: { paddingHorizontal: layout.screenPadding, paddingVertical: 8 },
@@ -204,4 +209,4 @@ const styles = StyleSheet.create({
   dayBlock: { gap: 12 },
   stopsCard: { borderRadius: radius.md, backgroundColor: colors.surface, paddingVertical: 8, paddingHorizontal: 20 },
   stop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-});
+}));

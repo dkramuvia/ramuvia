@@ -9,7 +9,7 @@ import { AppText, Button, Fab, QueryState } from '@/components/ui';
 import { PostPager } from '@/features/gallery/PostPager';
 import { useGalleryFeed } from '@/features/gallery/queries';
 import { useMyGroups } from '@/features/groups/queries';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 const SHEET_COLLAPSED = 64;
 
@@ -18,6 +18,8 @@ const SHEET_COLLAPSED = 64;
  * 기획: 가장 최근 게시물 전체화면, 그룹명 또는 바텀시트로 다른 그룹 선택 → 그 그룹의 게시글 모음, 수정 아이콘은 항상 떠 있음
  */
 export default function GalleryScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const focused = useIsFocused();
   const [groupId, setGroupId] = useState<string | undefined>(undefined);
@@ -93,7 +95,7 @@ export default function GalleryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#1E1E1E' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { gap: 16, paddingBottom: SHEET_COLLAPSED },
@@ -112,4 +114,4 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginVertical: 12 },
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   groupList: { paddingHorizontal: 18, paddingBottom: 8 },
-});
+}));

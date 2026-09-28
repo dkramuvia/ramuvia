@@ -7,7 +7,7 @@ import { AppText, Button, Screen, SearchField } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
 import { useGroup, useInviteToGroup } from '@/features/groups/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -15,6 +15,8 @@ import { showToast } from '@/utils/toast';
  * 같은 화면을 그룹 멤버 초대에도 씁니다: /groups/create?groupId=...
  */
 export default function GroupCreateScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { groupId } = useLocalSearchParams<{ groupId?: string }>();
   const isInvite = !!groupId;
@@ -87,7 +89,7 @@ export default function GroupCreateScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },
   countBar: {
     height: 46,
@@ -100,4 +102,4 @@ const styles = StyleSheet.create({
   submit: { height: 46, marginHorizontal: 10 },
   list: { gap: 12, marginTop: 4 },
   empty: { paddingVertical: 16 },
-});
+}));

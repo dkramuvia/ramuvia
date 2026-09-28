@@ -12,7 +12,7 @@ import { distanceM, useAreaName } from '@/features/location/useAreaName';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle } from '@/features/map/AppMapView';
 import { useUploadDraftStore } from '@/stores/uploadDraftStore';
-import { colors, layout, radius, typography } from '@/theme';
+import { layout, makeStyles, radius, typography, useColors } from '@/theme';
 import type { LatLng, SharedPlace } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -27,6 +27,8 @@ const CURRENT_LOCATION_RADIUS_M = 30;
  * 기획: 처음엔 현재 위치에 핀, 이후 지도를 움직이거나 검색해서 장소 지정
  */
 export default function PlacePickerScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ mode?: 'share' | 'attach' | 'view'; roomId?: string; lat?: string; lng?: string }>();
   const setDraftPlace = useUploadDraftStore((s) => s.setPlace);
@@ -199,7 +201,7 @@ export default function PlacePickerScreen() {
 
 const SHEET_OFFSET = 100; // 바텀시트 높이의 절반 정도만큼 핀을 위로
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   pinWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingBottom: SHEET_OFFSET * 2 },
@@ -246,4 +248,4 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginTop: 12 },
   resolving: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   placeTexts: { gap: 12, minHeight: 44 },
-});
+}));

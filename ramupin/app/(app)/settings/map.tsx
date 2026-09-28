@@ -6,7 +6,7 @@ import { AppMapView } from '@/features/map/AppMapView';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { usePreferencesStore, type Preferences } from '@/stores/preferencesStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -15,6 +15,8 @@ import { showToast } from '@/utils/toast';
  * TODO(8단계): 네이버·Mapbox·다크·3D·교통·날씨 실제 적용. 지금은 설정값만 저장
  */
 export default function MapSettingsScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const prefs = usePreferencesStore();
   const { can, minPlanFor } = usePlan();
@@ -125,7 +127,7 @@ export default function MapSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },
   flex: { flex: 1 },
   section: { gap: 12 },
@@ -137,4 +139,4 @@ const styles = StyleSheet.create({
   providerRow: { alignSelf: 'flex-start', backgroundColor: colors.surfaceStrong, borderRadius: radius.full },
   unitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   unitChips: { backgroundColor: colors.surfaceStrong, borderRadius: radius.full },
-});
+}));

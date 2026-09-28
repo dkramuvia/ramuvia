@@ -14,7 +14,7 @@ import { buildFriendQr } from '@/features/friends/qr';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
 import { useIsMe } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
 import { showToast } from '@/utils/toast';
 
@@ -22,6 +22,8 @@ const CHAT_BACKGROUND = '#E5F4FF';
 
 /** 피그마: 채팅방 1:1 (283:34973) / 그룹 생성 직후 (283:39171) / 위치 공유 (283:35894) */
 export default function ChatRoomScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const isMe = useIsMe();
@@ -144,6 +146,8 @@ export default function ChatRoomScreen() {
 }
 
 function IntroAction({ icon, label, onPress }: { icon: 'link' | 'person-add-outline' | 'paper-plane-outline'; label: string; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.introAction}>
       <View style={styles.introIcon}>
@@ -154,7 +158,7 @@ function IntroAction({ icon, label, onPress }: { icon: 'link' | 'person-add-outl
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   archivedNotice: { paddingHorizontal: 20, paddingVertical: 18 },
   container: { flex: 1, backgroundColor: CHAT_BACKGROUND },
   flex: { flex: 1 },
@@ -171,4 +175,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

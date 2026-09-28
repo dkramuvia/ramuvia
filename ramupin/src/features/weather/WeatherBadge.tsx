@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import type { Weather, WeatherCondition } from './useWeather';
 
 /**
@@ -30,6 +30,7 @@ const ICON_COLORS: Record<WeatherCondition, string> = {
 };
 
 export function WeatherBadge({ weather }: { weather?: Weather | null }) {
+  const colors = useColors();
   if (!weather) return null;
   const condition = ICONS[weather.condition] ? weather.condition : 'clear';
 

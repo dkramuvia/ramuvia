@@ -5,12 +5,13 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button, Card, CountActionBar, Popup, Screen, SearchField } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import type { Friend } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
 /** 피그마: 친구 설정 (283:31927). 기획: 친구를 삭제하거나 친구 추가 */
 export default function FriendSettingsScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: friends = [] } = useFriends();
   const [query, setQuery] = useState('');

@@ -7,13 +7,14 @@ import { AppText, Button, Screen, TextField } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
 import { useCreateGroup } from '@/features/groups/queries';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 // TODO(정책): 그룹명 최대 글자 수 서버 정책값 사용
 const GROUP_NAME_MAX = 10;
 
 /** 피그마: 그룹 만들기 - 그룹명 지정 (283:39047) */
 export default function GroupCreateNameScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ members?: string }>();
   const { data: friends = [] } = useFriends();

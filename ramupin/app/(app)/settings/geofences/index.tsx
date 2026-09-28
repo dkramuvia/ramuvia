@@ -10,7 +10,7 @@ import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerIt
 import { PlacePin } from '@/features/map/PlacePin';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useRemoveGeofence, useSaveGeofence } from '@/features/settings/queries';
-import { colors, layout, radius } from '@/theme';
+import { layout, makeStyles, radius, useColors } from '@/theme';
 import type { Geofence } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -22,6 +22,8 @@ const SHEET_HEIGHT = 440;
  * 기획: 점 세 개 → 활성화·비활성화 / 수정하기 / 삭제, 수정하기에서 위치와 이름 변경
  */
 export default function GeofencesScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const mapRef = useRef<AppMapViewHandle>(null);
   const { data: geofences = [] } = useGeofences();
@@ -172,6 +174,8 @@ export default function GeofencesScreen() {
 }
 
 function MenuAction({ label, onPress, danger }: { label: string; onPress: () => void; danger?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.menuItem}>
       <AppText variant="label1" color={danger ? colors.danger : colors.text}>
@@ -181,7 +185,7 @@ function MenuAction({ label, onPress, danger }: { label: string; onPress: () => 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, gap: 8 },
@@ -232,4 +236,4 @@ const styles = StyleSheet.create({
   },
   menuItem: { paddingHorizontal: 20, paddingVertical: 10 },
   addWrap: { paddingHorizontal: 16, paddingBottom: 8 },
-});
+}));

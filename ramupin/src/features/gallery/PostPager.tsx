@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { galleryApi } from '@/api/endpoints/gallery';
 import { AppText, Avatar } from '@/components/ui';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 import type { GalleryPost } from '@/types/models';
 
 interface PostPagerProps {
@@ -57,6 +57,8 @@ function PostPage({
   subtitle?: ReactNode;
   bottomInset: number;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const title = post.place?.areaName ?? post.place?.placeName ?? post.groupName;
@@ -112,7 +114,7 @@ function PostPage({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   page: { flex: 1, backgroundColor: colors.black },
   topShade: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', paddingHorizontal: layout.screenPadding, gap: 12 },
@@ -122,4 +124,4 @@ const styles = StyleSheet.create({
   shadow: { textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
   emergency: { flex: 1, backgroundColor: '#D93025', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 },
   count: { position: 'absolute', left: 20, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.5)' },
-});
+}));

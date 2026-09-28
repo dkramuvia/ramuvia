@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText, Avatar, Button, QueryState, Screen, ToggleRow } from '@/components/ui';
 import { useFriendAlerts, useSaveFriendAlerts } from '@/features/friends/queries';
 import { useFriends } from '@/features/friends/queries';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -21,6 +21,7 @@ type AlertKey = 'battery' | 'safeZone' | 'speeding' | 'nearby';
 const ITEMS: AlertKey[] = ['battery', 'safeZone', 'speeding', 'nearby'];
 
 export default function FriendAlertsScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const { data: friends = [] } = useFriends();

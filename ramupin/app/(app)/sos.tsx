@@ -16,7 +16,7 @@ import { describePlace } from '@/features/location/address';
 import { setSosMode } from '@/features/location/sosMode';
 import { useSafetySetting } from '@/features/settings/queries';
 import { SlideToCancel } from '@/features/sos/SlideToCancel';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 // TODO(정책): 카운트다운·녹음 시간은 서버 정책값 (WBS 7.9: 10초)
 const COUNTDOWN_SECONDS = 10;
@@ -41,6 +41,8 @@ async function deleteRecording(uri: string | null) {
  * TODO(6단계): 지도에서 두 손가락 탭으로 SOS 진입, 앱이 백그라운드여도 전송 유지
  */
 export default function SosScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: safety } = useSafetySetting();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -324,6 +326,7 @@ interface SentInfo {
 
 /** 보낸 내용 한 줄 (피그마: 17px/26, 흐린 회색) */
 function Fact({ label, value }: { label: string; value: string }) {
+  const colors = useColors();
   return (
     <AppText variant="body1Bold" color={FACT_COLOR}>
       {label}: {value}
@@ -333,7 +336,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 const FACT_COLOR = '#ACB3B9';
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   light: { flex: 1, backgroundColor: colors.surface },
   lightHeader: { height: 56, alignItems: 'center', justifyContent: 'center' },
@@ -361,4 +364,4 @@ const styles = StyleSheet.create({
   sentActions: { marginTop: 24, gap: 10 },
   callRow: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
   doneButton: { alignSelf: 'stretch' },
-});
+}));

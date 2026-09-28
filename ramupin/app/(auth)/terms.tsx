@@ -5,10 +5,11 @@ import { StyleSheet, View } from 'react-native';
 import { AppText, Button, TermsAgreement, requiredAgreed, type TermItem } from '@/components/ui';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useSignUpStore } from '@/stores/signUpStore';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 /** 피그마: 약관 동의 (348:15195 / 전체 동의 348:15242). WBS: 위치기반서비스 약관 필수 (위치정보법) */
 export default function TermsScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const agreed = useSignUpStore((s) => s.agreedTerms);
   const set = useSignUpStore((s) => s.set);

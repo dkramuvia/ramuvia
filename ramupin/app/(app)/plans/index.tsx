@@ -11,7 +11,7 @@ import { BillingToggle } from '@/features/plans/BillingToggle';
 import { PlanCard } from '@/features/plans/PlanCard';
 import { COMPARE_ROWS, PLANS } from '@/features/plans/planCatalog';
 import { useAuthStore } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 const CARD_GAP = 16;
 
@@ -21,6 +21,8 @@ const CARD_GAP = 16;
  * WBS 3.4: 결제는 App Store / Play Store 인앱결제만 (7단계에서 연동)
  */
 export default function PlansScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const me = useAuthStore((s) => s.user);
@@ -133,7 +135,7 @@ export default function PlansScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#232323' },
   flex: { flex: 1 },
   header: { height: 48, alignItems: 'center', justifyContent: 'center' },
@@ -149,4 +151,4 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', alignItems: 'center', minHeight: 38 },
   tableValue: { width: '45%' },
   trialLink: { alignSelf: 'center', padding: 8 },
-});
+}));

@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Header } from '@/components/ui';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 
 interface OnboardingLayoutProps {
   title?: string;
@@ -14,6 +14,8 @@ interface OnboardingLayoutProps {
 
 /** 피그마 가입 화면 공통: 따뜻한 흰 배경, 큰 제목(24 bold), 하단 고정 CTA */
 export function OnboardingLayout({ title, children, footer, showBack = true }: OnboardingLayoutProps) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -32,10 +34,10 @@ export function OnboardingLayout({ title, children, footer, showBack = true }: O
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.backgroundWarm },
   flex: { flex: 1 },
   spacer: { height: 48 },
   content: { paddingHorizontal: layout.screenPadding, paddingTop: 8, paddingBottom: 24, gap: 24 },
   footer: { paddingHorizontal: 16, paddingVertical: 20 },
-});
+}));

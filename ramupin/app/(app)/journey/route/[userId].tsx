@@ -14,7 +14,7 @@ import { AvatarMarker } from '@/features/map/AvatarMarker';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 
 const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
 
@@ -23,6 +23,8 @@ const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
  * 기획: 노란줄 = 정체 구간(머물러 있음), 파란 줄 = 이동 구간, 뒤로가기로 여정 화면
  */
 export default function RouteScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const me = useAuthStore((s) => s.user);
@@ -105,7 +107,7 @@ export default function RouteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: layout.screenPadding },
@@ -118,4 +120,4 @@ const styles = StyleSheet.create({
   summary: { flexDirection: 'row' },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLine: { width: 20, height: 4, borderRadius: 2, marginLeft: 6 },
-});
+}));

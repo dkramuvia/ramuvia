@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppText, Avatar } from '@/components/ui';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 import type { GalleryPost } from '@/types/models';
 
 interface PostGridProps {
@@ -22,6 +22,8 @@ const GAP = 2;
 
 /** 피그마: 그룹 게시물 모아보기 (283:20215) / 사용자 게시물 (119:42163) — 3열, 세로형 썸네일 */
 export function PostGrid({ posts, header, showAuthor, scope, emptyText }: PostGridProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const { width } = useWindowDimensions();
   const size = (width - GAP * (COLUMNS - 1)) / COLUMNS;
 
@@ -70,7 +72,7 @@ export function PostGrid({ posts, header, showAuthor, scope, emptyText }: PostGr
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingBottom: 120 },
   row: { gap: GAP, marginBottom: GAP },
   tabRow: { paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: colors.surfaceStrong, marginBottom: 4 },
@@ -78,4 +80,4 @@ const styles = StyleSheet.create({
   author: { position: 'absolute', left: 10, bottom: 10 },
   video: { position: 'absolute', right: 8, top: 8 },
   empty: { paddingVertical: 48 },
-});
+}));

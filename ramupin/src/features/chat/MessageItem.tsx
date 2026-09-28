@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button } from '@/components/ui';
 import { AppMapView } from '@/features/map/AppMapView';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { ChatMessage } from '@/types/models';
 import { formatRelativeTime } from '@/utils/time';
 
@@ -21,6 +21,7 @@ interface MessageItemProps {
 
 /** 피그마: 채팅방 말풍선 (283:34973), 위치 공유 카드 (283:35894) */
 export function MessageItem({ message, isMine, sender, showSender, showTime }: MessageItemProps) {
+  const styles = useStyles();
   if (message.type === 'system') {
     return (
       <View style={styles.systemRow}>
@@ -62,6 +63,8 @@ export function MessageItem({ message, isMine, sender, showSender, showTime }: M
 }
 
 function TextBubble({ message, isMine }: { message: ChatMessage; isMine: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
       <AppText variant="label1" color={isMine ? colors.white : '#171717'}>
@@ -72,6 +75,8 @@ function TextBubble({ message, isMine }: { message: ChatMessage; isMine: boolean
 }
 
 function LocationCard({ message }: { message: ChatMessage }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const place = message.place!;
   return (
@@ -107,7 +112,7 @@ function LocationCard({ message }: { message: ChatMessage }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 20 },
   rowMine: { justifyContent: 'flex-end' },
   rowOther: { justifyContent: 'flex-start' },
@@ -135,4 +140,4 @@ const styles = StyleSheet.create({
   },
   locationBody: { paddingTop: 12, paddingHorizontal: 20, paddingBottom: 20, gap: 20 },
   locationTexts: { gap: 8 },
-});
+}));

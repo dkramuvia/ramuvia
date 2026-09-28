@@ -9,7 +9,7 @@ import { AppText, Button, TextField } from '@/components/ui';
 import { applyLoginResult } from '@/features/auth/session';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 const mmss = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 
@@ -18,6 +18,8 @@ const mmss = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:
  * 피그마 시안이 없어 휴대폰 인증(348:15108) 화면 구성을 따릅니다.
  */
 export default function DeviceVerifyScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const challengeId = useAuthStore((s) => s.pendingDeviceVerification?.challengeId);
   const [phoneMasked, setPhoneMasked] = useState<string | null>(null);
@@ -176,8 +178,8 @@ export default function DeviceVerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   notice: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 10, backgroundColor: colors.white },
   flex: { flex: 1 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-});
+}));

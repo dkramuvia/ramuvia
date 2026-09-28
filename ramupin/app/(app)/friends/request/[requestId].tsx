@@ -7,7 +7,7 @@ import { usersApi } from '@/api/endpoints/users';
 import { AppText, Avatar, Button, QueryState, Screen } from '@/components/ui';
 import { useFriendRequest, useRespondFriendRequest } from '@/features/friends/queries';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { formatRelativeTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
 
@@ -16,6 +16,8 @@ import { showToast } from '@/utils/toast';
  * 기획: 처음 친구가 등록되면 1인 가구 모드가 해제됨 (WBS 4: 75세 이상은 해제하지 않음 → 서버가 판단)
  */
 export default function FriendRequestDetailScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const me = useAuthStore((s) => s.user);
@@ -127,6 +129,8 @@ export default function FriendRequestDetailScreen() {
 }
 
 function MetaRow({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.metaRow}>
       <AppText variant="label1Bold">{label}</AppText>
@@ -137,7 +141,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { flexGrow: 1, justifyContent: 'center' },
   flex: { flex: 1 },
   card: { borderRadius: radius.lg, backgroundColor: colors.backgroundWarm, padding: 16, gap: 12 },
@@ -160,4 +164,4 @@ const styles = StyleSheet.create({
   },
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginVertical: 12 },
   singleImage: { alignSelf: 'center', width: 232, height: 232, marginVertical: 16 },
-});
+}));

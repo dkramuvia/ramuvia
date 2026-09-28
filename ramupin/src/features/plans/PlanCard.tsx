@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { priceText, type PlanDisplay } from './planCatalog';
 import { AppText } from '@/components/ui';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 interface PlanCardProps {
   plan: { name: string; englishName?: string; free?: boolean; popular?: boolean; colors: [string, string]; frame: string; bullets: string[] };
@@ -19,6 +19,8 @@ interface PlanCardProps {
 
 /** 피그마 플랜 카드: 두꺼운 테두리 + 그라데이션 + 체크 목록 */
 export function PlanCard({ plan, yearly, width, actionLabel, actionDisabled, onAction, price }: PlanCardProps) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.frame, { width, backgroundColor: plan.frame }]}>
       <LinearGradient colors={plan.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
@@ -66,7 +68,7 @@ export function PlanCard({ plan, yearly, width, actionLabel, actionDisabled, onA
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   frame: { borderRadius: 36, padding: 8 },
   card: { borderRadius: 30, padding: 24, gap: 16 },
   flex: { flex: 1 },
@@ -77,4 +79,4 @@ const styles = StyleSheet.create({
   bullet: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   action: { height: 44, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   actionDisabled: { opacity: 0.6 },
-});
+}));

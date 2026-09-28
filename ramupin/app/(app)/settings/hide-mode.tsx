@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Avatar, Screen, ShareLevelIcon, Switch } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
 import { useHideMode, useSaveHideMode } from '@/features/settings/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { LocationShareLevel } from '@/types/models';
 
 const PERIODS: { key: string; hours: number | null }[] = [
@@ -25,6 +25,8 @@ const LEVELS: LocationShareLevel[] = ['exact', 'blurred', 'hidden'];
  * TODO(6단계): WBS 12.7 "서버에도 안 보내기" / 12.8 "서버에만 보내기(위험 신호는 전달)" 2종 구분
  */
 export default function HideModeScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: setting } = useHideMode();
   const save = useSaveHideMode();
@@ -105,7 +107,7 @@ export default function HideModeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 24 },
   flex: { flex: 1 },
   card: { borderRadius: radius.lg, backgroundColor: colors.surface, padding: 12, gap: 8 },
@@ -117,4 +119,4 @@ const styles = StyleSheet.create({
   levelTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   avatars: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, paddingTop: 8 },
   friend: { alignItems: 'center', gap: 6, maxWidth: 100 },
-});
+}));

@@ -16,7 +16,7 @@ import { usePlan } from '@/features/policy/usePlan';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
-import { colors, layout, radius } from '@/theme';
+import { layout, makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
@@ -33,6 +33,8 @@ const timeText = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { ho
  *       최근 여정 박스를 누르면 자세한 이동 여정, 장소 이름이 특정되면 제목·아니면 주소만
  */
 export default function JourneyScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ userId: string; view?: 'timeline' }>();
   const { userId } = params;
@@ -231,6 +233,8 @@ export default function JourneyScreen() {
 }
 
 function NowRow() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   return (
     <View style={styles.now}>
@@ -245,7 +249,7 @@ const STOP_TITLE = '#2E3438';
 const STOP_SUB = '#737373';
 const MOVE_CARD = '#EBEDEE';
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: layout.screenPadding },
@@ -287,4 +291,4 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   stopText: { flex: 1, gap: 4 },
-});
+}));

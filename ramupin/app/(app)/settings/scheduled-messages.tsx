@@ -9,7 +9,7 @@ import { useFriends } from '@/features/friends/queries';
 import { usePlan } from '@/features/policy/usePlan';
 import { ScheduleEditor } from '@/features/settings/ScheduleEditor';
 import { useRemoveScheduledMessage, useSaveScheduledMessage, useScheduledMessages } from '@/features/settings/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { ScheduledMessage } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -21,6 +21,8 @@ type Draft = Omit<ScheduledMessage, 'id'> & { id?: string };
  * TODO(6단계): 예약 시각에 서버가 푸시 발송 + 받는 기기에서 TTS 재생
  */
 export default function ScheduledMessagesScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: messages = [] } = useScheduledMessages();
   const { data: friends = [] } = useFriends();
@@ -171,7 +173,7 @@ export default function ScheduledMessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },
   flex: { flex: 1 },
   addButton: { marginHorizontal: 5, marginVertical: 12 },
@@ -184,4 +186,4 @@ const styles = StyleSheet.create({
   messageTitle: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   messageTime: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   messageBody: { borderRadius: radius.xs, backgroundColor: colors.white, padding: 12, borderWidth: 1, borderColor: colors.surfaceStrong },
-});
+}));

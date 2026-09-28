@@ -4,7 +4,7 @@ import { WebView } from 'react-native-webview';
 
 import { AppText } from '@/components/ui';
 import { env } from '@/config/env';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 import type { LatLng } from '@/types/models';
 
 /**
@@ -56,6 +56,7 @@ const panoramaHtml = (clientId: string, { latitude, longitude }: LatLng) => `<!d
 </script></body></html>`;
 
 export function StreetViewWeb({ coordinate, onStatusChange }: { coordinate: LatLng; onStatusChange?: (status: Status) => void }) {
+  const styles = useStyles();
   const [status, setStatus] = useState<Status>('loading');
   const clientId = env.map.naverClientId;
   const html = useMemo(() => panoramaHtml(clientId, coordinate), [clientId, coordinate]);
@@ -96,6 +97,8 @@ export function StreetViewWeb({ coordinate, onStatusChange }: { coordinate: LatL
 }
 
 function Notice({ text }: { text: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.notice}>
       <AppText variant="body1" color={colors.white}>
@@ -105,7 +108,7 @@ function Notice({ text }: { text: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.black },
   web: { flex: 1, backgroundColor: colors.black },
   notice: {
@@ -118,4 +121,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.black,
   },
-});
+}));

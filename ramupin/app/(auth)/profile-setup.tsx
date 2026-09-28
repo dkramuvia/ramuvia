@@ -7,7 +7,7 @@ import { authApi } from '@/api/endpoints/auth';
 import { AppText, Button, SegmentButtons, TextField } from '@/components/ui';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useSignUpStore } from '@/stores/signUpStore';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import type { Gender } from '@/types/models';
 
 const NICKNAME_RULE = /^[가-힣a-zA-Z0-9]{2,8}$/;
@@ -42,6 +42,7 @@ function ageOf(birth: Date) {
 
 /** 피그마: 닉네임·성별·생년월일 (348:14980 / 입력 348:15012 / 348:15065) */
 export default function ProfileSetupScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const signUp = useSignUpStore();
   const [nickname, setNickname] = useState(signUp.nickname);

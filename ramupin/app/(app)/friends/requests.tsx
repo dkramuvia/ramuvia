@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button, QueryState, Screen, UnderlineTabs } from '@/components/ui';
 import { useCancelFriendRequest, useFriendRequests, useRespondFriendRequest } from '@/features/friends/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { FriendRequest } from '@/types/models';
 import { formatRelativeTime } from '@/utils/time';
 
@@ -14,6 +14,8 @@ type Tab = 'received' | 'sent';
 
 /** 피그마: 친구 요청 - 받은 요청 (283:22783) / 보낸 요청 (283:22897) */
 export default function FriendRequestsScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('received');
   const { data, isLoading, isError, refetch } = useFriendRequests();
@@ -123,6 +125,8 @@ interface RequestCardProps {
 }
 
 function RequestCard({ request, person, subtitle, actions, onPress }: RequestCardProps) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.card}>
       <Pressable style={styles.person} onPress={onPress} disabled={!onPress}>
@@ -146,7 +150,7 @@ function RequestCard({ request, person, subtitle, actions, onPress }: RequestCar
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingHorizontal: 0, paddingTop: 0 },
   tabs: { paddingTop: 4 },
   body: { paddingHorizontal: 20, paddingTop: 24, gap: 16 },
@@ -165,4 +169,4 @@ const styles = StyleSheet.create({
   personTexts: { flex: 1, gap: 2 },
   actions: { width: 119, gap: 8 },
   actionButton: { height: 36 },
-});
+}));

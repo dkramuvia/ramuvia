@@ -14,7 +14,7 @@ import { PlacePin } from '@/features/map/PlacePin';
 import { useFriends } from '@/features/friends/queries';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useSaveGeofence } from '@/features/settings/queries';
-import { colors, layout, radius, typography } from '@/theme';
+import { layout, makeStyles, radius, typography, useColors } from '@/theme';
 import type { LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -29,6 +29,8 @@ const NAME_MAX = 10;
  * 지도 중앙 고정 핀 방식으로 구현 (장소 선택 지도와 같은 조작)
  */
 export default function GeofenceEditScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { data: geofences = [] } = useGeofences();
@@ -220,7 +222,7 @@ export default function GeofenceEditScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   pinWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingBottom: 320 },
@@ -264,4 +266,4 @@ const styles = StyleSheet.create({
   friendChipOn: { backgroundColor: colors.brown },
   radiusRow: { flexDirection: 'row', alignItems: 'center' },
   radiusChips: { backgroundColor: colors.surfaceStrong, borderRadius: radius.full },
-});
+}));

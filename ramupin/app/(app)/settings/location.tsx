@@ -11,7 +11,7 @@ import {
   stopBackgroundTracking,
 } from '@/features/location/backgroundTask';
 import { outboxStats, flushLocationOutbox, type OutboxStats } from '@/features/location/uploader';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -20,6 +20,8 @@ import { showToast } from '@/utils/toast';
  * 아래 수집 현황은 배터리·전송 확인용입니다 (2단계 PoC).
  */
 export default function LocationSettingsScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -128,6 +130,8 @@ export default function LocationSettingsScreen() {
 }
 
 function Row({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.row}>
       <AppText variant="body2" color={colors.textSecondary}>
@@ -143,8 +147,8 @@ const intervalText = (sec: number) => (sec >= 60 ? `${Math.round(sec / 60)}분�
 
 const timeText = (iso: string) => new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },
   card: { gap: 10, padding: 16, borderRadius: radius.sm, backgroundColor: colors.surfaceStrong },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-});
+}));

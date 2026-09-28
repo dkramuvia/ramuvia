@@ -6,13 +6,14 @@ import { AppText, QueryState, Screen } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { SuggestionCard } from '@/features/friends/SuggestionCard';
 import { useNearbyUsers, useSendFriendRequest } from '@/features/friends/queries';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 /**
  * 피그마: 근처 친구 (363:19156)
  * TODO(5단계): 서버가 내 현재 위치 반경 안의 사용자를 찾아줌. BLE 근거리 탐색은 2차 (WBS 12.9b)
  */
 export default function NearbyFriendsScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: suggestions = [], isLoading, isError, refetch } = useNearbyUsers();
   const send = useSendFriendRequest();

@@ -11,13 +11,15 @@ import { useChatRooms } from '@/features/chat/queries';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
 import { useDirectRoom } from '@/features/groups/queries';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 import { formatRelativeTime } from '@/utils/time';
 
 type Segment = 'friends' | 'messages';
 
 /** 피그마: 사람들 (283:38418) */
 export default function PeopleScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [segment, setSegment] = useState<Segment>('friends');
 
@@ -45,6 +47,8 @@ export default function PeopleScreen() {
 }
 
 function FriendsList() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: friends = [], isLoading, isError, refetch } = useFriends();
   const directRoom = useDirectRoom();
@@ -86,6 +90,8 @@ function FriendsList() {
 
 // 피그마에 채팅방 목록 디자인이 없어 친구 리스트 카드 형태로 임시 구성
 function ChatRoomList() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: rooms = [], isLoading, isError, refetch } = useChatRooms();
 
@@ -133,7 +139,7 @@ function ChatRoomList() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   top: { paddingHorizontal: layout.screenPadding, paddingTop: 20 },
   list: { paddingHorizontal: layout.screenPadding, paddingTop: 20, paddingBottom: 96, gap: 12 },
@@ -144,4 +150,4 @@ const styles = StyleSheet.create({
   roomTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   unread: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1 },
-});
+}));

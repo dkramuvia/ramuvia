@@ -3,13 +3,14 @@ import { useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 const KNOB = 46;
 const PADDING = 4;
 
 /** 피그마 "밀어서 SOS 취소하기": 오른쪽 손잡이를 왼쪽 끝까지 밀면 취소 (실수로 누르는 것 방지) */
 export function SlideToCancel({ label, onCancel }: { label: string; onCancel: () => void }) {
+  const colors = useColors();
   const [width, setWidth] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
   const maxTravel = Math.max(0, width - KNOB - PADDING * 2);

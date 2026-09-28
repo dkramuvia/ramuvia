@@ -2,10 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 /** 피그마 지오펜스 핀: 검은 말풍선 이름표 + 갈색 위치 핀 */
 export function PlacePin({ label, disabled }: { label?: string; disabled?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.wrap, disabled && styles.disabled]}>
       {label ? (
@@ -20,8 +22,8 @@ export function PlacePin({ label, disabled }: { label?: string; disabled?: boole
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { alignItems: 'center' },
   disabled: { opacity: 0.45 },
   label: { maxWidth: 120, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: colors.black, marginBottom: 2 },
-});
+}));

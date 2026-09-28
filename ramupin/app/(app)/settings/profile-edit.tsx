@@ -11,7 +11,7 @@ import { ProfileCard } from '@/features/settings/ProfileCard';
 import { characterAvatars } from '@/features/settings/avatars';
 import { useUpdateProfile } from '@/features/settings/queries';
 import { useAuthStore } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 import type { Gender } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -25,6 +25,8 @@ const CARD_GAP = 14;
  * 기획: 성별 선택 → 캐릭터 좌우 선택 또는 갤러리 사진, 사용자명은 중복 확인 후 저장
  */
 export default function ProfileEditScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const me = useAuthStore((s) => s.user);
@@ -163,7 +165,7 @@ export default function ProfileEditScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },
   section: { gap: 8 },
   carousel: { marginHorizontal: -20 },
@@ -174,4 +176,4 @@ const styles = StyleSheet.create({
   photoWrap: { alignSelf: 'center' },
   photo: { width: CARD_WIDTH, height: 192, borderRadius: 16 },
   galleryButton: { marginTop: 8 },
-});
+}));

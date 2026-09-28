@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { colors, typography } from '@/theme';
+import { makeStyles, typography, useColors } from '@/theme';
 
 interface ChatInputProps {
   onSend: (text: string) => void;
@@ -14,6 +14,8 @@ interface ChatInputProps {
 
 /** 피그마: 채팅 입력창 + 왼쪽 + 버튼의 공유 메뉴 (283:35631) */
 export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation }: ChatInputProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -65,6 +67,8 @@ export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation }: Chat
 }
 
 function MenuAction({ icon, label, onPress }: { icon: 'location' | 'locate'; label: string; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.menuAction}>
       <View style={styles.menuIcon}>
@@ -75,7 +79,7 @@ function MenuAction({ icon, label, onPress }: { icon: 'location' | 'locate'; lab
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { paddingHorizontal: 12, paddingBottom: 12, paddingTop: 8 },
   menu: {
     position: 'absolute',
@@ -108,4 +112,4 @@ const styles = StyleSheet.create({
   },
   iconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
   input: { flex: 1, ...typography.body1, maxHeight: 120, color: colors.text, paddingVertical: 8 },
-});
+}));

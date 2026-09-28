@@ -7,10 +7,11 @@ import { AppText, Avatar, QueryState, Screen, Tag } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useGroup } from '@/features/groups/queries';
 import { useAuthStore, useIsMe } from '@/stores/authStore';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 /** 피그마: 그룹방 멤버 (283:36361) */
 export default function GroupMembersScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const me = useAuthStore((s) => s.user);

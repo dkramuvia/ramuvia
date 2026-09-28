@@ -8,7 +8,7 @@ import { AppText, Button, Screen } from '@/components/ui';
 import { useUploadPost } from '@/features/gallery/queries';
 import { useMyGroups } from '@/features/groups/queries';
 import { useUploadDraftStore } from '@/stores/uploadDraftStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /** 서버가 알려 준 이유를 그대로 보여 줍니다 (용량 초과·등급 제한 등) */
@@ -21,6 +21,8 @@ function uploadErrorMessage(error: unknown, t: (key: string, vars?: Record<strin
 
 /** 피그마: 그룹방 지정·위치 추가 (283:20418 / 목록 363:8084 / 선택됨 363:8185 / 위치 363:8485) */
 export default function GalleryUploadDetailScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const { media, groupId, place, setGroupId, reset } = useUploadDraftStore();
@@ -123,7 +125,7 @@ export default function GalleryUploadDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingHorizontal: 0, paddingTop: 0 },
   flex: { flex: 1 },
   preview: { backgroundColor: colors.surfaceStrong },
@@ -133,4 +135,4 @@ const styles = StyleSheet.create({
   rowGap: { gap: 8, marginTop: 8 },
   groupList: { gap: 4 },
   groupItem: { paddingVertical: 8 },
-});
+}));

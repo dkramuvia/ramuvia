@@ -8,7 +8,7 @@ import { authApi, authErrorOf } from '@/api/endpoints/auth';
 import { AppText, Button, TextField } from '@/components/ui';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useSignUpStore } from '@/stores/signUpStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 /** "01092491760" → "010-9249-1760" */
 function formatPhone(text: string) {
@@ -25,6 +25,8 @@ const mmss = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:
  * WBS 3.5 SMS 인증, 3.7 번호 중복 가입 확인 (서버)
  */
 export default function PhoneVerifyScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const signUp = useSignUpStore();
   const setSignUp = signUp.set;
@@ -185,7 +187,7 @@ export default function PhoneVerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   banner: {
     alignSelf: 'center',
@@ -199,4 +201,4 @@ const styles = StyleSheet.create({
     borderColor: '#473C39',
     backgroundColor: colors.white,
   },
-});
+}));

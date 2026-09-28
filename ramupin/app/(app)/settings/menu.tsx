@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import { MenuItem, Screen } from '@/components/ui';
 import { ProfileCard } from '@/features/settings/ProfileCard';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 
 const MENU: { key: string; href: Href; danger?: boolean }[] = [
   { key: 'premium', href: '/plans' },
@@ -22,6 +22,7 @@ const MENU: { key: string; href: Href; danger?: boolean }[] = [
 
 /** 피그마: 설정 (283:31571) */
 export default function SettingsMenuScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
 
   return (

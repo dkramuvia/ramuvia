@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui';
 import { StreetViewWeb } from '@/features/map/StreetViewWeb';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -15,6 +15,8 @@ import { showToast } from '@/utils/toast';
  * 지도/친구 위치에서 열고, 로드뷰가 없는 곳이면 네이버 지도 앱으로 넘길 수 있습니다.
  */
 export default function StreetViewScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { lat, lng, name } = useLocalSearchParams<{ lat: string; lng: string; name?: string }>();
   const coordinate = { latitude: Number(lat), longitude: Number(lng) };
@@ -64,7 +66,7 @@ export default function StreetViewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.black },
   top: { position: 'absolute', top: 0, left: 0, right: 0 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16 },
@@ -81,4 +83,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: colors.white,
   },
-});
+}));

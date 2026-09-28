@@ -8,7 +8,7 @@ import { AppText, Avatar, Button, Screen, TextField, ToggleRow } from '@/compone
 import { useFriends } from '@/features/friends/queries';
 import { useMyGroups } from '@/features/groups/queries';
 import { useSafetySetting, useSaveSafetySetting } from '@/features/settings/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { SafetySetting } from '@/types/models';
 
 /**
@@ -17,6 +17,8 @@ import type { SafetySetting } from '@/types/models';
  * WBS 8.3·8.4·10.8: 관공서 연락처는 비워 두고 준비만, 발송은 서버에서
  */
 export default function SafetyScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data: setting } = useSafetySetting();
   const save = useSaveSafetySetting();
@@ -131,6 +133,8 @@ export default function SafetyScreen() {
 }
 
 function RecipientCard({ title, avatar, onRemove }: { title: string; avatar: ReactNode; onRemove: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   return (
     <View style={styles.recipient}>
@@ -146,6 +150,8 @@ function RecipientCard({ title, avatar, onRemove }: { title: string; avatar: Rea
 }
 
 function AgencyModal({ visible, onClose, onAdd }: { visible: boolean; onClose: () => void; onAdd: (name: string, phone: string) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -176,7 +182,7 @@ function AgencyModal({ visible, onClose, onAdd }: { visible: boolean; onClose: (
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 24 },
   flex: { flex: 1 },
   gap: { gap: 12 },
@@ -201,4 +207,4 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 20 },
   modal: { borderRadius: 10, backgroundColor: colors.popup, padding: 24, gap: 16 },
   modalButtons: { flexDirection: 'row', gap: 8 },
-});
+}));

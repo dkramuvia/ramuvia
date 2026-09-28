@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { MapImplProps, MapImplHandle } from './types';
 import type { Preferences } from '@/stores/preferencesStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 /** 앱 설정의 지도 유형 → 네이버 지도 타입 */
 const MAP_TYPES: Record<Preferences['mapType'], 'Basic' | 'Satellite' | 'Terrain'> = {
@@ -27,6 +27,8 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
   { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, style },
   ref,
 ) {
+  const styles = useStyles();
+  const colors = useColors();
   const mapRef = useRef<NaverMapViewRef>(null);
 
   useImperativeHandle(ref, () => ({
@@ -106,6 +108,6 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   marker: { borderWidth: 2, borderColor: colors.white },
-});
+}));

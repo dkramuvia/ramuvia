@@ -13,7 +13,7 @@ import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { parseFriendQr } from '@/features/friends/qr';
 import { useSendFriendRequest } from '@/features/friends/queries';
 import { blockedRequestReason } from '@/features/friends/relation';
-import { colors, layout, radius } from '@/theme';
+import { layout, makeStyles, radius, useColors } from '@/theme';
 import type { FoundUser } from '@/types/models';
 import { formatRelativeTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
@@ -22,6 +22,8 @@ const FRAME_SIZE = 288;
 
 /** 피그마: QR스캔 친구추가 (283:23362 / 손전등 283:23421 / 인식 결과 283:23476) */
 export default function QrScanScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
@@ -162,6 +164,8 @@ export default function QrScanScreen() {
 
 /** 어두운 카메라 화면용 상단 바 (공통 Header 는 밝은 배경용) */
 function HeaderOnDark({ title }: { title: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.header}>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.back} hitSlop={4}>
@@ -175,7 +179,7 @@ function HeaderOnDark({ title }: { title: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#1E1E1E' },
   dim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)' },
   overlay: { flex: 1 },
@@ -219,4 +223,4 @@ const styles = StyleSheet.create({
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },
   resultText: { paddingHorizontal: 56, paddingTop: 4, paddingBottom: 24 },
   sheetButtons: { gap: 12 },
-});
+}));

@@ -8,7 +8,7 @@ import { useAlertStore, type AlertPopupPayload } from './alertStore';
 import { AppText, Avatar, Button } from '@/components/ui';
 import { formatDuration, minutesSince } from '@/features/journey/routeLayers';
 import { AppMapView } from '@/features/map/AppMapView';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -17,6 +17,7 @@ const GREEN = '#34C759';
 
 /** 피그마: SOS 수신 (363:19884) / 위험 지역 (363:20071) / GPS 끊김 (363:20093) / 배터리 (363:20119) / 무움직임 (363:20136) / 과속 (363:20153) */
 export function AlertPopupHost() {
+  const styles = useStyles();
   const popup = useAlertStore((s) => s.popup);
   const dismiss = useAlertStore((s) => s.dismissPopup);
   if (!popup) return null;
@@ -38,6 +39,8 @@ export function AlertPopupHost() {
 }
 
 function PopupContent({ popup }: { popup: AlertPopupPayload }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   switch (popup.kind) {
     case 'sos': {
@@ -150,6 +153,8 @@ function PopupContent({ popup }: { popup: AlertPopupPayload }) {
 }
 
 function IllustratedContent({ name, title, image, message, info }: { name: string; title: string; image: number; message: string; info: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <>
       <View style={styles.titleWithAvatar}>
@@ -170,6 +175,7 @@ function IllustratedContent({ name, title, image, message, info }: { name: strin
 }
 
 function MapCircle({ center, name }: { center: LatLng; name?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.map} pointerEvents="none">
       <AppMapView initialCenter={center} interactive={false} initialDelta={0.006} style={StyleSheet.absoluteFill} />
@@ -187,6 +193,8 @@ function MapCircle({ center, name }: { center: LatLng; name?: string }) {
 }
 
 function PopupButtons({ popup, dismiss }: { popup: AlertPopupPayload; dismiss: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const call = (number = '') => Linking.openURL(`tel:${number}`);
   const shareLocation = () => {
@@ -241,7 +249,7 @@ function PopupButtons({ popup, dismiss }: { popup: AlertPopupPayload; dismiss: (
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 20 },
   card: { maxHeight: '92%', borderRadius: 16, backgroundColor: '#FDF9F8', overflow: 'hidden' },
   body: { padding: 16, gap: 16 },
@@ -273,4 +281,4 @@ const styles = StyleSheet.create({
   green: { backgroundColor: GREEN },
   outline: { borderWidth: 1, borderColor: colors.border },
   closeLink: { alignSelf: 'center', paddingVertical: 4 },
-});
+}));

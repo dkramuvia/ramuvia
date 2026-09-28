@@ -11,7 +11,7 @@ import { buildFriendQr } from '@/features/friends/qr';
 import { useSendFriendRequest } from '@/features/friends/queries';
 import { blockedRequestReason } from '@/features/friends/relation';
 import { useAuthStore } from '@/stores/authStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const MENU: { key: string; icon: ComponentProps<typeof Ionicons>['name']; href: Href }[] = [
@@ -23,6 +23,8 @@ const MENU: { key: string; icon: ComponentProps<typeof Ionicons>['name']; href: 
 
 /** 피그마: 친구 추가 (283:23130) */
 export default function FriendAddScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const [idModal, setIdModal] = useState(false);
@@ -96,6 +98,8 @@ export default function FriendAddScreen() {
 
 // 피그마에 ID 입력 화면이 없어 간단한 입력 팝업으로 구성
 function UserIdModal({ visible, onClose, onSent }: { visible: boolean; onClose: () => void; onSent: (nickname: string) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [userId, setUserId] = useState('');
   const [error, setError] = useState<string>();
@@ -161,7 +165,7 @@ function UserIdModal({ visible, onClose, onSent }: { visible: boolean; onClose: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 20, paddingTop: 0 },
   flex: { flex: 1 },
   outlineButton: {
@@ -204,4 +208,4 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 20 },
   modalCard: { borderRadius: 10, backgroundColor: colors.popup, padding: 24, gap: 16 },
   modalButtons: { flexDirection: 'row', gap: 8 },
-});
+}));

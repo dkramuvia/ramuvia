@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Avatar, BatteryBadge, Button, MenuItem, QueryState, Screen, ShareLevelIcon, ToggleRow } from '@/components/ui';
 import { useFriends, useSaveShareSetting, useShareSetting } from '@/features/friends/queries';
 import { applyShareLevel, isToggleLocked } from '@/features/sharing/shareRules';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { FriendShareSetting, LocationShareLevel } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -15,6 +15,8 @@ const LEVELS: LocationShareLevel[] = ['exact', 'blurred', 'hidden'];
 
 /** 피그마: 친구별 상세 공유 (정확 283:33373 / 흐림 363:15493 / 비공개 363:15627) */
 export default function FriendShareScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const { data: friends = [] } = useFriends();
@@ -126,7 +128,7 @@ export default function FriendShareScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   body: { gap: 32 },
   profile: { alignItems: 'center', gap: 4, paddingTop: 8 },
   nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 2 },
@@ -144,4 +146,4 @@ const styles = StyleSheet.create({
   },
   levelIconSelected: { backgroundColor: colors.primarySoft },
   toggles: { gap: 12 },
-});
+}));

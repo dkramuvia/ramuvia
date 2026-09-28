@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, QueryState, Screen } from '@/components/ui';
 import { useReceivedSos } from '@/features/sos/queries';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 import type { ReceivedSos } from '@/api/endpoints/sos';
 import { formatRelativeTime } from '@/utils/time';
 
@@ -16,6 +16,8 @@ import { formatRelativeTime } from '@/utils/time';
  * 목록으로 따로 둡니다. 누르면 그 사람의 이동 기록으로 갑니다.
  */
 export default function ReceivedSosScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { data = [], isLoading, isError, refetch } = useReceivedSos();
 
@@ -37,6 +39,8 @@ export default function ReceivedSosScreen() {
 }
 
 function SosCard({ sos }: { sos: ReceivedSos }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const cancelled = sos.status === 'cancelled';
   const place = sos.placeName ?? sos.placeAddress ?? t('sosReceived.noPlace');
@@ -70,7 +74,7 @@ function SosCard({ sos }: { sos: ReceivedSos }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 12 },
   card: {
     flexDirection: 'row',
@@ -83,4 +87,4 @@ const styles = StyleSheet.create({
   cardDim: { opacity: 0.55 },
   body: { flex: 1, gap: 2 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-});
+}));

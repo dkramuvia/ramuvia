@@ -8,12 +8,14 @@ import { AppText, Avatar, Fab, Header } from '@/components/ui';
 import { PostGrid } from '@/features/gallery/PostGrid';
 import { useGalleryFeed } from '@/features/gallery/queries';
 import { useGroup } from '@/features/groups/queries';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 
 const MAX_AVATARS = 4;
 
 /** 피그마: 그룹 게시물 모아보기 (283:20215) */
 export default function GalleryGroupScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { data: group } = useGroup(groupId);
@@ -60,10 +62,10 @@ export default function GalleryGroupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: { paddingHorizontal: layout.screenPadding, gap: 12, paddingBottom: 12 },
   avatars: { flexDirection: 'row', alignItems: 'center' },
   avatarWrap: { borderRadius: 20, borderWidth: 2, borderColor: colors.surface },
   more: { width: 34, height: 34, marginLeft: -12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-});
+}));

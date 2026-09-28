@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText, Button, Switch } from '@/components/ui';
-import { colors, radius, typography } from '@/theme';
+import { makeStyles, radius, typography, useColors } from '@/theme';
 import type { ScheduledMessage } from '@/types/models';
 
 type Draft = Omit<ScheduledMessage, 'id'> & { id?: string };
@@ -23,6 +23,8 @@ interface ScheduleEditorProps {
  * WBS 4.2·8.2: TTS 로 읽어주기, 미리 듣기
  */
 export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleEditorProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -112,6 +114,7 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <AppText variant="label1Bold">{label}</AppText>
@@ -123,6 +126,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
 function Calendar({ value, onChange }: { value: Date; onChange: (date: Date) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [month, setMonth] = useState(new Date(value.getFullYear(), value.getMonth(), 1));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -189,6 +194,7 @@ const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
 /** 피그마 "시간 설정" 휠: 시 / 분(5분 단위) / 오전·오후 */
 function TimeWheels({ hours24, minutes, onChange }: { hours24: number; minutes: number; onChange: (h24: number, m: number) => void }) {
+  const styles = useStyles();
   const pm = hours24 >= 12;
   const hour12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
   const to24 = (h12: number, isPm: boolean) => (h12 % 12) + (isPm ? 12 : 0);
@@ -206,6 +212,8 @@ function TimeWheels({ hours24, minutes, onChange }: { hours24: number; minutes: 
 }
 
 function Wheel({ values, value, format, onChange }: { values: number[]; value: number; format: (v: number) => string; onChange: (v: number) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const ref = useRef<FlatList<number>>(null);
   const index = Math.max(0, values.indexOf(value));
 
@@ -242,7 +250,7 @@ function Wheel({ values, value, format, onChange }: { values: number[]; value: n
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { maxHeight: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: colors.popup },
   body: { padding: 20, gap: 16 },
@@ -284,4 +292,4 @@ const styles = StyleSheet.create({
   preview: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   buttons: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28 },
   cancel: { borderWidth: 1, borderColor: colors.border },
-});
+}));

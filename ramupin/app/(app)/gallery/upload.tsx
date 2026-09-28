@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Header } from '@/components/ui';
 import { useUploadDraftStore } from '@/stores/uploadDraftStore';
-import { colors, layout } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 import type { MediaAsset } from '@/types/models';
 
 // TODO(정책): 한 번에 올릴 수 있는 개수·동영상 길이는 등급별 정책값 (WBS 5.6)
@@ -28,6 +28,8 @@ const toAsset = (a: ImagePicker.ImagePickerAsset): MediaAsset => ({
  * TODO: 앱 안 사진 목록은 expo-media-library 추가 후 구현 (디자인 확인 사항 참고)
  */
 export default function GalleryUploadScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const { media, setMedia, reset } = useUploadDraftStore();
@@ -124,7 +126,7 @@ export default function GalleryUploadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   close: { position: 'absolute', top: 58, left: 16 },
   preview: { backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
@@ -132,4 +134,4 @@ const styles = StyleSheet.create({
   gridRow: { gap: 2, marginBottom: 2 },
   camera: { backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   selectedOverlay: { ...StyleSheet.absoluteFill, borderWidth: 3, borderColor: colors.primary },
-});
+}));

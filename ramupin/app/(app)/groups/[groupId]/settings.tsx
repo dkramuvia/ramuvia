@@ -8,10 +8,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Avatar, MenuItem, Popup, QueryState, Screen, Tag } from '@/components/ui';
 import { useGroup, useLeaveGroup } from '@/features/groups/queries';
 import { useAuthStore, useIsMe } from '@/stores/authStore';
-import { colors, radius } from '@/theme';
+import { makeStyles, radius, useColors } from '@/theme';
 
 /** 피그마: 그룹 설정 - 방장 (283:39250) / 멤버 (283:36264) */
 export default function GroupSettingsScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { t } = useTranslation();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const me = useAuthStore((s) => s.user);
@@ -106,7 +108,7 @@ export default function GroupSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { gap: 40, paddingTop: 38 },
   flex: { flex: 1 },
   profile: { alignItems: 'center', gap: 4 },
@@ -133,4 +135,4 @@ const styles = StyleSheet.create({
   },
   joinButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },
   divider: { height: 1, backgroundColor: 'rgba(133,147,168,0.2)' },
-});
+}));

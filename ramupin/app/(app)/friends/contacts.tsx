@@ -8,13 +8,14 @@ import { AppText, Button, Screen } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { SuggestionCard } from '@/features/friends/SuggestionCard';
 import { useSendFriendRequest } from '@/features/friends/queries';
-import { colors } from '@/theme';
+import { useColors } from '@/theme';
 import type { FriendSuggestion } from '@/types/models';
 
 type Step = 'intro' | 'syncing' | 'denied' | 'failed' | 'done';
 
 /** 피그마: 연락처 친구 - 동기화 안내 (363:18457) / 동기화 완료 (363:19516) */
 export default function ContactFriendsScreen() {
+  const colors = useColors();
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>('intro');
   const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);

@@ -7,10 +7,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, QueryState } from '@/components/ui';
 import { PostPager } from '@/features/gallery/PostPager';
 import { useGalleryFeed, useUserPosts } from '@/features/gallery/queries';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 /** 게시물 전체화면 보기. scope = "group:<id>" 또는 "user:<id>" 안에서 좌우로 넘깁니다 */
 export default function GalleryPostScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { postId, scope = '' } = useLocalSearchParams<{ postId: string; scope?: string }>();
   const insets = useSafeAreaInsets();
   const [kind, scopeId] = scope.split(':');
@@ -43,8 +45,8 @@ export default function GalleryPostScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.black },
   center: { flex: 1 },
   back: { position: 'absolute', left: 8 },
-});
+}));

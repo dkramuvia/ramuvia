@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
-import { AppText, ChipTabs, Screen, ToggleRow } from '@/components/ui';
+import { AppText, ChipTabs, Screen, SegmentButtons, ToggleRow } from '@/components/ui';
 import { AppMapView } from '@/features/map/AppMapView';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
@@ -36,6 +36,27 @@ export default function MapSettingsScreen() {
 
   return (
     <Screen title={t('screens.mapSettings')} tab="map" contentStyle={styles.content}>
+      {/*
+        앱 화면 색 (피그마 2026-09-28 다크 모드).
+        지도 스타일과 다릅니다 — 이건 앱 전체의 배경·글자 색입니다.
+        기본은 기기 설정을 따라가고, 원하면 직접 고를 수 있습니다.
+      */}
+      <View style={styles.section}>
+        <AppText variant="title4">{t('mapSettings.appTheme')}</AppText>
+        <AppText variant="label1" color={colors.textSecondary}>
+          {t('mapSettings.appThemeDesc')}
+        </AppText>
+        <SegmentButtons
+          value={prefs.appTheme}
+          onChange={(appTheme) => prefs.set({ appTheme })}
+          options={[
+            { value: 'auto', label: t('mapSettings.themeAuto') },
+            { value: 'light', label: t('mapSettings.light') },
+            { value: 'dark', label: t('mapSettings.dark') },
+          ]}
+        />
+      </View>
+
       <View style={styles.section}>
         <AppText variant="title4">{t('mapSettings.style')}</AppText>
         <View style={styles.preview}>

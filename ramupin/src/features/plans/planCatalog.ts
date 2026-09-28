@@ -10,6 +10,8 @@ export interface PlanDisplay {
   name: string;
   englishName: string;
   free: boolean;
+  /** 월 결제 가격(원). 무료 등급은 없습니다 (피그마 2026-09-28) */
+  monthlyPrice?: number;
   popular?: boolean;
   /** 카드 그라데이션 */
   colors: [string, string];
@@ -29,12 +31,15 @@ export const PLANS: PlanDisplay[] = [
     frame: '#3C4148',
     bullets: [
       '광고 포함 (전체화면 광고 포함)',
-      'GPS 위치 갱신 (20초 주기)',
+      'GPS 전송속도 LOW',
       '기본 OS 지도 제공',
-      '안심 장소 4개 / 단일 위치 10개 등록',
-      '예약 메시지 2명 / SOS 전송 1명',
+      '장소 등록 5개',
+      '안심존 지정 알림 2개',
+      '예약 메시지 2명, SOS 전송 1명',
+      '관공서 연락 1건',
       '친구별 위치 및 배터리 잔량 확인',
       '사진 공유 용량 300MB',
+      '데이터 서버 저장 기간 7일',
     ],
   },
   {
@@ -42,19 +47,22 @@ export const PLANS: PlanDisplay[] = [
     name: '플래티넘',
     englishName: 'Platinum',
     free: false,
+    monthlyPrice: 4400,
     popular: true,
     colors: ['#FF9A76', '#FF6A4D'],
     frame: '#8A5A4A',
     productId: 'ramupin_platinum',
     bullets: [
       '광고 없는 쾌적한 환경',
-      '초정밀 GPS 위치 갱신 (10초 주기)',
+      'GPS 전송속도 MID',
       '프리미엄 지도 (Naver/MapBox) 제공',
-      '안심 장소 20개 / 위치 등록 50개',
-      '안심존 알림 (최대 10개)',
+      '장소 등록 20개',
+      '안심존 지정 알림 5개',
+      '예약 메시지 10명, SOS 전송 3명',
+      '관공서 연락 3건',
       '사진 공유 용량 1GB',
-      '교통 상황, 날씨, 운전 속도 경고 알림',
-      '위급시 관공서 긴급 제공',
+      '데이터 서버 저장 기간 15일',
+      '운전 속도 경고 기능',
     ],
   },
   {
@@ -62,6 +70,7 @@ export const PLANS: PlanDisplay[] = [
     name: '트리니티',
     englishName: 'Trinity',
     free: false,
+    monthlyPrice: 7700,
     colors: ['#7B8CFF', '#5A4DFF'],
     frame: '#3E3A8A',
     productId: 'ramupin_trinity',
@@ -137,8 +146,27 @@ function formatStorage(mb: number): string | boolean {
   return mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`;
 }
 
-/** TODO(7단계): 스토어 가격 문자열로 교체. 기획서 가격 미정 */
+/**
+ * 화면에 보여 줄 가격 (피그마 2026-09-28).
+ *
+ * 연간은 **10% 싼 값을 12개월로 나눈 월 가격**을 보여 줍니다
+ * (피그마 플래티넘: 월 4,400원 → 연 47,520원).
+ *
+ * TODO(7단계): 스토어(구글 플레이)에 등록한 가격 문자열로 교체.
+ *   나라마다 통화가 다르고, 스토어가 정한 값과 다르면 심사에서 문제가 됩니다.
+ */
 export function priceText(plan: PlanDisplay, yearly: boolean): string {
   if (plan.free) return '무료';
-  return yearly ? '월 0000원' : '0000원';
+  if (!plan.monthlyPrice) return '준비 중';
+  if (!yearly) return `${plan.monthlyPrice.toLocaleString('ko-KR')}원`;
+  return `월 ${Math.round((plan.monthlyPrice * 12 * (1 - YEARLY_DISCOUNT)) / 12).toLocaleString('ko-KR')}원`;
+}
+
+/** 연간 결제 할인. 피그마에 -20% 와 -10% 가 섞여 있어 확인이 필요합니다 (docs/plan-limits-conflict.md) */
+export const YEARLY_DISCOUNT = 0.1;
+
+/** 연간 결제 총액 (피그마: 47,520원) */
+export function yearlyTotalText(plan: PlanDisplay): string | null {
+  if (plan.free || !plan.monthlyPrice) return null;
+  return `연 ${Math.round(plan.monthlyPrice * 12 * (1 - YEARLY_DISCOUNT)).toLocaleString('ko-KR')}원`;
 }

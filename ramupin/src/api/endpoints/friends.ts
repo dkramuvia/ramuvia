@@ -16,6 +16,19 @@ import type { FoundUser, Friend, FriendRequest, FriendShareSetting, FriendSugges
 type Nullable<T> = { [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K] };
 
 type FriendResponse = Nullable<Friend> & { publicId: string };
+
+/** 친구별 맞춤 알림 (피그마 2026-09-28 "친구별 맞춤 알림 설정") */
+export interface FriendAlertSettings {
+  friendId: string;
+  /** 배터리가 곧 방전될 때 */
+  battery: boolean;
+  /** 안심존에 들어가거나 나갈 때 */
+  safeZone: boolean;
+  /** 제한 속도를 넘어 이동 중일 때 (2단계 기능) */
+  speeding: boolean;
+  /** 내 반경 1km 안으로 들어왔을 때 */
+  nearby: boolean;
+}
 type UserSummaryResponse = Nullable<UserSummary>;
 type FriendRequestResponse = Omit<Nullable<FriendRequest>, 'from' | 'to'> & { from: UserSummaryResponse; to: UserSummaryResponse };
 
@@ -100,6 +113,19 @@ export const friendsApi = {
       if (code === 'USER_NOT_FOUND' || (error as { response?: { status?: number } }).response?.status === 400) return null;
       throw error;
     }
+  },
+
+  /** 이 친구의 어떤 소식을 받을지 (피그마 2026-09-28 친구별 맞춤 알림) */
+  async alerts(friendId: string): Promise<FriendAlertSettings> {
+    if (!isLive('friends')) return mockResponse({ friendId, battery: true, safeZone: true, speeding: false, nearby: false });
+    const { data } = await apiClient.get<FriendAlertSettings>(`/friends/${friendId}/alerts`);
+    return data;
+  },
+
+  async saveAlerts(friendId: string, patch: Partial<Omit<FriendAlertSettings, 'friendId'>>): Promise<FriendAlertSettings> {
+    if (!isLive('friends')) return mockResponse({ friendId, battery: true, safeZone: true, speeding: false, nearby: false, ...patch });
+    const { data } = await apiClient.put<FriendAlertSettings>(`/friends/${friendId}/alerts`, patch);
+    return data;
   },
 
   /** 내 QR 에 넣을 일회용 토큰 (WBS 3.6). 3분 뒤 만료되므로 화면에서 주기적으로 다시 받습니다 */

@@ -298,6 +298,20 @@ export interface AnomalyEventsTable {
   acknowledged_at: Date | null;
 }
 
+/**
+ * 친구별 맞춤 알림 (피그마 2026-09-28).
+ * owner_id = 알림을 받는 사람(나), friend_id = 소식의 주인공.
+ */
+export interface FriendAlertSettingsTable {
+  owner_id: string;
+  friend_id: string;
+  battery: Generated<boolean>;
+  safe_zone: Generated<boolean>;
+  speeding: Generated<boolean>;
+  nearby: Generated<boolean>;
+  updated_at: Generated<Date>;
+}
+
 /** 탈퇴 사유. 사용자 행은 지우므로 사유만 남깁니다 (누가 썼는지는 남기지 않습니다) */
 export interface WithdrawalReasonsTable {
   id: Generated<string>;
@@ -380,6 +394,7 @@ export interface MainDatabase {
   'member.anomaly_events': AnomalyEventsTable;
   'member.push_tokens': PushTokensTable;
   'member.withdrawal_reasons': WithdrawalReasonsTable;
+  'social.friend_alert_settings': FriendAlertSettingsTable;
   'member.safe_zones': SafeZonesTable;
   'member.safe_zone_recipients': SafeZoneRecipientsTable;
   'member.safe_zone_events': SafeZoneEventsTable;

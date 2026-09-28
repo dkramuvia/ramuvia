@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Avatar, BatteryBadge, Button, QueryState, Screen, ShareLevelIcon, ToggleRow } from '@/components/ui';
+import { AppText, Avatar, BatteryBadge, Button, MenuItem, QueryState, Screen, ShareLevelIcon, ToggleRow } from '@/components/ui';
 import { useFriends, useSaveShareSetting, useShareSetting } from '@/features/friends/queries';
 import { applyShareLevel, isToggleLocked } from '@/features/sharing/shareRules';
 import { colors, radius } from '@/theme';
@@ -116,6 +116,9 @@ export default function FriendShareScreen() {
                 onValueChange={(v) => setToggle('shareBattery', v)}
               />
             </View>
+
+            {/* 이 친구의 어떤 소식을 받을지는 따로 정합니다 (피그마 2026-09-28) */}
+            <MenuItem label={t('friendShare.alerts')} onPress={() => router.push(`/settings/friend-alerts/${friendId}`)} />
           </View>
         </View>
       )}

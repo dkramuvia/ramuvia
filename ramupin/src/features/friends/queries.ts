@@ -14,6 +14,7 @@ export const friendKeys = {
   shareSetting: (friendId: string) => ['friends', friendId, 'share-setting'] as const,
   nearby: ['friends', 'nearby'] as const,
   qrToken: ['friends', 'qr-token'] as const,
+  alerts: (friendId: string) => ['friends', friendId, 'alerts'] as const,
 };
 
 /** 서버 연결 시 친구 위치를 주기적으로 다시 받음. TODO(실시간 단계): WebSocket 위치 수신으로 교체 */
@@ -80,6 +81,19 @@ export function useFriendQrToken() {
 
 /** 토큰 수명(3분)의 절반쯤에서 새로 받습니다 */
 const QR_REFRESH_MS = 90_000;
+
+/** 이 친구의 어떤 소식을 받을지 (피그마 2026-09-28) */
+export function useFriendAlerts(friendId: string) {
+  return useQuery({ queryKey: friendKeys.alerts(friendId), queryFn: () => friendsApi.alerts(friendId), enabled: !!friendId });
+}
+
+export function useSaveFriendAlerts(friendId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Parameters<typeof friendsApi.saveAlerts>[1]) => friendsApi.saveAlerts(friendId, patch),
+    onSuccess: (saved) => queryClient.setQueryData(friendKeys.alerts(friendId), saved),
+  });
+}
 
 export function useSendFriendRequest() {
   const queryClient = useQueryClient();

@@ -134,6 +134,17 @@ const sendRequestBody = z
   .refine((v) => !!v.userId || !!v.qrToken, { message: 'userId 또는 qrToken 이 필요합니다' });
 const qrQuery = z.object({ token: z.string().min(10).max(100) });
 
+// 친구별 맞춤 알림 (피그마 2026-09-28). 안 보낸 항목은 그대로 둡니다
+const alertSettingsBody = z.object({
+  battery: z.boolean().optional(),
+  safeZone: z.boolean().optional(),
+  speeding: z.boolean().optional(),
+  nearby: z.boolean().optional(),
+});
+
+/** 설정한 적이 없는 친구의 기본값. 안전에 관한 것은 켜 두고, 자주 울리는 것은 꺼 둡니다 */
+const ALERT_DEFAULTS = { battery: true, safeZone: true, speeding: false, nearby: false };
+
 @Controller('friends')
 @UseGuards(AuthGuard)
 class FriendsController {
@@ -169,6 +180,54 @@ class FriendsController {
     // 요청이 만들어진 뒤에 버립니다. 거절당하는 요청에 토큰을 써 버리면 다시 보여 달라고 해야 합니다
     if (qrToken) await this.qr.consume(qrToken);
     return result;
+  }
+
+  /**
+   * 이 친구의 어떤 소식을 받을지 (피그마 2026-09-28 "친구별 맞춤 알림 설정").
+   *
+   * 지금까지 알림은 전체 켜기/끄기뿐이라, 친구가 여러 명이면 "어머니 것만 받고 싶다" 를
+   * 할 수 없었습니다.
+   */
+  @Get(':friendId/alerts')
+  async getAlerts(@CurrentUser() user: AuthUser, @Param('friendId', ParseUUIDPipe) friendId: string) {
+    const row = await this.db
+      .selectFrom('social.friend_alert_settings')
+      .select(['battery', 'safe_zone', 'speeding', 'nearby'])
+      .where('owner_id', '=', user.id)
+      .where('friend_id', '=', friendId)
+      .executeTakeFirst();
+    if (!row) return { friendId, ...ALERT_DEFAULTS };
+    return { friendId, battery: row.battery, safeZone: row.safe_zone, speeding: row.speeding, nearby: row.nearby };
+  }
+
+  @Put(':friendId/alerts')
+  async setAlerts(@CurrentUser() user: AuthUser, @Param('friendId', ParseUUIDPipe) friendId: string, @Body() body: unknown) {
+    const input = parseInput(alertSettingsBody, body);
+    const current = await this.getAlerts(user, friendId);
+    const next = { ...current, ...input };
+
+    await this.db
+      .insertInto('social.friend_alert_settings')
+      .values({
+        owner_id: user.id,
+        friend_id: friendId,
+        battery: next.battery,
+        safe_zone: next.safeZone,
+        speeding: next.speeding,
+        nearby: next.nearby,
+        updated_at: new Date(),
+      })
+      .onConflict((oc) =>
+        oc.columns(['owner_id', 'friend_id']).doUpdateSet({
+          battery: next.battery,
+          safe_zone: next.safeZone,
+          speeding: next.speeding,
+          nearby: next.nearby,
+          updated_at: new Date(),
+        }),
+      )
+      .execute();
+    return next;
   }
 
   /** 내 QR 에 넣을 일회용 토큰 (WBS 3.6) */

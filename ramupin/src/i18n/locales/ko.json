@@ -558,7 +558,8 @@
     "shareBattery": "배터리 정보 공유",
     "shareBatteryDesc": "내 기기의 현재 배터리 잔량 표시",
     "save": "공유 상태 저장",
-    "saved": "공유 상태를 저장했어요."
+    "saved": "공유 상태를 저장했어요.",
+    "alerts": "이 친구의 알림 설정"
   },
   "notificationSettings": {
     "dnd": "방해 금지",
@@ -752,7 +753,8 @@
     "checkout": "결제 정보",
     "freeTrial": "1개월 무료 체험",
     "locationSettings": "위치 수집",
-    "sosReceived": "받은 SOS"
+    "sosReceived": "받은 SOS",
+    "friendAlerts": "친구별 맞춤 알림 설정"
   },
   "locationSettings": {
     "background": "앱을 꺼도 위치 알리기",
@@ -779,5 +781,18 @@
     "noPlace": "위치를 확인하지 못했어요",
     "empty": "받은 SOS가 없어요.",
     "menu": "받은 SOS"
+  },
+  "friendAlerts": {
+    "question": "{{name}}님의 어떤 소식을 받을까요?",
+    "save": "설정 저장",
+    "saved": "저장했어요.",
+    "battery": "배터리 SOS",
+    "batteryDesc": "배터리가 15% 이하로 떨어져 방전되기 전일 때",
+    "safeZone": "안심존 출발 및 도착",
+    "safeZoneDesc": "집, 학교 등 안심존에 들어가거나 나갈 때",
+    "speeding": "과속 경고",
+    "speedingDesc": "제한 속도를 초과하여 이동 중일 때",
+    "nearby": "내 근처 레이더",
+    "nearbyDesc": "내 반경 1km 안으로 들어왔을 때"
   }
 }

@@ -16,7 +16,7 @@ import { describePlace } from '@/features/location/address';
 import { setSosMode } from '@/features/location/sosMode';
 import { useSafetySetting } from '@/features/settings/queries';
 import { SlideToCancel } from '@/features/sos/SlideToCancel';
-import { colors } from '@/theme';
+import { colors, radius } from '@/theme';
 
 // TODO(정책): 카운트다운·녹음 시간은 서버 정책값 (WBS 7.9: 10초)
 const COUNTDOWN_SECONDS = 10;
@@ -49,6 +49,8 @@ export default function SosScreen() {
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
   const [cancelledBanner, setCancelledBanner] = useState(false);
   const [recipientCount, setRecipientCount] = useState(0);
+  /** 전송 완료 화면에 "무엇을 보냈는지" 를 그대로 보여 줍니다 (피그마 2026-09-28) */
+  const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
   const [micDenied, setMicDenied] = useState(false);
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -135,6 +137,14 @@ export default function SosScreen() {
       startedAt: startedAt.current,
     });
     setRecipientCount(result.recipientCount);
+    setSentInfo({
+      address: place?.address ?? null,
+      latitude: position?.coords.latitude ?? null,
+      longitude: position?.coords.longitude ?? null,
+      altitude: position?.coords.altitude ?? null,
+      sentAt: new Date(),
+      recorded,
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setPhase('sent');
   };
@@ -213,19 +223,36 @@ export default function SosScreen() {
       </AppText>
 
       {phase === 'sent' ? (
-        <View style={styles.darkBody}>
-          <Ionicons name="checkmark-circle" size={96} color={colors.check} />
-          <AppText variant="title1" color={colors.white} align="center">
+        <View style={styles.sentBody}>
+          <View style={styles.sentBadge}>
+            <AppText variant="title4" color={colors.white}>
+              {t('sos.sentBadge')}
+            </AppText>
+          </View>
+
+          <AppText variant="title1" color={colors.white}>
             {t('sos.sentTitle')}
           </AppText>
-          <AppText variant="body2" color="#D0D0D0" align="center">
-            {recipientCount > 0 ? t('sos.sentDesc', { count: recipientCount }) : t('sos.sentNoRecipients')}
+          <AppText variant="body1Bold" color="#D0D0D0">
+            {recipientCount > 0
+              ? t('sos.sentDesc', { count: recipientCount, seconds: sentInfo?.recorded ? RECORD_SECONDS : 0 })
+              : t('sos.sentNoRecipients')}
           </AppText>
-          <View style={styles.callRow}>
-            <Button label={t('sos.call112')} variant="danger" onPress={() => Linking.openURL('tel:112')} style={styles.flex} />
-            <Button label={t('sos.call119')} variant="danger" onPress={() => Linking.openURL('tel:119')} style={styles.flex} />
+
+          {/* 무엇을 보냈는지 그대로 보여 줍니다. 급한 상황에서 "정말 갔나" 를 확인할 수 있어야 합니다 */}
+          <View style={styles.sentFacts}>
+            {sentInfo?.address ? <Fact label={t('sos.factPlace')} value={sentInfo.address} /> : null}
+            {sentInfo?.latitude != null && sentInfo.longitude != null ? (
+              <Fact label={t('sos.factCoords')} value={`${sentInfo.latitude.toFixed(4)}, ${sentInfo.longitude.toFixed(4)}`} />
+            ) : null}
+            {sentInfo?.altitude != null ? <Fact label={t('sos.factAltitude')} value={`${Math.round(sentInfo.altitude)} m`} /> : null}
+            {sentInfo ? <Fact label={t('sos.factSentAt')} value={sentInfo.sentAt.toLocaleString('ko-KR')} /> : null}
           </View>
-          <Button label={t('sos.done')} variant="white" onPress={() => router.back()} style={styles.doneButton} />
+
+          <View style={styles.sentActions}>
+            <Button label={t('sos.call112')} variant="danger" onPress={() => Linking.openURL('tel:112')} />
+            <Button label={t('sos.resolve')} variant="white" onPress={() => router.back()} />
+          </View>
         </View>
       ) : (
         <>
@@ -286,6 +313,26 @@ export default function SosScreen() {
   );
 }
 
+interface SentInfo {
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  sentAt: Date;
+  recorded: boolean;
+}
+
+/** 보낸 내용 한 줄 (피그마: 17px/26, 흐린 회색) */
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <AppText variant="body1Bold" color={FACT_COLOR}>
+      {label}: {value}
+    </AppText>
+  );
+}
+
+const FACT_COLOR = '#ACB3B9';
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   light: { flex: 1, backgroundColor: colors.surface },
@@ -308,6 +355,10 @@ const styles = StyleSheet.create({
   recordRing: { width: 214, height: 214, borderRadius: 107, borderWidth: 4, borderColor: '#AEB5BC', alignItems: 'center', justifyContent: 'center' },
   micBig: { width: 114, height: 114, borderRadius: 57, backgroundColor: '#E84133', alignItems: 'center', justifyContent: 'center' },
   slide: { paddingHorizontal: 46, paddingBottom: 100 },
+  sentBody: { flex: 1, paddingHorizontal: 24, gap: 12, justifyContent: 'center' },
+  sentBadge: { alignSelf: 'flex-start', borderRadius: radius.full, backgroundColor: colors.danger, paddingHorizontal: 14, paddingVertical: 4 },
+  sentFacts: { gap: 4, marginTop: 8 },
+  sentActions: { marginTop: 24, gap: 10 },
   callRow: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
   doneButton: { alignSelf: 'stretch' },
 });

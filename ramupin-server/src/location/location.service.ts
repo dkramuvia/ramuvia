@@ -315,6 +315,27 @@ export class LocationService {
     return { points: deleted };
   }
 
+  /**
+   * 최근에 내 위치를 본 사람들 (WBS 9.7 피드).
+   *
+   * 위치정보법상 남기게 되어 있는 기록을 본인에게 보여 주는 것입니다 —
+   * 내 위치를 누가 봤는지는 본인이 알 수 있어야 합니다.
+   * 시스템이 본 것(`viewer_user_id` 가 없는 것)은 뺍니다.
+   */
+  async recentViewers(userId: string, since: Date, limit: number) {
+    const rows = await this.db
+      .selectFrom('location.location_access_logs')
+      .select(['id', 'viewer_user_id', 'accessed_at'])
+      .where('subject_user_id', '=', userId)
+      .where('viewer_user_id', 'is not', null)
+      .where('viewer_user_id', '!=', userId)
+      .where('accessed_at', '>=', since)
+      .orderBy('accessed_at', 'desc')
+      .limit(limit)
+      .execute();
+    return rows.map((r) => ({ id: r.id, viewerUserId: r.viewer_user_id as string, accessedAt: r.accessed_at }));
+  }
+
   /** 위치정보 이용·제공 사실 확인자료 (위치정보법) */
   async logAccess(subjectUserIds: string[], viewerUserId: string, purpose: string) {
     if (subjectUserIds.length === 0) return;

@@ -64,7 +64,7 @@ export const colors = {
   avatarText: '#737373',
 
   // 하단 탭
-  tabBar: '#F3F3F3',
+  tabBar: '#FFFFFF',
   tabBarBorder: '#F0F0F0',
   tabInactive: '#969696',
 

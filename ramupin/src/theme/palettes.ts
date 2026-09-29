@@ -75,7 +75,7 @@ const dark: Palette = {
   avatarText: '#ACB3B9',
 
   // 하단 탭
-  tabBar: '#181818',
+  tabBar: '#1E1E1E',
   tabBarBorder: '#242424',
   tabInactive: '#6D6E6E',
 };

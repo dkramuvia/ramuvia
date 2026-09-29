@@ -24,7 +24,8 @@ export const radius = {
 export const layout = {
   screenPadding: 20,
   headerHeight: 48,
-  tabBarHeight: 72,
+  // 고른 탭의 동그라미(56) + 라벨이 들어가는 높이 (피그마 2026-09-29)
+  tabBarHeight: 80,
 } as const;
 
 // 다크 모드 (피그마 2026-09-28). 색이 들어가는 스타일은 makeStyles 로 만듭니다

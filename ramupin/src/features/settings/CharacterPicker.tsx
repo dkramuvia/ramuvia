@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Image, Pressable, useWindowDimensions, View } from 'react-native';
+import { FlatList, Image, Pressable, View } from 'react-native';
 
 import { characterAvatars } from './avatars';
-import { makeStyles, useColors } from '@/theme';
+import { layout, makeStyles, useColors } from '@/theme';
 import type { Gender } from '@/types/models';
 
 /** 피그마 값 (402 폭 기준): 카드 164x186, 사이 간격 14 */
@@ -30,12 +30,25 @@ interface CharacterPickerProps {
 export function CharacterPicker({ gender, value, onChange }: CharacterPickerProps) {
   const styles = useStyles();
   const colors = useColors();
-  const { width } = useWindowDimensions();
+  /**
+   * 목록의 실제 폭. 화면 폭을 그냥 쓰면 안 됩니다 — 이 컴포넌트는 좌우 여백이 있는
+   * 화면 안에 들어가서, 화면 폭으로 계산하면 카드가 여백만큼 오른쪽으로 밀립니다
+   * (폰에서 확인).
+   */
+  const [listWidth, setListWidth] = useState(0);
   const listRef = useRef<FlatList>(null);
 
   const avatars = useMemo(() => characterAvatars(gender), [gender]);
   const selectedIndex = Math.max(0, avatars.findIndex((a) => a.key === value));
   const [index, setIndex] = useState(selectedIndex);
+
+  // 화면을 열었을 때 이미 고른 캐릭터가 가운데 오도록
+  useEffect(() => {
+    if (!listWidth || selectedIndex <= 0) return;
+    listRef.current?.scrollToOffset({ offset: selectedIndex * STRIDE, animated: false });
+    setIndex(selectedIndex);
+    // 폭을 처음 재고 난 뒤 한 번만 하면 됩니다
+  }, [listWidth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 성별을 바꾸면 캐릭터 목록이 통째로 바뀌므로 첫 번째로 돌아갑니다
   useEffect(() => {
@@ -64,7 +77,8 @@ export function CharacterPicker({ gender, value, onChange }: CharacterPickerProp
         decelerationRate="fast"
         keyExtractor={(a) => a.key}
         // 가운데 카드가 화면 한가운데 오도록 양옆에 여백을 줍니다
-        contentContainerStyle={{ paddingHorizontal: (width - CARD_WIDTH) / 2, gap: CARD_GAP }}
+        onLayout={(e) => setListWidth(e.nativeEvent.layout.width)}
+        contentContainerStyle={{ paddingHorizontal: Math.max(0, (listWidth - CARD_WIDTH) / 2), gap: CARD_GAP }}
         getItemLayout={(_, i) => ({ length: STRIDE, offset: i * STRIDE, index: i })}
         onMomentumScrollEnd={(e) => {
           const next = Math.round(e.nativeEvent.contentOffset.x / STRIDE);
@@ -98,7 +112,8 @@ export function CharacterPicker({ gender, value, onChange }: CharacterPickerProp
 }
 
 const useStyles = makeStyles(() => ({
-  wrap: { height: CARD_HEIGHT, justifyContent: 'center' },
+  // 피그마는 옆 카드가 화면 끝까지 보입니다. 화면의 좌우 여백을 상쇄합니다
+  wrap: { height: CARD_HEIGHT, justifyContent: 'center', marginHorizontal: -layout.screenPadding },
   card: { width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: 16 },
   arrows: {
     position: 'absolute',

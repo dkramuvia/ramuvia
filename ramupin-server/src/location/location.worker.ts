@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 
 import { SafeZoneService } from '../safe-zones/safe-zone.service.js';
+import { SpeedingService } from './speeding.service.js';
 import { LocationQueue } from './location.queue.js';
 import { LocationService } from './location.service.js';
 
@@ -29,6 +30,7 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
     private readonly queue: LocationQueue,
     private readonly location: LocationService,
     private readonly zones: SafeZoneService,
+    private readonly speeding: SpeedingService,
   ) {}
 
   onModuleInit() {
@@ -58,6 +60,8 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
             // 안심장소를 드나들었는지 (WBS 9.4). 판정이 실패해도 저장은 끝난 뒤라
             // 이 건을 다시 처리하지 않습니다 — check() 는 예외를 밖으로 내지 않습니다
             await this.checkSafeZones(batch.userId, batch.points);
+            // 과속인지 (WBS 8.1). 판정이 실패해도 저장은 끝난 뒤라 이 건을 다시 처리하지 않습니다
+            await this.checkSpeeding(batch.userId, batch.points);
             done.push(batch.messageId);
           } catch (error) {
             // 이 건만 ack 하지 않습니다. 큐에 남아 있다가 다시 시도됩니다
@@ -90,6 +94,21 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
       accuracy: latest.accuracy ?? null,
       measuredAt: new Date(latest.measuredAt),
     });
+  }
+  /**
+   * 과속인지 (WBS 8.1).
+   *
+   * **속도 단위를 여기서 바꿉니다.** 기기가 보내는 값은 **m/s** 이고 판정은 km/h 로 합니다.
+   * 그대로 넘기면 시속 120km(=33m/s)가 33 으로 읽혀 과속을 영영 못 잡습니다.
+   */
+  private async checkSpeeding(userId: string, points: { speed?: number | null; measuredAt: string }[]) {
+    await this.speeding.check(
+      userId,
+      points.map((p) => ({
+        speedKmh: p.speed == null ? null : p.speed * 3.6,
+        measuredAt: new Date(p.measuredAt),
+      })),
+    );
   }
 }
 

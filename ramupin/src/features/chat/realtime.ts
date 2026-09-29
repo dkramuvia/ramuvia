@@ -95,6 +95,19 @@ function connect(token: string) {
     useAlertStore.getState().pushCard({ kind: kind === 'enter' ? 'arrive' : 'leave', name: nickname, place: zoneName });
   });
 
+  /**
+   * 과속 경고 (WBS 8.1). 두 가지가 같은 통로로 옵니다.
+   *   - `speeding`       : **내가** 과속 중 → 운전 중이라 즉시 팝업
+   *   - `speedingFriend` : **친구가** 과속 중 → 놀라지 않게 카드로만
+   */
+  socket.on('speeding', (payload: { kind: 'speeding' | 'speedingFriend'; speedKmh: number; nickname?: string }) => {
+    if (payload.kind === 'speedingFriend') {
+      useAlertStore.getState().pushCard({ kind: 'speeding', name: payload.nickname ?? '', speedKmh: Math.round(payload.speedKmh) });
+      return;
+    }
+    useAlertStore.getState().showPopup({ kind: 'speeding', speedKmh: Math.round(payload.speedKmh) });
+  });
+
   socket.on('rooms-changed', () => {
     queryClient.invalidateQueries({ queryKey: chatKeys.rooms, exact: true });
     queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });

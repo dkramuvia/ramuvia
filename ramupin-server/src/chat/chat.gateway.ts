@@ -218,6 +218,11 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('geofence', payload);
   }
 
+  /** 과속 경고 (WBS 8.1). 운전 중이라 앱이 켜져 있어 실시간이 먼저 닿습니다 */
+  emitSpeeding(userIds: string[], payload: unknown) {
+    for (const userId of userIds) this.server?.to(`user:${userId}`).emit('speeding', payload);
+  }
+
   emitAnomaly(userIds: string[], payload: unknown) {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('anomaly', payload);
   }

@@ -276,6 +276,8 @@ export interface NotificationSettings {
   groupActivity: boolean;
   notice: boolean;
   marketing: boolean;
+  /** 친구가 과속 중일 때. SOS 와 달리 방해 금지 시간을 지킵니다 */
+  speeding: boolean;
 }
 
 export interface ScheduledMessage {

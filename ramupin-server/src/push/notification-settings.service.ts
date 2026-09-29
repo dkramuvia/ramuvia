@@ -16,7 +16,8 @@ export type NotificationCategory =
   | 'friendRequest'
   | 'groupActivity'
   | 'notice'
-  | 'marketing';
+  | 'marketing'
+  | 'speeding';
 
 /** 설정 표의 칸 이름 */
 const COLUMN = {
@@ -28,6 +29,7 @@ const COLUMN = {
   groupActivity: 'group_activity',
   notice: 'notice',
   marketing: 'marketing',
+  speeding: 'speeding',
 } as const satisfies Record<NotificationCategory, string>;
 
 /** 안 켜 본 사람의 기본값. 광고성 알림만 기본이 꺼짐입니다 (정보통신망법) */
@@ -40,6 +42,7 @@ const DEFAULT_ON: Record<NotificationCategory, boolean> = {
   groupActivity: true,
   notice: true,
   marketing: false,
+  speeding: true,
 };
 
 /** 그 시간대의 지금 시각을 `HH:MM` 으로 */
@@ -83,6 +86,7 @@ export interface NotificationSettings {
   groupActivity: boolean;
   notice: boolean;
   marketing: boolean;
+  speeding: boolean;
 }
 
 /** `23:00:00` → `23:00` (앱은 분까지만 씁니다) */
@@ -113,6 +117,7 @@ export class NotificationSettingsService {
         groupActivity: true,
         notice: true,
         marketing: false,
+        speeding: true,
       };
     }
     return {
@@ -128,6 +133,7 @@ export class NotificationSettingsService {
       groupActivity: row.group_activity,
       notice: row.notice,
       marketing: row.marketing,
+      speeding: row.speeding,
     };
   }
 
@@ -148,6 +154,7 @@ export class NotificationSettingsService {
         group_activity: input.groupActivity,
         notice: input.notice,
         marketing: input.marketing,
+        speeding: input.speeding,
         updated_at: new Date(),
       })
       .onConflict((oc) =>
@@ -164,6 +171,7 @@ export class NotificationSettingsService {
           group_activity: eb.ref('excluded.group_activity'),
           notice: eb.ref('excluded.notice'),
           marketing: eb.ref('excluded.marketing'),
+          speeding: eb.ref('excluded.speeding'),
           updated_at: eb.ref('excluded.updated_at'),
         })),
       )
@@ -200,6 +208,7 @@ export class NotificationSettingsService {
         's.group_activity',
         's.notice',
         's.marketing',
+        's.speeding',
       ])
       .where('u.id', 'in', userIds)
       .execute();

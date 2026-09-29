@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Inject, Module, Post, UseGuards, type OnApplicationShutdown } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Inject, Module, Post, UseGuards, type OnApplicationShutdown } from '@nestjs/common';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
+import { PushModule } from '../push/push.module.js';
 import { SafeZoneModule } from '../safe-zones/safe-zone.module.js';
 import { env } from '../config/env.js';
 import type { LocationDatabase } from './location.schema.js';
@@ -12,6 +13,7 @@ import { LocationQueue } from './location.queue.js';
 import { LOCATION_DB, LocationService } from './location.service.js';
 import { LocationWorker } from './location.worker.js';
 import { RetentionService } from './retention.service.js';
+import { SpeedingService } from './speeding.service.js';
 
 const pointSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -40,6 +42,7 @@ class LocationController {
   constructor(
     private readonly location: LocationService,
     private readonly queue: LocationQueue,
+    private readonly speeding: SpeedingService,
   ) {}
 
   /** 앱 → 서버 위치 전송 (배치) */
@@ -55,12 +58,23 @@ class LocationController {
     await this.queue.enqueue(user.id, points);
     return { received: points.length, queued: true };
   }
+
+  /**
+   * 과속 경고의 "방금 울렸으니 쉬어라" 기록을 비웁니다 (확인 스크립트용).
+   * 개발용 로그인과 같은 스위치로 막습니다 — 운영에서는 꺼져 있습니다.
+   */
+  @Post('reset-speeding')
+  resetSpeeding(@CurrentUser() user: AuthUser) {
+    if (!env.DEV_LOGIN_ENABLED) throw new ForbiddenException('개발용 기능이 꺼져 있습니다');
+    this.speeding.resetCooldown(user.id);
+    return { ok: true };
+  }
 }
 
 @Module({
   // 보고 있는 친구에게 위치를 즉시 전달하기 위해 (GPS 보고서 4-3)
   // 안심장소 판정은 위치가 저장될 때 함께 합니다 (WBS 9.4)
-  imports: [RealtimeModule, SafeZoneModule],
+  imports: [RealtimeModule, SafeZoneModule, PushModule],
   controllers: [LocationController],
   providers: [
     {
@@ -74,6 +88,7 @@ class LocationController {
     LocationService,
     LocationQueue,
     LocationWorker,
+    SpeedingService,
     RetentionService,
   ],
   exports: [LocationService],

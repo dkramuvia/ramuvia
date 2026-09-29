@@ -135,6 +135,7 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   groupActivity: true,
   notice: true,
   marketing: false,
+  speeding: true,
 };
 
 let mockNotifications: NotificationSettings = { ...DEFAULT_NOTIFICATIONS };

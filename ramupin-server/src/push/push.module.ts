@@ -17,7 +17,7 @@ const removeBody = z.object({ token: z.string().min(10).max(500) });
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, '시각은 23:00 형식이어야 합니다');
 
 const categoryQuery = z.object({
-  category: z.enum(['sos', 'battery', 'geofence', 'locationRequest', 'friendRequest', 'groupActivity', 'notice', 'marketing']),
+  category: z.enum(['sos', 'battery', 'geofence', 'locationRequest', 'friendRequest', 'groupActivity', 'notice', 'marketing', 'speeding']),
 });
 
 const settingsBody = z.object({
@@ -34,6 +34,8 @@ const settingsBody = z.object({
   groupActivity: z.boolean(),
   notice: z.boolean(),
   marketing: z.boolean(),
+  // 나중에 붙인 항목이라 예전 앱이 안 보낼 수 있습니다. 안 오면 켜진 것으로 봅니다
+  speeding: z.boolean().default(true),
 });
 
 /**

@@ -403,6 +403,8 @@ export interface NotificationSettingsTable {
   group_activity: Generated<boolean>;
   notice: Generated<boolean>;
   marketing: Generated<boolean>;
+  /** 친구가 과속 중일 때. SOS 와 달리 방해 금지 시간을 지킵니다 */
+  speeding: Generated<boolean>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

@@ -17,9 +17,11 @@ export type AlertPopupPayload =
 /** 피그마 앱 안 알림 카드 (100m 반경 친구 접근 등) */
 export type InAppCardPayload = {
   id: string;
-  kind: 'nearby' | 'friendRequest' | 'arrive' | 'leave' | 'shared';
+  kind: 'nearby' | 'friendRequest' | 'arrive' | 'leave' | 'shared' | 'speeding';
   name: string;
   place?: string;
+  /** 과속 카드에만. 친구가 달리고 있던 속도 */
+  speedKmh?: number;
   /** 누르면 이동할 화면 */
   href?: string;
 };
@@ -101,6 +103,8 @@ const CARD_TYPES: Record<InAppCardPayload['kind'], { type: HistoryEventType; cat
   arrive: { type: 'geofenceArrive', category: 'place' },
   leave: { type: 'geofenceLeave', category: 'place' },
   shared: { type: 'placeShared', category: 'place' },
+  // 친구 과속은 안전 쪽입니다 (장소·이동이 아닙니다)
+  speeding: { type: 'speeding', category: 'safety' },
 };
 
 /** 카드에 쓰는 제목을 그대로 보관함 문구로 씁니다 (InAppCardHost 와 같은 문구) */
@@ -110,6 +114,7 @@ const CARD_TITLE_KEYS: Record<InAppCardPayload['kind'], string> = {
   arrive: 'alerts.arriveTitle',
   leave: 'alerts.leaveTitle',
   shared: 'alerts.sharedTitle',
+  speeding: 'alerts.speedingFriendTitle',
 };
 
 function saveCardToInbox(id: string, card: Omit<InAppCardPayload, 'id'>) {

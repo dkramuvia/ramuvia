@@ -15,6 +15,7 @@ const ICONS: Record<InAppCardPayload['kind'], number> = {
   arrive: require('../../../assets/icons/card-place.png'),
   leave: require('../../../assets/icons/card-place.png'),
   shared: require('../../../assets/icons/card-place.png'),
+  speeding: require('../../../assets/icons/alert-speeding.png'),
 };
 
 const AUTO_HIDE_MS = 6000;
@@ -53,6 +54,7 @@ function InAppCard({ card }: { card: InAppCardPayload }) {
     arrive: [t('alerts.arriveTitle', { name: card.name, place: card.place }), t('alerts.arriveMessage')],
     leave: [t('alerts.leaveTitle', { name: card.name, place: card.place }), t('alerts.leaveMessage')],
     shared: [t('alerts.sharedTitle', { name: card.name }), t('alerts.sharedMessage', { place: card.place })],
+    speeding: [t('alerts.speedingFriendTitle', { name: card.name }), t('alerts.speedingFriendMessage', { speed: card.speedKmh ?? 0 })],
   };
   const [title, message] = titles[card.kind];
 

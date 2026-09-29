@@ -47,3 +47,13 @@ export function policyNumber(policy: Policy, key: string, fallback: number): num
   const value = policy[key];
   return typeof value === 'number' ? value : fallback;
 }
+
+/**
+ * 정책의 기능 스위치 하나 (`features.speedingAlert`).
+ * 값이 없으면 **꺼진 것으로 봅니다** — 모르는 기능을 켜 주는 쪽이 더 위험합니다.
+ */
+export function policyFeature(policy: Policy, key: string): boolean {
+  const features = policy.features;
+  if (!isPlainObject(features)) return false;
+  return features[key] === true;
+}

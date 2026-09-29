@@ -10,10 +10,19 @@ import { fontFamily, makeStyles, radius, useColors } from '@/theme';
 import type { NotificationSettings } from '@/types/models';
 
 /** 켜고 끄는 항목들 (방해 금지는 따로 다룹니다) */
-type SettingKey = 'sos' | 'battery' | 'geofence' | 'locationRequest' | 'friendRequest' | 'groupActivity' | 'notice' | 'marketing';
+type SettingKey =
+  | 'sos'
+  | 'battery'
+  | 'speeding'
+  | 'geofence'
+  | 'locationRequest'
+  | 'friendRequest'
+  | 'groupActivity'
+  | 'notice'
+  | 'marketing';
 
 const SECTIONS: { titleKey: string; items: SettingKey[] }[] = [
-  { titleKey: 'sectionSafety', items: ['sos', 'battery'] },
+  { titleKey: 'sectionSafety', items: ['sos', 'battery', 'speeding'] },
   { titleKey: 'sectionLocation', items: ['geofence', 'locationRequest'] },
   { titleKey: 'sectionSocial', items: ['friendRequest', 'groupActivity'] },
   { titleKey: 'sectionSystem', items: ['notice', 'marketing'] },

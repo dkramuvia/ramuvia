@@ -192,7 +192,7 @@ export default function JourneyScreen() {
                   ) : null}
                   <Pressable onPress={() => mapRef.current?.moveTo(stop, 0.005)} style={styles.stop}>
                     <View style={styles.stopText}>
-                      <AppText variant="listTitle" color={STOP_TITLE} numberOfLines={1}>
+                      <AppText variant="listTitle" color={colors.text} numberOfLines={1}>
                         {stop.placeName ?? stop.address}
                       </AppText>
                       {stop.placeName ? (
@@ -245,9 +245,7 @@ function NowRow() {
 }
 
 /** 피그마 값 그대로 (theme 토큰에 없는 색) */
-const STOP_TITLE = '#2E3438';
 const STOP_SUB = '#737373';
-const MOVE_CARD = '#EBEDEE';
 
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
@@ -271,12 +269,13 @@ const useStyles = makeStyles((colors) => ({
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   visited: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   timelineItem: { gap: 12 },
-  // 이동 구간 카드 (피그마: 높이 50, 채움 #EBEDEE, 모서리 14, 안쪽 12/16)
+  // 이동 구간 카드 (피그마: 높이 50, 채움 #EBEDEE, 모서리 14, 안쪽 12/16).
+  // 다크에서는 카드가 밝은 채로 남아 그 위 글자(밝은 색)가 안 보여, 테마 색을 씁니다
   chip: {
     justifyContent: 'center',
     minHeight: 50,
     borderRadius: 14,
-    backgroundColor: MOVE_CARD,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

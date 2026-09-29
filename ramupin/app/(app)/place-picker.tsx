@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Button, Popup } from '@/components/ui';
@@ -12,7 +13,7 @@ import { distanceM, useAreaName } from '@/features/location/useAreaName';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle } from '@/features/map/AppMapView';
 import { useUploadDraftStore } from '@/stores/uploadDraftStore';
-import { layout, makeStyles, radius, typography, useColors } from '@/theme';
+import { layout, makeStyles, radius, typography, useColors, useMapIsDark, useMapOverlay, withAlpha } from '@/theme';
 import type { LatLng, SharedPlace } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -29,6 +30,9 @@ const CURRENT_LOCATION_RADIUS_M = 30;
 export default function PlacePickerScreen() {
   const styles = useStyles();
   const colors = useColors();
+  // 제목·뒤로가기가 지도 위에 바로 얹혀 있어, 앱 화면 색이 아니라 지도 밝기를 따라갑니다
+  const overlay = useMapOverlay();
+  const mapIsDark = useMapIsDark();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ mode?: 'share' | 'attach' | 'view'; roomId?: string; lat?: string; lng?: string }>();
   const setDraftPlace = useUploadDraftStore((s) => s.setPlace);
@@ -110,12 +114,14 @@ export default function PlacePickerScreen() {
         <Ionicons name="location" size={48} color={colors.brown} style={styles.pin} />
       </View>
 
+      <StatusBar style={mapIsDark ? 'light' : 'dark'} />
+
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
         <View style={styles.titleRow}>
           <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.back}>
-            <Ionicons name="chevron-back" size={26} color={colors.textStrong} />
+            <Ionicons name="chevron-back" size={26} color={overlay.text} />
           </Pressable>
-          <AppText variant="title1" color={colors.textStrong} numberOfLines={1} style={styles.flex}>
+          <AppText variant="title1" color={overlay.text} numberOfLines={1} style={styles.flex}>
             {areaName ?? ''}
           </AppText>
         </View>
@@ -219,7 +225,7 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.surfaceStrong,
-    backgroundColor: 'rgba(247,247,248,0.92)',
+    backgroundColor: withAlpha(colors.background, 0.92),
   },
   searchInput: { flex: 1, ...typography.label1, color: colors.text, paddingVertical: 0 },
   locate: {
@@ -229,7 +235,7 @@ const useStyles = makeStyles((colors) => ({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(247,247,248,0.95)',
+    backgroundColor: withAlpha(colors.background, 0.95),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -242,7 +248,7 @@ const useStyles = makeStyles((colors) => ({
     paddingBottom: 16,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    backgroundColor: '#F1F2F3',
+    backgroundColor: colors.surface,
     gap: 20,
   },
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginTop: 12 },

@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Button, ChipTabs, Popup, TextField } from '@/components/ui';
@@ -14,7 +15,7 @@ import { PlacePin } from '@/features/map/PlacePin';
 import { useFriends } from '@/features/friends/queries';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useSaveGeofence } from '@/features/settings/queries';
-import { layout, makeStyles, radius, typography, useColors } from '@/theme';
+import { layout, makeStyles, radius, typography, useColors, useMapIsDark, useMapOverlay, withAlpha } from '@/theme';
 import type { LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -31,6 +32,9 @@ const NAME_MAX = 10;
 export default function GeofenceEditScreen() {
   const styles = useStyles();
   const colors = useColors();
+  // 제목·뒤로가기가 지도 위에 바로 얹혀 있어, 앱 화면 색이 아니라 지도 밝기를 따라갑니다
+  const overlay = useMapOverlay();
+  const mapIsDark = useMapIsDark();
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { data: geofences = [] } = useGeofences();
@@ -124,12 +128,14 @@ export default function GeofenceEditScreen() {
         </View>
       </View>
 
+      <StatusBar style={mapIsDark ? 'light' : 'dark'} />
+
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
         <View style={styles.titleRow}>
           <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.back}>
-            <Ionicons name="chevron-back" size={26} color={colors.textStrong} />
+            <Ionicons name="chevron-back" size={26} color={overlay.text} />
           </Pressable>
-          <AppText variant="title1" color={colors.textStrong} numberOfLines={1} style={styles.flex}>
+          <AppText variant="title1" color={overlay.text} numberOfLines={1} style={styles.flex}>
             {areaName ?? ''}
           </AppText>
         </View>
@@ -238,7 +244,7 @@ const useStyles = makeStyles((colors) => ({
     gap: 8,
     paddingHorizontal: 12,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(247,247,248,0.92)',
+    backgroundColor: withAlpha(colors.background, 0.92),
   },
   searchInput: { flex: 1, ...typography.label1, color: colors.text, paddingVertical: 0 },
   sheet: {
@@ -251,7 +257,7 @@ const useStyles = makeStyles((colors) => ({
     gap: 14,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    backgroundColor: '#F1F2F3',
+    backgroundColor: colors.surface,
   },
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginTop: 12 },
   addressBlock: { gap: 6 },

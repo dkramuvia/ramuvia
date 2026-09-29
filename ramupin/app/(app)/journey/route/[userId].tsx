@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, BottomNav } from '@/components/ui';
@@ -14,7 +15,7 @@ import { AvatarMarker } from '@/features/map/AvatarMarker';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
-import { layout, makeStyles, useColors } from '@/theme';
+import { layout, makeStyles, useColors, useMapIsDark, useMapOverlay } from '@/theme';
 
 const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
 
@@ -25,6 +26,9 @@ const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
 export default function RouteScreen() {
   const styles = useStyles();
   const colors = useColors();
+  // 제목·뒤로가기가 지도 위에 바로 얹혀 있어, 앱 화면 색이 아니라 지도 밝기를 따라갑니다
+  const overlay = useMapOverlay();
+  const mapIsDark = useMapIsDark();
   const { t } = useTranslation();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const me = useAuthStore((s) => s.user);
@@ -63,12 +67,14 @@ export default function RouteScreen() {
         padding={{ top: 120, right: 30, bottom: 220, left: 30 }}
       />
 
+      <StatusBar style={mapIsDark ? 'light' : 'dark'} />
+
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
         <View style={styles.titleRow}>
           <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={26} color={colors.textStrong} />
+            <Ionicons name="chevron-back" size={26} color={overlay.text} />
           </Pressable>
-          <AppText variant="title1" color={colors.textStrong} numberOfLines={1} style={styles.flex}>
+          <AppText variant="title1" color={overlay.text} numberOfLines={1} style={styles.flex}>
             {areaName ?? ''}
           </AppText>
         </View>

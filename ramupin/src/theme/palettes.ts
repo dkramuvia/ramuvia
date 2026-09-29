@@ -81,3 +81,14 @@ const dark: Palette = {
 };
 
 export const palettes: Record<ThemeName, Palette> = { light, dark };
+
+/**
+ * 색을 반투명하게 (`#101010` + 0.92 → `#101010EB`).
+ *
+ * 지도 위 헤더처럼 **테마 색을 쓰되 지도를 비쳐 보이게** 하는 자리에 씁니다.
+ * `rgba(...)` 를 그냥 적어 두면 값이 고정돼 다크에서 밝은 채로 남습니다.
+ */
+export function withAlpha(hex: string, opacity: number): string {
+  const a = Math.round(Math.min(Math.max(opacity, 0), 1) * 255);
+  return `${hex}${a.toString(16).padStart(2, '0').toUpperCase()}`;
+}

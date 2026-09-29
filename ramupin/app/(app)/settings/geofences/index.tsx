@@ -3,14 +3,14 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, BottomNav, Button, Header, Popup } from '@/components/ui';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { PlacePin } from '@/features/map/PlacePin';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useRemoveGeofence, useSaveGeofence } from '@/features/settings/queries';
-import { layout, makeStyles, radius, useColors } from '@/theme';
+import { layout, makeStyles, radius, useColors, withAlpha } from '@/theme';
 import type { Geofence } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -24,6 +24,7 @@ const SHEET_HEIGHT = 440;
 export default function GeofencesScreen() {
   const styles = useStyles();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const mapRef = useRef<AppMapViewHandle>(null);
   const { data: geofences = [] } = useGeofences();
@@ -82,8 +83,10 @@ export default function GeofencesScreen() {
         padding={{ top: 120, right: 0, bottom: SHEET_HEIGHT, left: 0 }}
       />
 
-      <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
-        <View style={styles.headerBg}>
+      <View style={styles.top} pointerEvents="box-none">
+        {/* 머리글 바탕이 시계·배터리 자리까지 덮어야 합니다. 안 그러면 그 줄만 지도가 비쳐
+            흰 글자가 밝은 지도 위에 놓입니다 */}
+        <View style={[styles.headerBg, { paddingTop: insets.top }]}>
           <Header title={t('screens.geofences')} />
         </View>
         <View style={styles.remaining}>
@@ -91,7 +94,7 @@ export default function GeofencesScreen() {
             {t('geofence.remaining', { limit: zoneLimit, remaining })}
           </AppText>
         </View>
-      </SafeAreaView>
+      </View>
 
       <View style={styles.sheet}>
         <View style={styles.grabber} />
@@ -189,12 +192,13 @@ const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, gap: 8 },
-  headerBg: { backgroundColor: 'rgba(247,247,248,0.92)' },
+  // 지도 위지만 화면 머리글이라 테마 색을 씁니다 (지도가 비쳐 보이게 반투명)
+  headerBg: { backgroundColor: withAlpha(colors.background, 0.92) },
   remaining: {
     marginHorizontal: layout.screenPadding,
     height: 32,
     borderRadius: radius.xs,
-    backgroundColor: 'rgba(247,247,248,0.95)',
+    backgroundColor: withAlpha(colors.background, 0.95),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -227,7 +231,7 @@ const useStyles = makeStyles((colors) => ({
     top: 28,
     zIndex: 10,
     borderRadius: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     paddingVertical: 4,
     elevation: 6,
     shadowColor: colors.black,

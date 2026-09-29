@@ -11,7 +11,7 @@ import { Animated, Easing, Linking, Pressable, StyleSheet, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sosApi } from '@/api/endpoints/sos';
-import { AppText, Button } from '@/components/ui';
+import { AppText, Button, ThemedStatusBar } from '@/components/ui';
 import { describePlace } from '@/features/location/address';
 import { setSosMode } from '@/features/location/sosMode';
 import { useSafetySetting } from '@/features/settings/queries';
@@ -167,10 +167,10 @@ export default function SosScreen() {
   if (phase === 'idle') {
     return (
       <SafeAreaView style={styles.light}>
-        <StatusBar style="dark" />
+        <ThemedStatusBar />
         <View style={styles.lightHeader}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => router.back()} hitSlop={8} style={styles.close}>
-            <Ionicons name="close" size={24} color="#2206C6" />
+            <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
           <AppText variant="body1" color={colors.textSecondary}>
             {t('sos.title')}

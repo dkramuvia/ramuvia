@@ -6,11 +6,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/api/queryClient';
+import { ThemedStatusBar } from '@/components/ui';
 import { SessionEndedPopup } from '@/features/auth/SessionEndedPopup';
 import { useDevServerSession } from '@/features/auth/useDevServerSession';
 import { useRealtime } from '@/features/chat/realtime';
@@ -39,7 +39,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
+          <ThemedStatusBar />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Protected guard={!isSignedIn}>

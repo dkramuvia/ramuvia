@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import * as Battery from 'expo-battery';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -25,7 +26,7 @@ import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
-import { layout, makeMapStyles, makeStyles, radius, useColors, useMapOverlay, type Palette } from '@/theme';
+import { layout, makeMapStyles, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, type Palette } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
@@ -61,6 +62,9 @@ export default function MapScreen() {
   // 앱만 다크로 두면 밝은 지도 위에 흰 글자가 되어 지역명·날씨·버튼이 사라집니다
   const overlayStyles = useOverlayStyles();
   const overlay = useMapOverlay();
+  // 화면 대부분이 지도라, 맨 위 시계·배터리 색도 앱 화면 색이 아니라 지도 밝기를 따라갑니다
+  const mapIsDark = useMapIsDark();
+  const focused = useIsFocused();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const mapRef = useRef<AppMapViewHandle>(null);
@@ -158,6 +162,8 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {focused ? <StatusBar style={mapIsDark ? 'light' : 'dark'} /> : null}
+
       <AppMapView
         ref={mapRef}
         initialCenter={location ?? FALLBACK_CENTER}

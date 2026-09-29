@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, BatteryBadge, Card } from '@/components/ui';
-import { avatarSource } from '@/features/settings/avatars';
 import { useAuthStore } from '@/stores/authStore';
 import { useColors } from '@/theme';
 
@@ -17,7 +16,7 @@ export function ProfileCard({ onPress }: { onPress?: () => void }) {
 
   return (
     <Card onPress={onPress} style={styles.card}>
-      <Avatar name={me.nickname} imageUrl={avatarSource(me.avatarUrl)} online />
+      <Avatar name={me.nickname} imageUrl={me.avatarUrl} online />
       <View style={styles.texts}>
         <AppText variant="listTitle">{me.nickname}</AppText>
         <AppText variant="caption" color="#878787">

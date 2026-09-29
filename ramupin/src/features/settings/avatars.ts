@@ -1,4 +1,4 @@
-import { Image } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 
 import type { Gender } from '@/types/models';
 
@@ -58,11 +58,20 @@ export function characterAvatars(gender: Gender) {
   return list.map((source, i) => ({ key: `${PREFIX}${tag}-${String(i + 1).padStart(2, '0')}`, source }));
 }
 
-/** avatarUrl 이 캐릭터 키면 기기 이미지 주소로, 아니면(업로드한 사진 URL) 그대로 */
-export function avatarSource(avatarUrl?: string): string | undefined {
-  if (!avatarUrl?.startsWith(PREFIX)) return avatarUrl;
+/**
+ * 서버가 준 `avatarUrl` 을 `<Image>` 에 넣을 수 있는 값으로 바꿉니다.
+ *   - 캐릭터 키(`avatar:girl-01`) → **앱에 들어 있는 그림 그대로**
+ *   - 올린 사진 주소 → `{ uri }`
+ *   - 없거나 모르는 값 → `undefined` (아바타는 이름 두 글자를 보여 줍니다)
+ *
+ * 앱에 들어 있는 그림을 굳이 주소 문자열로 바꾸지 않습니다. 그러면 개발 중에는
+ * Metro 서버에서 받아 오게 되어 느리고, 지도 마커처럼 **기다려 주지 않는 곳**에서는
+ * 빈 자리로 남습니다.
+ */
+export function avatarSource(avatarUrl?: string): ImageSourcePropType | undefined {
+  if (!avatarUrl) return undefined;
+  if (!avatarUrl.startsWith(PREFIX)) return { uri: avatarUrl };
   const [tag, num] = avatarUrl.slice(PREFIX.length).split('-');
   const list = tag === 'girl' ? GIRLS : BOYS;
-  const source = list[Number(num) - 1];
-  return source ? Image.resolveAssetSource(source).uri : undefined;
+  return (list[Number(num) - 1] as ImageSourcePropType | undefined) ?? undefined;
 }

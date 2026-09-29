@@ -31,7 +31,9 @@ for (const file of [...walk('app'), ...walk('src')]) {
     const line = lines[i];
     const fn = /^\s*(?:export )?(?:default )?function ([A-Za-z_][A-Za-z0-9_]*)/.exec(line);
     if (fn) {
-      current = { name: fn[1], line: i + 1, hasHook: false, returnsJsx: false };
+      // `useXxx` 는 커스텀 훅입니다 — 훅을 써도 되고 JSX 를 안 돌려줘도 됩니다
+      const isHook = /^use[A-Z]/.test(fn[1]);
+      current = isHook ? null : { name: fn[1], line: i + 1, hasHook: false, returnsJsx: false };
       continue;
     }
     if (!current) continue;

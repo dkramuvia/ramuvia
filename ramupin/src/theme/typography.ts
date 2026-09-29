@@ -1,3 +1,6 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+
 import type { TextStyle } from 'react-native';
 
 /**
@@ -12,11 +15,23 @@ export const fontFamily = {
   bold: 'SUIT-Bold',
 } as const;
 
+/**
+ * 앱이 시작할 때 미리 불러오는 글꼴.
+ *
+ * **아이콘 글꼴도 여기 있어야 합니다.** `@expo/vector-icons` 는 처음 쓸 때 글꼴을
+ * 불러옵니다. 보통 화면은 글꼴이 오면 다시 그려지지만, **지도 마커는 그려지는 순간
+ * 그림 한 장으로 구워져서** 글꼴을 기다려 주지 않습니다. 그래서 마커 안에 아직
+ * 안 불러온 아이콘이 있으면 **마커가 통째로 안 보입니다**
+ * (2026-09-29 폰에서 확인 — 배지에 새 아이콘을 넣자 마커가 사라졌습니다).
+ */
 export const fontAssets = {
   [fontFamily.regular]: require('../../assets/fonts/SUIT-Regular.ttf'),
   [fontFamily.medium]: require('../../assets/fonts/SUIT-Medium.ttf'),
   [fontFamily.semibold]: require('../../assets/fonts/SUIT-SemiBold.ttf'),
   [fontFamily.bold]: require('../../assets/fonts/SUIT-Bold.ttf'),
+  // 지도 마커 배지에 쓰는 아이콘들 (배터리 = Ionicons, 이동 수단 = MaterialCommunityIcons)
+  ...Ionicons.font,
+  ...MaterialCommunityIcons.font,
 };
 
 // 피그마 SUIT 텍스트는 대부분 자간 -0.5 입니다.

@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { parseInput } from '../common/app-error.js';
 import { FriendRequestsService } from './friend-requests.service.js';
+import { NearbyService } from './nearby.service.js';
 import { QrTokenService } from './qr-token.service.js';
 import { summaryWithRelation } from '../users/relation.js';
 import { ShareSettingsService, shareSettingBody } from './share-settings.service.js';
@@ -133,6 +134,8 @@ const sendRequestBody = z
   })
   .refine((v) => !!v.userId || !!v.qrToken, { message: 'userId 또는 qrToken 이 필요합니다' });
 const qrQuery = z.object({ token: z.string().min(10).max(100) });
+/** 근처 찾기에 나를 드러낼지 (WBS 12.9) */
+const discoverableBody = z.object({ discoverable: z.boolean() });
 
 // 친구별 맞춤 알림 (피그마 2026-09-28). 안 보낸 항목은 그대로 둡니다
 const alertSettingsBody = z.object({
@@ -154,7 +157,30 @@ class FriendsController {
     private readonly requests: FriendRequestsService,
     private readonly qr: QrTokenService,
     private readonly shareSettings: ShareSettingsService,
+    private readonly nearby: NearbyService,
   ) {}
+
+  /**
+   * 근처에 있는 라무핀 사용자 (WBS 12.9).
+   *
+   * **서로 동의한 사람끼리만 보입니다.** 내가 꺼 두었으면 빈 목록입니다.
+   * 좌표는 주지 않고 "근처에 있다" 까지만 알려 줍니다.
+   */
+  @Get('nearby')
+  listNearby(@CurrentUser() user: AuthUser) {
+    return this.nearby.list(user.id);
+  }
+
+  /** 근처 찾기에 내가 나타날지 (기본 꺼짐) */
+  @Get('nearby/discoverable')
+  getDiscoverable(@CurrentUser() user: AuthUser) {
+    return this.nearby.getDiscoverable(user.id);
+  }
+
+  @Put('nearby/discoverable')
+  setDiscoverable(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    return this.nearby.setDiscoverable(user.id, parseInput(discoverableBody, body).discoverable);
+  }
 
   @Get()
   list(@CurrentUser() user: AuthUser) {
@@ -277,6 +303,6 @@ class FriendsController {
 @Module({
   imports: [LocationModule],
   controllers: [FriendsController],
-  providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService],
+  providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService],
 })
 export class FriendsModule {}

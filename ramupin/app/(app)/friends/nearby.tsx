@@ -2,19 +2,26 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, View } from 'react-native';
 
-import { AppText, QueryState, Screen } from '@/components/ui';
+import { AppText, QueryState, Screen, ToggleRow } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { SuggestionCard } from '@/features/friends/SuggestionCard';
-import { useNearbyUsers, useSendFriendRequest } from '@/features/friends/queries';
+import { useNearbyDiscoverable, useNearbyUsers, useSendFriendRequest, useSetNearbyDiscoverable } from '@/features/friends/queries';
 import { useColors } from '@/theme';
 
 /**
  * 피그마: 근처 친구 (363:19156)
- * TODO(5단계): 서버가 내 현재 위치 반경 안의 사용자를 찾아줌. BLE 근거리 탐색은 2차 (WBS 12.9b)
+ *
+ * **서로 동의한 사람끼리만 보입니다.** 아직 친구가 아닌 사람에게 "이 근처에 있다" 를
+ * 알려 주는 기능이라, 위치정보법상 본인 동의가 필요합니다. 기본은 꺼짐이고,
+ * 내가 켜야 남도 보입니다 — 내 위치는 숨기면서 남만 보는 것은 공평하지 않습니다.
+ *
+ * TODO(2차): BLE 근거리 탐색 (WBS 12.9b)
  */
 export default function NearbyFriendsScreen() {
   const colors = useColors();
   const { t } = useTranslation();
+  const { data: discoverable = false } = useNearbyDiscoverable();
+  const setDiscoverable = useSetNearbyDiscoverable();
   const { data: suggestions = [], isLoading, isError, refetch } = useNearbyUsers();
   const send = useSendFriendRequest();
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -31,12 +38,25 @@ export default function NearbyFriendsScreen() {
     >
       <Image source={require('../../../assets/images/nearby-radar.png')} style={styles.image} />
 
+      <ToggleRow
+        title={t('friendAdd.nearbyDiscoverable')}
+        description={t('friendAdd.nearbyDiscoverableDesc')}
+        value={discoverable}
+        onValueChange={(on) => setDiscoverable.mutate(on)}
+      />
+
       <View style={styles.list}>
         <AppText variant="label1" color={colors.textTertiary}>
           {t('friendAdd.nearbyList')}
         </AppText>
-        <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
-        {!isLoading && !isError && suggestions.length === 0 ? (
+        {/* 꺼 두면 목록이 늘 비어 있습니다. 왜 비었는지 알려 줘야 합니다 */}
+        {!discoverable ? (
+          <AppText variant="label1" color={colors.textMuted}>
+            {t('friendAdd.nearbyNeedsOptIn')}
+          </AppText>
+        ) : null}
+        {discoverable ? <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} /> : null}
+        {discoverable && !isLoading && !isError && suggestions.length === 0 ? (
           <AppText variant="label1" color={colors.textMuted}>
             {t('friendAdd.nearbyEmpty')}
           </AppText>

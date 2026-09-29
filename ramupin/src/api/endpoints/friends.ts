@@ -199,12 +199,29 @@ export const friendsApi = {
   },
 
   /**
-   * 근처에 있는 라무핀 사용자 (위치를 숨김/비공개로 설정한 사용자는 제외)
-   * TODO(위치 단계): 서버 위치 검색 API. 그 전까지 서버 연결 시 빈 목록
+   * 근처에 있는 라무핀 사용자 (WBS 12.9).
+   *
+   * **서로 동의한 사람끼리만 보입니다.** 내가 `discoverable` 을 켜지 않으면 빈 목록입니다 —
+   * 내 위치는 숨기면서 남만 보는 것은 공평하지 않습니다.
+   * 서버는 좌표를 주지 않습니다. 근처에 있다는 사실까지만 옵니다.
    */
   async nearby(): Promise<FriendSuggestion[]> {
     if (!isLive('friends')) return mockResponse(mockNearbySuggestions, 1200);
-    return [];
+    const { data } = await apiClient.get<FriendSuggestion[]>('/friends/nearby');
+    return data;
+  },
+
+  /** 근처 찾기에 내가 나타날지 (기본 꺼짐) */
+  async getNearbyDiscoverable(): Promise<boolean> {
+    if (!isLive('friends')) return mockResponse(false);
+    const { data } = await apiClient.get<{ discoverable: boolean }>('/friends/nearby/discoverable');
+    return data.discoverable;
+  },
+
+  async setNearbyDiscoverable(discoverable: boolean): Promise<boolean> {
+    if (!isLive('friends')) return mockResponse(discoverable);
+    const { data } = await apiClient.put<{ discoverable: boolean }>('/friends/nearby/discoverable', { discoverable });
+    return data.discoverable;
   },
 
   async getShareSetting(friendId: string): Promise<FriendShareSetting> {

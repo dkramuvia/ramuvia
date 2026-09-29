@@ -68,6 +68,9 @@ await wait(1500);
 확인('경고 없음', 본인경고.length === 0);
 
 console.log('\n2. 이어서 넘으면 본인 경고');
+// 앞선 실행에서 남은 "방금 울렸으니 쉬어라" 기록을 비웁니다.
+// 빠뜨리면 스크립트를 두 번째 돌릴 때만 실패합니다 (서버가 기억을 들고 있어서)
+await call('POST', '/locations/reset-speeding', 지원.accessToken, {});
 본인경고.length = 0;
 await 보내기([[60, 130], [40, 135], [20, 130], [0, 128]]);
 await wait(1500);

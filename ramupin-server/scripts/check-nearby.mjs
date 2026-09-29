@@ -21,7 +21,14 @@ const db = new pg.Client({
 await db.connect();
 
 const 나 = await login('26467878');
-const 남 = await login('26460002');
+/**
+ * **친구가 아닌** 사람이어야 합니다 (이미 친구면 근처 찾기에 안 나옵니다).
+ *
+ * 예전에는 시드 친구 관계를 잠시 끊었는데, `friend_share_settings` 가 친구 관계에
+ * 딸려 함께 지워져서(ON DELETE CASCADE) 스크립트가 중간에 죽으면 시드가 망가졌습니다.
+ * 원래 친구가 없는 계정을 씁니다.
+ */
+const 남 = await login('45071381');
 
 let 실패 = 0;
 
@@ -29,12 +36,6 @@ const 확인 = (라벨, 조건) => {
   console.log(`  ${조건 ? 'O' : 'X'} ${라벨}`);
   if (!조건) 실패 += 1;
 };
-
-// 둘이 친구면 근처 찾기에 안 나옵니다 (이미 친구니까). 친구 관계를 잠시 끊습니다
-const 원래친구 = (
-  await db.query('SELECT user_id, friend_id FROM social.friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)', [나.id, 남.id])
-).rows;
-await db.query('DELETE FROM social.friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)', [나.id, 남.id]);
 
 const 위치보내기 = (token, lat, lng, 초전 = 0) =>
   call('POST', '/locations', token, {
@@ -98,9 +99,6 @@ try {
 } finally {
   // 뒷정리
   await db.query('UPDATE member.users SET hide_all = false, nearby_discoverable = false WHERE id IN ($1, $2)', [나.id, 남.id]);
-  for (const r of 원래친구) {
-    await db.query('INSERT INTO social.friendships (user_id, friend_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [r.user_id, r.friend_id]);
-  }
   await db.end();
 }
 

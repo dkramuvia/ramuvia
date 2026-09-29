@@ -31,6 +31,11 @@ export interface UsersTable {
    * **기본은 꺼짐** — 아직 친구가 아닌 사람에게 위치를 알리려면 본인 동의가 필요합니다
    */
   nearby_discoverable: Generated<boolean>;
+  /**
+   * 주소록으로 나를 찾을 수 있게 할지 (WBS 12.9).
+   * **기본은 켜짐** — 상대가 내 번호를 이미 알아야 찾을 수 있어, 모르는 사람에게 노출되지 않습니다
+   */
+  phone_discoverable: Generated<boolean>;
   last_active_at: Date | null;
   created_at: Timestamp;
   updated_at: Timestamp;

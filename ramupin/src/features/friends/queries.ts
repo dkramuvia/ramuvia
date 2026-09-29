@@ -116,6 +116,19 @@ export function useNearbyUsers() {
   return useQuery({ queryKey: friendKeys.nearby, queryFn: friendsApi.nearby });
 }
 
+/** 주소록으로 나를 찾을 수 있게 할지 (기본 켜짐) */
+export function useContactDiscoverable() {
+  return useQuery({ queryKey: ['friends', 'contact-discoverable'], queryFn: friendsApi.getContactDiscoverable });
+}
+
+export function useSetContactDiscoverable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (on: boolean) => friendsApi.setContactDiscoverable(on),
+    onSuccess: (on) => queryClient.setQueryData(['friends', 'contact-discoverable'], on),
+  });
+}
+
 /** 근처 찾기에 내가 나타날지 (기본 꺼짐). 켜야 남도 보입니다 */
 export function useNearbyDiscoverable() {
   return useQuery({ queryKey: [...friendKeys.nearby, 'discoverable'], queryFn: friendsApi.getNearbyDiscoverable });

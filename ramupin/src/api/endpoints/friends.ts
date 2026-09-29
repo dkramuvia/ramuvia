@@ -12,6 +12,9 @@ import {
 import { isLive } from '@/config/env';
 import type { FoundUser, Friend, FriendRequest, FriendShareSetting, FriendSuggestion, UserSummary } from '@/types/models';
 
+/** 한 번에 보내는 주소록 번호 개수 (서버 `MAX_NUMBERS` 와 같아야 합니다) */
+const CONTACT_BATCH = 500;
+
 /** 서버 응답은 없는 값이 null → 앱 모델은 undefined */
 type Nullable<T> = { [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K] };
 
@@ -189,13 +192,39 @@ export const friendsApi = {
   },
 
   /**
-   * 주소록 전화번호로 라무핀 사용자 찾기.
-   * TODO(로그인 단계): 서버에 전화번호 해시 저장이 생기면 연결 (원문 대신 해시 전송). 그 전까지 서버 연결 시 빈 목록
+   * 주소록 전화번호로 라무핀 사용자 찾기 (WBS 12.9).
+   *
+   * **번호를 그대로 보냅니다.** 서버 해시는 서버만 아는 비밀키를 쓰는 HMAC 이라 앱이 같은
+   * 값을 만들 수 없습니다 (키를 앱에 넣으면 공개된 키가 됩니다). 키 없이 그냥 SHA-256 을
+   * 쓰면 국내 휴대폰 번호는 1억 개뿐이라 전부 뒤집어 볼 수 있어 보호가 되지 않습니다.
+   * 서버는 받은 번호를 **해시로 바꿔 조회에만 쓰고 버립니다** (저장·로그 없음).
    */
   async matchContacts(phoneNumbers: string[]): Promise<FriendSuggestion[]> {
     if (!isLive('friends')) return mockResponse(mockContactSuggestions, 800);
-    void phoneNumbers;
-    return [];
+
+    // 주소록이 큰 사람이 있어 나눠 보냅니다 (서버가 한 번에 받는 최대는 500개)
+    const found: FriendSuggestion[] = [];
+    for (let i = 0; i < phoneNumbers.length; i += CONTACT_BATCH) {
+      const { data } = await apiClient.post<FriendSuggestion[]>('/friends/contacts/match', {
+        phoneNumbers: phoneNumbers.slice(i, i + CONTACT_BATCH),
+      });
+      found.push(...data);
+    }
+    // 같은 사람이 여러 번호로 걸릴 수 있습니다 (집·회사)
+    return [...new Map(found.map((s) => [s.user.id, s])).values()];
+  },
+
+  /** 주소록으로 나를 찾을 수 있게 할지 (기본 켜짐) */
+  async getContactDiscoverable(): Promise<boolean> {
+    if (!isLive('friends')) return mockResponse(true);
+    const { data } = await apiClient.get<{ discoverable: boolean }>('/friends/contacts/discoverable');
+    return data.discoverable;
+  },
+
+  async setContactDiscoverable(discoverable: boolean): Promise<boolean> {
+    if (!isLive('friends')) return mockResponse(discoverable);
+    const { data } = await apiClient.put<{ discoverable: boolean }>('/friends/contacts/discoverable', { discoverable });
+    return data.discoverable;
   },
 
   /**

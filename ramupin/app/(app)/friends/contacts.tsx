@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Image, Linking, StyleSheet, View } from 'react-native';
 
 import { friendsApi } from '@/api';
-import { AppText, Button, Screen } from '@/components/ui';
+import { AppText, Button, Screen, ToggleRow } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
 import { SuggestionCard } from '@/features/friends/SuggestionCard';
-import { useSendFriendRequest } from '@/features/friends/queries';
+import { useContactDiscoverable, useSendFriendRequest, useSetContactDiscoverable } from '@/features/friends/queries';
 import { useColors } from '@/theme';
 import type { FriendSuggestion } from '@/types/models';
 
@@ -21,6 +21,8 @@ export default function ContactFriendsScreen() {
   const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const send = useSendFriendRequest();
+  const { data: discoverable = true } = useContactDiscoverable();
+  const setDiscoverable = useSetContactDiscoverable();
 
   const sync = async () => {
     const { granted } = await requestPermissionsAsync();
@@ -67,6 +69,14 @@ export default function ContactFriendsScreen() {
           {suggestions.map((s) => (
             <SuggestionCard key={s.user.id} suggestion={s} pending={send.isPending} onRequest={() => request(s)} />
           ))}
+
+          {/* 나도 남의 주소록에 뜨는 쪽이라, 끌 수 있어야 합니다 */}
+          <ToggleRow
+            title={t('friendAdd.contactDiscoverable')}
+            description={t('friendAdd.contactDiscoverableDesc')}
+            value={discoverable}
+            onValueChange={(on) => setDiscoverable.mutate(on)}
+          />
         </View>
       ) : (
         <View style={styles.intro}>

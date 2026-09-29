@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { parseInput } from '../common/app-error.js';
 import { FriendRequestsService } from './friend-requests.service.js';
+import { ContactsService, MAX_NUMBERS } from './contacts.service.js';
 import { NearbyService } from './nearby.service.js';
 import { QrTokenService } from './qr-token.service.js';
 import { summaryWithRelation } from '../users/relation.js';
@@ -136,6 +137,15 @@ const sendRequestBody = z
 const qrQuery = z.object({ token: z.string().min(10).max(100) });
 /** 근처 찾기에 나를 드러낼지 (WBS 12.9) */
 const discoverableBody = z.object({ discoverable: z.boolean() });
+/**
+ * 주소록 번호 목록.
+ *
+ * 번호는 **서버가 해시로 바꾼 뒤 즉시 버립니다** (저장·로그 없음, contacts.service.ts 설명).
+ * 한 번에 받는 개수를 막아 주소록을 통째로 퍼 가는 것을 어렵게 합니다.
+ */
+const contactsBody = z.object({
+  phoneNumbers: z.array(z.string().min(9).max(20)).max(MAX_NUMBERS),
+});
 
 // 친구별 맞춤 알림 (피그마 2026-09-28). 안 보낸 항목은 그대로 둡니다
 const alertSettingsBody = z.object({
@@ -158,7 +168,28 @@ class FriendsController {
     private readonly qr: QrTokenService,
     private readonly shareSettings: ShareSettingsService,
     private readonly nearby: NearbyService,
+    private readonly contacts: ContactsService,
   ) {}
+
+  /**
+   * 주소록 번호로 라무핀 사용자 찾기 (WBS 12.9).
+   * 번호는 조회에만 쓰고 저장하지 않습니다.
+   */
+  @Post('contacts/match')
+  matchContacts(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    return this.contacts.match(user.id, parseInput(contactsBody, body).phoneNumbers);
+  }
+
+  /** 주소록으로 나를 찾을 수 있게 할지 (기본 켜짐) */
+  @Get('contacts/discoverable')
+  getPhoneDiscoverable(@CurrentUser() user: AuthUser) {
+    return this.contacts.getDiscoverable(user.id);
+  }
+
+  @Put('contacts/discoverable')
+  setPhoneDiscoverable(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    return this.contacts.setDiscoverable(user.id, parseInput(discoverableBody, body).discoverable);
+  }
 
   /**
    * 근처에 있는 라무핀 사용자 (WBS 12.9).
@@ -303,6 +334,6 @@ class FriendsController {
 @Module({
   imports: [LocationModule],
   controllers: [FriendsController],
-  providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService],
+  providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService, ContactsService],
 })
 export class FriendsModule {}

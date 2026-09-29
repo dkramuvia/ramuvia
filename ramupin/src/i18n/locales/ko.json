@@ -246,6 +246,8 @@
     "nearbyList": "근처에 있는 친구",
     "nearbyNotice": "위치를 숨김 또는 비공개로 설정한 친구는\n나타나지 않아요.",
     "nearbyEmpty": "근처에서 친구를 찾지 못했어요.",
+    "contactDiscoverable": "내 번호를 아는 사람이 나를 찾게 하기",
+    "contactDiscoverableDesc": "끄면 내 번호를 주소록에 저장한 사람에게도 내가 보이지 않아요.",
     "nearbyDiscoverable": "내 위치를 근처 사람에게 알리기",
     "nearbyDiscoverableDesc": "켜면 1km 안에 있는 다른 사용자에게 내가 보여요. 정확한 위치는 알려주지 않아요.",
     "nearbyNeedsOptIn": "위 설정을 켜야 근처 사람을 볼 수 있어요.",

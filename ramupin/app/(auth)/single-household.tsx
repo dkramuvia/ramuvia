@@ -39,6 +39,7 @@ export default function SingleHouseholdScreen() {
         nickname: signUp.nickname,
         gender: signUp.gender,
         birthDate: signUp.birthDate,
+        ...(signUp.avatarUrl ? { avatarUrl: signUp.avatarUrl } : {}),
         agreedTerms: signUp.agreedTerms,
         singleHousehold,
         device: await getDeviceInput(),

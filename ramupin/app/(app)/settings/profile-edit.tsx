@@ -1,14 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 
 import { profileApi } from '@/api/endpoints/settings';
 import { AppText, Button, Screen, SegmentButtons, TextField } from '@/components/ui';
+import { CharacterPicker } from '@/features/settings/CharacterPicker';
 import { ProfileCard } from '@/features/settings/ProfileCard';
-import { characterAvatars } from '@/features/settings/avatars';
 import { useUpdateProfile } from '@/features/settings/queries';
 import { useAuthStore } from '@/stores/authStore';
 import { makeStyles, useColors } from '@/theme';
@@ -17,8 +16,6 @@ import { showToast } from '@/utils/toast';
 
 // TODO(정책): 사용자명 규칙은 서버 정책과 맞추기 (WBS 3.9, 피그마: 2~8글자, 한글·영문·숫자)
 const NICKNAME_RULE = /^[가-힣a-zA-Z0-9]{2,8}$/;
-const CARD_WIDTH = 164;
-const CARD_GAP = 14;
 
 /**
  * 피그마: 프로필 편집 (283:25613)
@@ -28,7 +25,6 @@ export default function ProfileEditScreen() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
   const me = useAuthStore((s) => s.user);
   const update = useUpdateProfile();
 
@@ -37,9 +33,7 @@ export default function ProfileEditScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [nickname, setNickname] = useState(me?.nickname ?? '');
   const [checkState, setCheckState] = useState<'unchecked' | 'available' | 'taken'>('available');
-  const listRef = useRef<FlatList>(null);
 
-  const avatars = useMemo(() => characterAvatars(gender), [gender]);
   const nicknameChanged = nickname !== me?.nickname;
   const nicknameValid = NICKNAME_RULE.test(nickname);
 
@@ -101,31 +95,7 @@ export default function ProfileEditScreen() {
           <Image source={{ uri: photoUri }} style={styles.photo} />
         </Pressable>
       ) : (
-        <FlatList
-          ref={listRef}
-          data={avatars}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={CARD_WIDTH + CARD_GAP}
-          decelerationRate="fast"
-          keyExtractor={(a) => a.key}
-          style={styles.carousel}
-          contentContainerStyle={{ paddingHorizontal: (width - CARD_WIDTH) / 2 - 20, gap: CARD_GAP }}
-          renderItem={({ item }) => {
-            const selected = item.key === avatarKey;
-            return (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                onPress={() => setAvatarKey(item.key)}
-                style={[styles.avatarCard, selected && styles.avatarSelected]}
-              >
-                <Image source={item.source} style={styles.avatarImage} />
-                {selected ? <Ionicons name="checkmark-circle" size={28} color={colors.primary} style={styles.avatarCheck} /> : null}
-              </Pressable>
-            );
-          }}
-        />
+        <CharacterPicker gender={gender} value={avatarKey} onChange={setAvatarKey} />
       )}
 
       <Button label={t('profileEdit.fromGallery')} variant="neutral" size="lg" onPress={pickPhoto} style={styles.galleryButton} />
@@ -168,12 +138,8 @@ export default function ProfileEditScreen() {
 const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },
   section: { gap: 8 },
-  carousel: { marginHorizontal: -20 },
-  avatarCard: { width: CARD_WIDTH, height: 192, borderRadius: 16, overflow: 'hidden', borderWidth: 3, borderColor: 'transparent' },
-  avatarSelected: { borderColor: colors.primary },
-  avatarImage: { width: '100%', height: '100%' },
-  avatarCheck: { position: 'absolute', right: 8, top: 8 },
   photoWrap: { alignSelf: 'center' },
-  photo: { width: CARD_WIDTH, height: 192, borderRadius: 16 },
+  // 캐릭터 카드와 같은 크기 (CharacterPicker)
+  photo: { width: 164, height: 186, borderRadius: 16 },
   galleryButton: { marginTop: 8 },
 }));

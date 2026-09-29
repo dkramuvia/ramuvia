@@ -84,6 +84,12 @@ const signUpBody = z.object({
   nickname: z.string().min(2).max(8),
   gender: z.enum(['male', 'female']),
   birthDate: z.iso.date(),
+  // 가입 화면에서 고른 캐릭터. **형식을 고정합니다** — 앱이 보내는 값이라
+  // 아무 주소나 받으면 남의 서버 그림을 프로필로 박아 넣을 수 있습니다
+  avatarUrl: z
+    .string()
+    .regex(/^avatar:(boy|girl)-\d{2}$/, '캐릭터 값이 올바르지 않습니다')
+    .optional(),
   agreedTerms: z.array(z.string().max(30)).max(10),
   singleHousehold: z.boolean(),
   device: deviceSchema,

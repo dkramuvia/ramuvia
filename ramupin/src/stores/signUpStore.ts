@@ -14,6 +14,11 @@ interface SignUpState {
   gender: Gender | null;
   birthDate: string;
   /**
+   * 가입 화면에서 고른 캐릭터 키 (`avatar:boy-01`).
+   * 비어 있으면 서버가 소셜에서 받아 둔 프로필 사진을 씁니다.
+   */
+  avatarUrl: string;
+  /**
    * 카카오·네이버가 확인해 준 출생연도 (WBS 3.6).
    * 있으면 노인 무료 등급을 이 값으로 판단합니다 — 본인이 적은 값으로는 정하지 않습니다.
    */
@@ -32,6 +37,7 @@ const initial = {
   nickname: '',
   gender: null,
   birthDate: '',
+  avatarUrl: '',
   verifiedBirthYear: null,
   phone: '',
   phoneVerified: false,

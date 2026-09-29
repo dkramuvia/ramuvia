@@ -25,6 +25,8 @@ export interface SignUpProfile {
   nickname: string;
   gender: Gender;
   birthDate: string; // YYYY-MM-DD
+  /** 가입 화면에서 고른 캐릭터 키. 없으면 서버가 소셜 프로필 사진을 씁니다 */
+  avatarUrl?: string;
 }
 
 export interface SmsRequestResult {

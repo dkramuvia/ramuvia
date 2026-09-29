@@ -47,6 +47,8 @@ export interface SignUpProfile {
   nickname: string;
   gender: 'male' | 'female';
   birthDate: string;
+  /** 가입 화면에서 고른 캐릭터 (`avatar:boy-01`). 없으면 소셜 프로필 사진을 씁니다 */
+  avatarUrl?: string;
   agreedTerms: string[];
   singleHousehold: boolean;
 }
@@ -191,7 +193,7 @@ export class SignUpService {
           nickname,
           gender: profile.gender,
           birth_date: profile.birthDate,
-          avatar_url: state.avatarUrl,
+          avatar_url: profile.avatarUrl ?? state.avatarUrl,
           plan,
           age_verified: verified != null,
           single_household: profile.singleHousehold,

@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { authApi } from '@/api/endpoints/auth';
 import { AppText, Button, SegmentButtons, TextField } from '@/components/ui';
+import { CharacterPicker } from '@/features/settings/CharacterPicker';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useSignUpStore } from '@/stores/signUpStore';
 import { useColors } from '@/theme';
@@ -48,6 +49,8 @@ export default function ProfileSetupScreen() {
   const [nickname, setNickname] = useState(signUp.nickname);
   const [checked, setChecked] = useState<'unchecked' | 'available' | 'taken'>('unchecked');
   const [gender, setGender] = useState<Gender | null>(signUp.gender);
+  // 소셜에서 받은 프로필 사진이 있으면 그대로 두고, 캐릭터를 고르면 그것으로 바꿉니다
+  const [avatarKey, setAvatarKey] = useState<string | undefined>(signUp.avatarUrl || undefined);
   // 카카오·네이버가 출생연도를 확인해 줬으면 그 해로 시작합니다 (WBS 3.6)
   const [birth, setBirth] = useState(formatBirth(signUp.birthDate) || (signUp.verifiedBirthYear ? String(signUp.verifiedBirthYear) : ''));
 
@@ -72,7 +75,7 @@ export default function ProfileSetupScreen() {
   const next = () => {
     if (!birthDate || !gender) return;
     const iso = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`;
-    signUp.set({ nickname, gender, birthDate: iso });
+    signUp.set({ nickname, gender, birthDate: iso, avatarUrl: avatarKey ?? '' });
     router.push('/phone-verify');
   };
 
@@ -105,18 +108,6 @@ export default function ProfileSetupScreen() {
         }
       />
 
-      <View style={styles.field}>
-        <AppText variant="label1">{t('onboarding.gender')}</AppText>
-        <SegmentButtons
-          value={gender}
-          onChange={setGender}
-          options={[
-            { value: 'male', label: t('profileEdit.male') },
-            { value: 'female', label: t('profileEdit.female') },
-          ]}
-        />
-      </View>
-
       <TextField
         label={t('onboarding.birth')}
         placeholder={t('onboarding.birthPlaceholder')}
@@ -139,6 +130,22 @@ export default function ProfileSetupScreen() {
               : undefined
         }
       />
+      <View style={styles.field}>
+        <AppText variant="label1">{t('onboarding.gender')}</AppText>
+        <SegmentButtons
+          value={gender}
+          onChange={setGender}
+          options={[
+            { value: 'male', label: t('profileEdit.male') },
+            { value: 'female', label: t('profileEdit.female') },
+          ]}
+        />
+      </View>
+
+      {/* 성별에 따른 캐릭터를 좌우로 넘겨 고릅니다 (피그마 839:41835).
+          프로필 편집과 같은 컴포넌트입니다 */}
+      {gender ? <CharacterPicker gender={gender} value={avatarKey} onChange={setAvatarKey} /> : null}
+
       {/* 노인 무료 등급(WBS 4.1)은 카카오·네이버가 확인해 준 출생연도로 정합니다.
           확인 항목이 없는 소셜(구글·X)로 들어오면 본인이 적은 값을 씁니다 */}
       {signUp.verifiedBirthYear && isSenior ? (

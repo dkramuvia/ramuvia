@@ -67,5 +67,5 @@ const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: layout.screenPadding, gap: 12, paddingBottom: 12 },
   avatars: { flexDirection: 'row', alignItems: 'center' },
   avatarWrap: { borderRadius: 20, borderWidth: 2, borderColor: colors.surface },
-  more: { width: 34, height: 34, marginLeft: -12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  more: { width: 34, height: 34, marginLeft: -12, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
 }));

@@ -262,7 +262,7 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     ...typography.body2,
     color: colors.text,
   },

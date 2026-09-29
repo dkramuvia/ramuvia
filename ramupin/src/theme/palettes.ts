@@ -42,6 +42,11 @@ const dark: Palette = {
   surfaceStrong: '#303030', // 세그먼트 트랙, 비활성 버튼
   surfaceSoft: '#30303066',
   popup: '#242424',
+  card: '#1C1C1C', // 라이트의 흰 카드·입력칸 자리
+  inputBackground: '#1C1C1C',
+  // 상대 말풍선이 #1C1C1C 라, 내 말풍선은 그보다 한 단계 밝게 해야 구분됩니다
+  chatBubbleMine: '#3A3A3A',
+  chatBackground: '#0E1418', // 라이트의 연한 하늘을 어둡게 (파랑기만 남김)
 
   // 글자 — 그림에서 나온 밝은 색 기준. 순백(#FFFFFF)은 눈이 부셔 쓰지 않습니다
   text: '#F0F0F0',

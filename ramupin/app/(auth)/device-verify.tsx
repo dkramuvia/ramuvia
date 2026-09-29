@@ -179,7 +179,7 @@ export default function DeviceVerifyScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
-  notice: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 10, backgroundColor: colors.white },
+  notice: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 10, backgroundColor: colors.card },
   flex: { flex: 1 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 }));

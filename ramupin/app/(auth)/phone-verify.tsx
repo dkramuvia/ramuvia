@@ -199,6 +199,6 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: radius.sm,
     borderWidth: 1.5,
     borderColor: '#473C39',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
 }));

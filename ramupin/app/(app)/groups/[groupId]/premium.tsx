@@ -97,7 +97,7 @@ export default function GroupPremiumScreen() {
 const useStyles = makeStyles((colors) => ({
   content: { gap: 20, paddingHorizontal: 0 },
   carousel: { flexGrow: 0 },
-  feature: { borderRadius: radius.md, backgroundColor: colors.white, overflow: 'hidden', elevation: 3, shadowColor: colors.black, shadowOpacity: 0.1, shadowRadius: 8 },
+  feature: { borderRadius: radius.md, backgroundColor: colors.card, overflow: 'hidden', elevation: 3, shadowColor: colors.black, shadowOpacity: 0.1, shadowRadius: 8 },
   featureArt: { height: 170, alignItems: 'center', justifyContent: 'center' },
   featureTexts: { padding: 20, gap: 8 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },

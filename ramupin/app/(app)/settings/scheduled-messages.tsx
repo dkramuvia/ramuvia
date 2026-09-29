@@ -185,5 +185,5 @@ const useStyles = makeStyles((colors) => ({
   message: { gap: 6 },
   messageTitle: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   messageTime: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  messageBody: { borderRadius: radius.xs, backgroundColor: colors.white, padding: 12, borderWidth: 1, borderColor: colors.surfaceStrong },
+  messageBody: { borderRadius: radius.xs, backgroundColor: colors.card, padding: 12, borderWidth: 1, borderColor: colors.surfaceStrong },
 }));

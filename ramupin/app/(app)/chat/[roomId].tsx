@@ -18,8 +18,6 @@ import { makeStyles, useColors } from '@/theme';
 import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
 import { showToast } from '@/utils/toast';
 
-const CHAT_BACKGROUND = '#E5F4FF';
-
 /** 피그마: 채팅방 1:1 (283:34973) / 그룹 생성 직후 (283:39171) / 위치 공유 (283:35894) */
 export default function ChatRoomScreen() {
   const styles = useStyles();
@@ -160,7 +158,7 @@ function IntroAction({ icon, label, onPress }: { icon: 'link' | 'person-add-outl
 
 const useStyles = makeStyles((colors) => ({
   archivedNotice: { paddingHorizontal: 20, paddingVertical: 18 },
-  container: { flex: 1, backgroundColor: CHAT_BACKGROUND },
+  container: { flex: 1, backgroundColor: colors.chatBackground },
   flex: { flex: 1 },
   list: { paddingVertical: 16 },
   separator: { height: 10 },

@@ -14,6 +14,13 @@ export const colors = {
   surfaceStrong: '#E3E6E8', // 세그먼트 트랙, 비활성 버튼, 선택 칩
   surfaceSoft: '#E3E6E866', // 설정 토글 카드
   popup: '#FAFDFF',
+  // 배경 위에 한 단계 떠 있는 **흰 카드**와 **입력칸**.
+  // `white` 와 값은 같지만 뜻이 다릅니다 — `white` 는 "흰색"이라 다크에서도 흰색이고,
+  // 이건 "카드 바탕"이라 다크에서 어두워집니다. 지도·사진 위에 얹는 흰 것은 `white` 를 쓰세요.
+  card: '#FFFFFF',
+  inputBackground: '#F6FBFF', // 채팅 입력줄 (연한 파랑기)
+  chatBubbleMine: '#171717', // 내 말풍선 (상대는 card)
+  chatBackground: '#E5F4FF', // 채팅방 밑색 (연한 하늘)
 
   // 글자
   text: '#2E3438', // 기본 본문, 제목

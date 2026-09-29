@@ -68,7 +68,7 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   boxError: { borderColor: colors.danger },
   input: { flex: 1, ...typography.body1, color: colors.text, paddingVertical: 12 },

@@ -127,7 +127,7 @@ const useStyles = makeStyles((colors) => ({
   cardWrap: { alignItems: 'center' },
   members: { flexDirection: 'row', flexWrap: 'wrap', borderRadius: radius.md, backgroundColor: colors.surfaceStrong, padding: 12, rowGap: 12 },
   member: { width: '33%', alignItems: 'center', gap: 4 },
-  terms: { gap: 12, borderRadius: 20, backgroundColor: colors.white, padding: 16 },
+  terms: { gap: 12, borderRadius: 20, backgroundColor: colors.card, padding: 16 },
   billingRow: { flexDirection: 'row', alignItems: 'center' },
   underline: { textDecorationLine: 'underline' },
 }));

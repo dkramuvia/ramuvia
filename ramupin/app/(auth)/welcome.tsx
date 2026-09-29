@@ -203,7 +203,7 @@ const useStyles = makeStyles((colors) => ({
     gap: 12,
     paddingHorizontal: 22,
     borderRadius: radius.full,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.borderLight,
     elevation: 2,

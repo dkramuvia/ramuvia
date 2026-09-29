@@ -198,7 +198,7 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: 20,
     borderWidth: 2,
     borderColor: colors.surface,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },

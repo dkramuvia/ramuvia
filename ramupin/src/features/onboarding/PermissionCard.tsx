@@ -53,7 +53,7 @@ const useStyles = makeStyles((colors) => ({
   card: {
     alignSelf: 'stretch',
     borderRadius: radius.lg,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.surfaceStrong,
     overflow: 'hidden',

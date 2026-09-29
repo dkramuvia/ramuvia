@@ -67,7 +67,7 @@ function TextBubble({ message, isMine }: { message: ChatMessage; isMine: boolean
   const colors = useColors();
   return (
     <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
-      <AppText variant="label1" color={isMine ? colors.white : '#171717'}>
+      <AppText variant="label1" color={isMine ? colors.white : colors.text}>
         {message.text}
       </AppText>
     </View>
@@ -121,8 +121,8 @@ const useStyles = makeStyles((colors) => ({
   content: { maxWidth: '72%', gap: 8 },
   contentMine: { alignItems: 'flex-end' },
   bubble: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.md },
-  bubbleMine: { backgroundColor: '#171717' },
-  bubbleOther: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight },
+  bubbleMine: { backgroundColor: colors.chatBubbleMine },
+  bubbleOther: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderLight },
   systemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   systemLine: { flex: 1, height: 1, backgroundColor: 'rgba(133,147,168,0.25)' },
   locationCard: { width: 286, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.popup },

@@ -35,11 +35,16 @@ export interface MapChoiceInput {
   /** 지금 보고 있는 위치 */
   center: LatLng | null | undefined;
   /** 설정 > 지도에서 고른 지도 */
-  preferred: 'google' | 'naver';
+  preferred: MapProvider;
   /** 유료 등급인가 (features.premiumMap) */
   premium: boolean;
   /** 해외에서 Mapbox 를 쓸 수 있는 등급인가 (features.overseasMap) */
   overseas: boolean;
+  /**
+   * 시연용 — 등급도 지역도 따지지 않고 **고른 지도를 그대로** 띄웁니다.
+   * 국내에서도 Mapbox 를 볼 수 있습니다 (`DEMO_UNLOCK_MAPS`).
+   */
+  unlocked?: boolean;
 }
 
 /**
@@ -54,7 +59,11 @@ export interface MapChoiceInput {
  *
  * 해외에서는 네이버를 쓰지 않습니다. 유료 등급이 네이버를 골라 뒀더라도, 나가면 지도가 비어 버립니다.
  */
-export function resolveMapProvider({ center, preferred, premium, overseas }: MapChoiceInput): MapProvider {
+export function resolveMapProvider({ center, preferred, premium, overseas, unlocked }: MapChoiceInput): MapProvider {
+  // 시연용: 고른 지도를 그대로. 세 지도를 다 보여 줘야 해서 규칙을 건너뜁니다
+  if (unlocked) return preferred;
+  // 평소에는 Mapbox 를 사용자가 직접 고를 수 없습니다 — 해외에서 자동으로만 뜹니다
+  if (preferred === 'mapbox') return 'google';
   if (!isInKorea(center)) return overseas ? 'mapbox' : 'google';
   return preferred === 'naver' && premium ? 'naver' : 'google';
 }

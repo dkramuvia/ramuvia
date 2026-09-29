@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import { FEATURE_MIN_PLAN, type PlanPolicy } from './policies';
+import { DEMO_UNLOCK_MAPS, FEATURE_MIN_PLAN, type PlanPolicy } from './policies';
 import { savePolicySnapshot } from './policySnapshot';
 import { policyApi } from '@/api/endpoints/policy';
 import { useAuthStore } from '@/stores/authStore';
@@ -29,7 +29,9 @@ export function usePlan() {
   return {
     planId,
     policy,
-    can: (feature: Feature) => policy?.features[feature] ?? false,
+    // 시연 중에는 지도 관련 기능만 등급과 상관없이 열어 둡니다 (DEMO_UNLOCK_MAPS)
+    can: (feature: Feature) =>
+      (DEMO_UNLOCK_MAPS && (feature === 'premiumMap' || feature === 'overseasMap')) || (policy?.features[feature] ?? false),
     limit: (key: LimitKey) => (policy?.[key] as number | undefined) ?? 0,
     minPlanFor: (feature: Feature) => FEATURE_MIN_PLAN[feature],
   };

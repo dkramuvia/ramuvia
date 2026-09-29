@@ -87,11 +87,12 @@ export function BottomNav({ active, onPressTab }: BottomNavProps) {
 const useStyles = makeStyles((colors) => ({
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    // 피그마 탭 간격은 112 입니다. 360 폭에서 양옆 32 + space-between 이면 111.5 가 나옵니다
+    justifyContent: 'space-between',
     backgroundColor: colors.tabBar,
     borderTopWidth: 1,
     borderTopColor: colors.tabBarBorder,
-    paddingHorizontal: 45,
+    paddingHorizontal: 32,
   },
   item: {
     width: 73,

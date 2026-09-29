@@ -1,5 +1,20 @@
 import type { PlanId } from '@/types/models';
 
+/**
+ * **시연용 스위치 — 중간 시연(2026-11-27) 뒤에는 `false` 로 되돌려야 합니다.**
+ *
+ * 켜면 지도 세 가지(OS·네이버·MapBox)를 등급과 상관없이 모두 고를 수 있고,
+ * 국내에서도 MapBox 가 뜹니다. 평소에는
+ *   - 네이버 = 플래티넘 이상
+ *   - MapBox = 해외에서 자동으로만 (지도를 띄울 때마다 과금됩니다)
+ * 입니다.
+ *
+ * 등급 정책 자체(서버 `config.plan_policies`)는 건드리지 않습니다. 여기 한 줄만 끄면
+ * 원래 제한으로 돌아갑니다. 지도 말고 다른 유료 기능(교통·날씨, 과속 경고,
+ * 관공서 긴급 전송)은 그대로 잠겨 있습니다.
+ */
+export const DEMO_UNLOCK_MAPS = true;
+
 /** 화면에 보여 주는 등급 이름 ("0000 플랜부터 이용 가능") */
 export const PLAN_NAMES: Record<PlanId, string> = {
   basic: '베이직',

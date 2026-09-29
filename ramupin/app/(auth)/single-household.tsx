@@ -75,5 +75,5 @@ const useStyles = makeStyles((colors) => ({
   art: { alignItems: 'center', paddingVertical: 48 },
   image: { width: 240, height: 240 },
   buttons: { gap: 16 },
-  option: { borderWidth: 1.5, borderColor: colors.surfaceStrong, backgroundColor: '#FAF8F6' },
+  option: { borderWidth: 1.5, borderColor: colors.surfaceStrong, backgroundColor: colors.card },
 }));

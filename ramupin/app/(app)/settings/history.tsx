@@ -110,8 +110,11 @@ function EventHistory({ category }: { category?: 'safety' }) {
         >
           {EVENT_ICONS[item.type] ? <Image source={EVENT_ICONS[item.type]} style={styles.eventIcon} /> : <View style={styles.eventIcon} />}
           <View style={styles.eventTexts}>
-            <AppText variant="body2Bold">{item.message}</AppText>
-            <AppText variant="body2" color={colors.textTertiary}>
+            {/* SOS 칸은 늘 연분홍이라 그 위 글자도 고정으로 어둡게 (테마를 따르면 다크에서 안 보입니다) */}
+            <AppText variant="body2Bold" color={item.type === 'sos' ? ON_SOS : colors.text}>
+              {item.message}
+            </AppText>
+            <AppText variant="body2" color={item.type === 'sos' ? ON_SOS_SUB : colors.textTertiary}>
               {new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}
             </AppText>
           </View>
@@ -189,6 +192,9 @@ function PlaceHistory() {
     />
   );
 }
+
+const ON_SOS = '#0C0D0E';
+const ON_SOS_SUB = '#5D676F';
 
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },

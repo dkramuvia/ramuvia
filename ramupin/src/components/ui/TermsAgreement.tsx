@@ -79,8 +79,10 @@ export function requiredAgreed(items: TermItem[], checked: string[]) {
 
 const useStyles = makeStyles((colors) => ({
   container: { gap: 12 },
-  all: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.xs, backgroundColor: '#F1F1F9' },
-  allChecked: { backgroundColor: '#E3F2FF' },
+  // 그 위 글자가 테마 색이라 바탕도 테마를 따라가야 합니다
+  // (연회색·연파랑으로 박혀 있어 다크에서 밝은 바탕에 밝은 글자가 됐습니다)
+  all: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.xs, backgroundColor: colors.surface },
+  allChecked: { backgroundColor: colors.surfaceStrong },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, paddingLeft: 6 },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   body: { marginLeft: 36, marginBottom: 8, padding: 10, borderRadius: radius.xs, backgroundColor: colors.surface, maxHeight: 160 },

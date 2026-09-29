@@ -24,7 +24,9 @@ const variantStyles = (colors: Palette): Record<ButtonVariant, { bg: string; fg:
   brown: { bg: colors.brownMedium, fg: colors.white },
   brownLight: { bg: colors.brownLight, fg: colors.white },
   neutral: { bg: colors.surfaceStrong, fg: colors.textPlaceholder },
-  white: { bg: colors.white, fg: colors.text },
+  // `white` 는 "흰 카드 버튼"이라는 뜻입니다. 다크에서는 어두워져야 합니다 —
+  // 진짜 흰색으로 두면 밝은 글자(colors.text)가 흰 바탕에 놓여 안 보입니다
+  white: { bg: colors.card, fg: colors.text },
   soft: { bg: colors.softButton, fg: colors.softButtonText },
   // 안전 & SOS 화면의 빨간 버튼
   danger: { bg: colors.sos, fg: colors.white },

@@ -251,7 +251,9 @@ function PopupButtons({ popup, dismiss }: { popup: AlertPopupPayload; dismiss: (
 
 const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 20 },
-  card: { maxHeight: '92%', borderRadius: 16, backgroundColor: '#FDF9F8', overflow: 'hidden' },
+  // 팝업 안 글자는 전부 테마 색이라, 카드도 테마를 따라가야 합니다.
+  // 흰색(#FDF9F8)으로 박혀 있어 다크에서 흰 카드에 흰 글자가 됐습니다
+  card: { maxHeight: '92%', borderRadius: 16, backgroundColor: colors.popup, overflow: 'hidden' },
   body: { padding: 16, gap: 16 },
   footer: { borderTopWidth: 1, borderTopColor: colors.surfaceStrong, padding: 16, gap: 10 },
   flex: { flex: 1 },

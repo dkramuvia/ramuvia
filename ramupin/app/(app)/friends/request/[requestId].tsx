@@ -151,7 +151,8 @@ const useStyles = makeStyles((colors) => ({
   metaRow: { flexDirection: 'row', gap: 4 },
   buttons: { flexDirection: 'row', gap: 10, marginTop: 24 },
   doneTitles: { gap: 4 },
-  doneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: radius.md, backgroundColor: '#CDE9FF' },
+  // 안쪽 글자가 테마 색이라 바탕도 테마를 따라갑니다 (연파랑으로 박으면 다크에서 안 보입니다)
+  doneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: radius.md, backgroundColor: colors.surfaceStrong },
   doneImage: { alignSelf: 'center', width: 176, height: 180, marginVertical: 24 },
   sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   sheet: {

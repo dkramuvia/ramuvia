@@ -19,19 +19,22 @@ import { showToast } from '@/utils/toast';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-/** X·Apple 로고의 검정. 다크 모드에서도 로고 색은 그대로입니다 */
-const BRAND_BLACK = '#000000';
+
 
 /**
  * Instagram 은 빠져 있습니다 — 일반 사용자 로그인 API 가 종료되어 더 이상 쓸 수 없습니다
  * (docs/wbs-check.md 2-6). 대표님 확인 뒤 피그마에서도 빼는 것이 좋겠습니다.
  */
-const PROVIDERS: { id: SocialProvider; label: string; icon: ReactNode }[] = [
-  // 소셜 로고 색은 각 회사가 정한 것이라 테마를 따라가지 않습니다
-  { id: 'x', label: 'X', icon: <Ionicons name={'logo-x' as IconName} size={24} color={BRAND_BLACK} /> },
+/**
+ * 소셜 로고 색은 각 회사가 정한 것이라 테마를 따라가지 않습니다.
+ * 다만 X·Apple 로고는 **한 가지 색 마크**라 밝은 데서는 검정, 어두운 데서는 흰색으로
+ * 씁니다 (두 회사 가이드도 그렇습니다). 검정으로 박아 두면 다크 모드에서 사라집니다.
+ */
+const providers = (mono: string): { id: SocialProvider; label: string; icon: ReactNode }[] => [
+  { id: 'x', label: 'X', icon: <Ionicons name={'logo-x' as IconName} size={24} color={mono} /> },
   { id: 'facebook', label: 'Facebook', icon: <Ionicons name="logo-facebook" size={26} color="#1877F2" /> },
   { id: 'google', label: 'Google', icon: <Ionicons name="logo-google" size={24} color="#EA4335" /> },
-  { id: 'apple', label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={BRAND_BLACK} /> },
+  { id: 'apple', label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={mono} /> },
 ];
 
 /** 브라우저에서 인가 코드를 받아 오는 제공자들. 토큰 교환은 서버가 합니다 */
@@ -145,7 +148,7 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={styles.buttons}>
-        {PROVIDERS.map((p) => (
+        {providers(colors.text).map((p) => (
           <Pressable key={p.id} accessibilityRole="button" onPress={() => login(p.id)} style={({ pressed }) => [styles.social, pressed && styles.pressed]}>
             <View style={styles.socialIcon}>{p.icon}</View>
             <AppText variant="body1">{t('onboarding.signUpWith', { provider: p.label })}</AppText>

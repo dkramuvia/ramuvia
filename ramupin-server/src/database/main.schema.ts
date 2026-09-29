@@ -419,6 +419,19 @@ export interface NotificationSettingsTable {
   updated_at: Generated<Date>;
 }
 
+/**
+ * 사진 공유 링크 (WBS 6).
+ * 무효화는 따로 청소하지 않습니다 — 열어 볼 때 그룹 소속을 봅니다 (post-share.service.ts)
+ */
+export interface PostSharesTable {
+  token: string;
+  post_id: string;
+  created_by: string;
+  expires_at: Date;
+  revoked_at: Date | null;
+  created_at: Generated<Date>;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -454,4 +467,5 @@ export interface MainDatabase {
   'member.safe_zone_events': SafeZoneEventsTable;
   'member.scheduled_messages': ScheduledMessagesTable;
   'member.notification_settings': NotificationSettingsTable;
+  'media.post_shares': PostSharesTable;
 }

@@ -10,6 +10,7 @@ import { galleryApi } from '@/api/endpoints/gallery';
 import { AppText, Avatar } from '@/components/ui';
 import { layout, makeStyles, useColors } from '@/theme';
 import type { GalleryPost } from '@/types/models';
+import { showToast } from '@/utils/toast';
 
 interface PostPagerProps {
   posts: GalleryPost[];
@@ -63,6 +64,21 @@ function PostPage({
   const insets = useSafeAreaInsets();
   const title = post.place?.areaName ?? post.place?.placeName ?? post.groupName;
 
+  /**
+   * 공유 링크를 받아 OS 공유 시트로 보냅니다.
+   *
+   * 주소는 서버가 발급합니다 (7일). 예전처럼 게시물 id 로 주소를 만들면,
+   * 그룹에서 나간 뒤에도 남이 계속 볼 수 있습니다.
+   */
+  const shareLink = async (postId: string) => {
+    try {
+      await Share.share({ message: await galleryApi.shareUrl(postId) });
+    } catch (error) {
+      console.warn('[gallery] 공유 링크 발급 실패', String(error));
+      showToast(t('common.loadFailed'));
+    }
+  };
+
   return (
     <View style={[styles.page, { width }]}>
       {post.emergencyNotice ? (
@@ -89,7 +105,7 @@ function PostPage({
           {subtitle}
         </View>
         <View style={styles.actions}>
-          <Pressable accessibilityRole="button" onPress={() => Share.share({ message: galleryApi.shareUrl(post.id) })} style={styles.action}>
+          <Pressable accessibilityRole="button" onPress={() => void shareLink(post.id)} style={styles.action}>
             <Ionicons name="link" size={24} color={colors.white} />
             <AppText variant="caption" color={colors.white} style={styles.shadow}>
               {t('gallery.urlShare')}

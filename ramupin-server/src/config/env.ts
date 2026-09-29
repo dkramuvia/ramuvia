@@ -47,6 +47,11 @@ const schema = z.object({
   /** 앱이 파일을 주고받을 때 쓸 주소. 비우면 STORAGE_ENDPOINT 를 씁니다 */
   STORAGE_PUBLIC_URL: z.string().default(''),
   /**
+   * 공유 링크에 붙는 주소 (사진 공유, WBS 6).
+   * 이 주소로 열리는 웹 페이지는 아직 없습니다 — 링크 발급과 서버 조회만 먼저 만들어 둡니다
+   */
+  PUBLIC_WEB_URL: z.string().default('https://ramupin.app'),
+  /**
    * 위치 이력 보관 개월 수 (WBS 4.3: 6개월).
    *
    * 법무 확인 결과에 따라 바뀔 수 있어 환경변수로 뺍니다. 코드를 고치지 않고 조정합니다.

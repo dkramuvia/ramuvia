@@ -63,9 +63,23 @@ export const galleryApi = {
     return data;
   },
 
-  /** 기획: URL 공유 → OS 공유 시트에서 복사. TODO(5단계): 서버 발급 공유 URL (그룹 해지 시 무효화, WBS 6) */
-  shareUrl(postId: string): string {
-    return `https://ramupin.app/p/${postId}`;
+  /**
+   * 공유 링크 받기 (WBS 6). OS 공유 시트로 보냅니다.
+   *
+   * 서버가 **7일짜리 주소**를 발급합니다. 같은 게시물을 여러 번 눌러도 주소는 하나입니다.
+   * **만든 사람이 그룹에서 나가면 링크가 저절로 막힙니다** — 서버가 열어 볼 때마다
+   * 그룹 소속을 봅니다.
+   */
+  async shareUrl(postId: string): Promise<string> {
+    if (!isLive('gallery')) return mockResponse(`https://ramupin.app/p/${postId}`);
+    const { data } = await apiClient.post<{ url: string; expiresAt: string }>(`/gallery/posts/${postId}/share`, {});
+    return data.url;
+  },
+
+  /** 공유 링크 끄기 */
+  async revokeShareUrl(postId: string): Promise<void> {
+    if (!isLive('gallery')) return mockResponse(undefined);
+    await apiClient.delete(`/gallery/posts/${postId}/share`);
   },
 
   /**

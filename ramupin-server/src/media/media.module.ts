@@ -6,6 +6,7 @@ import { appError, parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { displayGroupName } from '../groups/group-name.js';
+import { PostShareService } from './post-share.service.js';
 import { StorageService } from './storage.service.js';
 
 /**
@@ -46,6 +47,7 @@ class GalleryController {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly storage: StorageService,
+    private readonly shares: PostShareService,
   ) {}
 
   /**
@@ -231,6 +233,21 @@ class GalleryController {
   }
 
   /** 내가 쓴 용량 (설정 화면에서 보여 줍니다) */
+  /**
+   * 사진 공유 링크 만들기 (WBS 6).
+   * 이미 만들어 둔 살아 있는 링크가 있으면 그것을 돌려줍니다 (주소가 늘어나지 않게).
+   */
+  @Post('posts/:id/share')
+  createShare(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.shares.create(user.id, id);
+  }
+
+  /** 내가 만든 공유 링크 끄기 */
+  @Delete('posts/:id/share')
+  revokeShare(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.shares.revoke(user.id, id);
+  }
+
   @Get('storage')
   async storageUsage(@CurrentUser() user: AuthUser) {
     const [used, limitMb] = await Promise.all([this.usedBytes(user.id), this.storageLimitMb(user.id)]);
@@ -351,9 +368,26 @@ class GalleryController {
   }
 }
 
+/**
+ * 공유 링크로 사진 보기 (WBS 6).
+ *
+ * **로그인 없이 열립니다** — 그룹 밖 사람에게 보여 주는 주소라서 그렇습니다.
+ * 그래서 가드를 걸지 않은 별도 컨트롤러로 둡니다. 실수로 다른 API 에 가드가 빠지는 일을
+ * 막으려면, 가드 없는 경로가 한곳에 모여 있어야 합니다.
+ */
+@Controller('shared')
+class SharedPostController {
+  constructor(private readonly shares: PostShareService) {}
+
+  @Get(':token')
+  view(@Param('token') token: string) {
+    return this.shares.view(token);
+  }
+}
+
 @Module({
-  controllers: [GalleryController],
-  providers: [StorageService],
+  controllers: [GalleryController, SharedPostController],
+  providers: [StorageService, PostShareService],
   exports: [StorageService],
 })
 export class MediaModule {}

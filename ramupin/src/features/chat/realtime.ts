@@ -108,6 +108,18 @@ function connect(token: string) {
     useAlertStore.getState().showPopup({ kind: 'speeding', speedKmh: Math.round(payload.speedKmh) });
   });
 
+  /**
+   * 위험지역에 들어갔을 때 (WBS 9.6).
+   * 지금 그곳에 있는 본인에게 오는 알림이라 바로 팝업으로 띄웁니다.
+   */
+  socket.on('danger-zone', (payload: { zoneName: string; place: { latitude: number; longitude: number } }) => {
+    useAlertStore.getState().showPopup({
+      kind: 'dangerZone',
+      zoneName: payload.zoneName,
+      place: { latitude: payload.place.latitude, longitude: payload.place.longitude, address: '' },
+    });
+  });
+
   socket.on('rooms-changed', () => {
     queryClient.invalidateQueries({ queryKey: chatKeys.rooms, exact: true });
     queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });

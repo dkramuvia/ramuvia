@@ -5,6 +5,7 @@ import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
 import { parseInput } from '../common/app-error.js';
 import { PushModule } from '../push/push.module.js';
+import { DangerZoneService } from './danger-zone.service.js';
 import { SafeZoneService } from './safe-zone.service.js';
 
 /**
@@ -70,7 +71,7 @@ function toInput(body: unknown) {
 @Module({
   imports: [RealtimeModule, PushModule],
   controllers: [SafeZoneController],
-  providers: [SafeZoneService],
-  exports: [SafeZoneService],
+  providers: [SafeZoneService, DangerZoneService],
+  exports: [SafeZoneService, DangerZoneService],
 })
 export class SafeZoneModule {}

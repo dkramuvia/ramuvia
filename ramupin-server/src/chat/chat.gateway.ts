@@ -223,6 +223,11 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('speeding', payload);
   }
 
+  /** 위험지역 진입 (WBS 9.6). 지금 그곳에 있는 본인에게 */
+  emitDangerZone(userIds: string[], payload: unknown) {
+    for (const userId of userIds) this.server?.to(`user:${userId}`).emit('danger-zone', payload);
+  }
+
   emitAnomaly(userIds: string[], payload: unknown) {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('anomaly', payload);
   }

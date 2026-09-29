@@ -432,6 +432,35 @@ export interface PostSharesTable {
   created_at: Generated<Date>;
 }
 
+/**
+ * 위험지역 (WBS 9.6). 모두에게 공통인 위험한 곳입니다.
+ * 데이터는 공공데이터를 받아 부어 넣습니다 — 표만 먼저 만들어 둡니다
+ */
+export interface DangerZonesTable {
+  id: Generated<string>;
+  name: string;
+  /** 낙석·침수·공사 등 */
+  kind: Generated<string>;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+  enabled: Generated<boolean>;
+  /** 어디서 받은 자료인지 */
+  source: Generated<string>;
+  source_key: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/** 누가 어느 위험지역 안에 있는지. 반복 알림을 막으려면 직전 상태가 있어야 합니다 */
+export interface DangerZoneVisitsTable {
+  user_id: string;
+  zone_id: string;
+  inside: Generated<boolean>;
+  entered_at: Date | null;
+  notified_at: Date | null;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -468,4 +497,6 @@ export interface MainDatabase {
   'member.scheduled_messages': ScheduledMessagesTable;
   'member.notification_settings': NotificationSettingsTable;
   'media.post_shares': PostSharesTable;
+  'config.danger_zones': DangerZonesTable;
+  'member.danger_zone_visits': DangerZoneVisitsTable;
 }

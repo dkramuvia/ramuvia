@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 
+import { DangerZoneService } from '../safe-zones/danger-zone.service.js';
 import { SafeZoneService } from '../safe-zones/safe-zone.service.js';
 import { SpeedingService } from './speeding.service.js';
 import { LocationQueue } from './location.queue.js';
@@ -31,6 +32,7 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
     private readonly location: LocationService,
     private readonly zones: SafeZoneService,
     private readonly speeding: SpeedingService,
+    private readonly dangerZones: DangerZoneService,
   ) {}
 
   onModuleInit() {
@@ -88,12 +90,15 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
    */
   private async checkSafeZones(userId: string, points: { latitude: number; longitude: number; accuracy?: number | null; measuredAt: string }[]) {
     const latest = points.reduce((a, b) => (a.measuredAt >= b.measuredAt ? a : b));
-    await this.zones.check(userId, {
+    const fix = {
       latitude: latest.latitude,
       longitude: latest.longitude,
       accuracy: latest.accuracy ?? null,
       measuredAt: new Date(latest.measuredAt),
-    });
+    };
+    await this.zones.check(userId, fix);
+    // 위험지역도 같은 위치로 함께 봅니다 (WBS 9.6)
+    await this.dangerZones.check(userId, fix);
   }
   /**
    * 과속인지 (WBS 8.1).

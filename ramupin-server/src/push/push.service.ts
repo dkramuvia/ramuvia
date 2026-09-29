@@ -6,6 +6,7 @@ import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { env } from '../config/env.js';
+import { NotificationSettingsService, type NotificationCategory } from './notification-settings.service.js';
 
 /**
  * 푸시 알림 발송 (WBS 6단계, FCM).
@@ -23,17 +24,35 @@ export interface PushMessage {
   title: string;
   body: string;
   channel: PushChannel;
+  /**
+   * 사용자가 켜고 끄는 단위 (앱 [설정 > 알림] 항목).
+   *
+   * 채널과 다릅니다 — 채널은 **안드로이드 알림 채널**로 소리·중요도를 정하고,
+   * 이건 **받을지 말지**를 정합니다. 안 주면 채널에서 미루어 봅니다.
+   */
+  category?: NotificationCategory;
   /** 알림을 누르면 열 화면 (예: /journey/123) */
   route?: string;
   data?: Record<string, string>;
 }
+
+/** 종류를 안 적었을 때 채널에서 미루어 보는 값 */
+const CATEGORY_OF_CHANNEL: Record<PushChannel, NotificationCategory> = {
+  sos: 'sos',
+  danger: 'sos',
+  anomaly: 'sos',
+  general: 'notice',
+};
 
 @Injectable()
 export class PushService implements OnModuleInit {
   private readonly logger = new Logger(PushService.name);
   private messaging: Messaging | null = null;
 
-  constructor(@Inject(MAIN_DB) private readonly db: MainDb) {}
+  constructor(
+    @Inject(MAIN_DB) private readonly db: MainDb,
+    private readonly settings: NotificationSettingsService,
+  ) {}
 
   onModuleInit() {
     if (!env.FIREBASE_SERVICE_ACCOUNT_FILE) {
@@ -80,6 +99,16 @@ export class PushService implements OnModuleInit {
    */
   async sendToUsers(userIds: string[], message: PushMessage): Promise<{ sent: number }> {
     if (userIds.length === 0) return { sent: 0 };
+
+    // **여기서 한 번에 거릅니다.** 부르는 쪽마다 설정을 확인하게 하면 언젠가 빠뜨립니다
+    const category = message.category ?? CATEGORY_OF_CHANNEL[message.channel];
+    const allowed = await this.settings.filterRecipients(userIds, category);
+    if (allowed.length === 0) {
+      this.logger.debug(`알림 설정으로 모두 걸러짐 (${category}): ${message.title}`);
+      return { sent: 0 };
+    }
+    userIds = allowed;
+
     if (!this.messaging) {
       this.logger.debug(`푸시 건너뜀 (키 없음): ${message.title}`);
       return { sent: 0 };

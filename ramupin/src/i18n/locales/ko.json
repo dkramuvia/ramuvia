@@ -567,6 +567,7 @@
   "notificationSettings": {
     "dnd": "방해 금지",
     "dndDesc": "이 시간 동안 알림을 받지 않아요.",
+    "sosAlwaysOn": "SOS 는 안전을 위해 꺼도 전달됩니다.",
     "start": "시작",
     "end": "종료",
     "sectionSafety": "긴급 및 안전",

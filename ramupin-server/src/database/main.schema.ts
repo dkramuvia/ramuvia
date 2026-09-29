@@ -384,6 +384,29 @@ export interface ScheduledMessagesTable {
   updated_at: Generated<Date>;
 }
 
+/**
+ * 알림 설정과 방해 금지 시간 (WBS 8.1).
+ * 시각 칸은 Postgres `time` 이라 `'23:00:00'` 문자열로 오갑니다.
+ */
+export interface NotificationSettingsTable {
+  user_id: string;
+  dnd_enabled: Generated<boolean>;
+  dnd_start: Generated<string>;
+  dnd_end: Generated<string>;
+  /** 방해 금지 시각의 기준. 23시는 사용자가 있는 곳의 23시입니다 */
+  timezone: Generated<string>;
+  sos: Generated<boolean>;
+  battery: Generated<boolean>;
+  geofence: Generated<boolean>;
+  location_request: Generated<boolean>;
+  friend_request: Generated<boolean>;
+  group_activity: Generated<boolean>;
+  notice: Generated<boolean>;
+  marketing: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -418,4 +441,5 @@ export interface MainDatabase {
   'member.safe_zone_recipients': SafeZoneRecipientsTable;
   'member.safe_zone_events': SafeZoneEventsTable;
   'member.scheduled_messages': ScheduledMessagesTable;
+  'member.notification_settings': NotificationSettingsTable;
 }

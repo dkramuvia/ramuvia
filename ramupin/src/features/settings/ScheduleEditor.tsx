@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
-import { AppText, Button, Switch } from '@/components/ui';
+import { AppText, Button, Switch, TimeWheels } from '@/components/ui';
 import { makeStyles, radius, typography, useColors } from '@/theme';
 import type { ScheduledMessage } from '@/types/models';
 
@@ -188,68 +188,6 @@ function Calendar({ value, onChange }: { value: Date; onChange: (date: Date) => 
   );
 }
 
-const ROW = 40;
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
-
-/** 피그마 "시간 설정" 휠: 시 / 분(5분 단위) / 오전·오후 */
-function TimeWheels({ hours24, minutes, onChange }: { hours24: number; minutes: number; onChange: (h24: number, m: number) => void }) {
-  const styles = useStyles();
-  const pm = hours24 >= 12;
-  const hour12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-  const to24 = (h12: number, isPm: boolean) => (h12 % 12) + (isPm ? 12 : 0);
-  const minuteRounded = Math.round(minutes / 5) * 5 === 60 ? 55 : Math.round(minutes / 5) * 5;
-
-  return (
-    <View style={styles.wheels}>
-      <View style={styles.wheelHighlight} pointerEvents="none" />
-      <Wheel values={HOURS} value={hour12} format={(v) => String(v).padStart(2, '0')} onChange={(h) => onChange(to24(h, pm), minuteRounded)} />
-      <AppText variant="title4">:</AppText>
-      <Wheel values={MINUTES} value={minuteRounded} format={(v) => String(v).padStart(2, '0')} onChange={(m) => onChange(hours24, m)} />
-      <Wheel values={[0, 1]} value={pm ? 1 : 0} format={(v) => (v ? 'PM' : 'AM')} onChange={(v) => onChange(to24(hour12, v === 1), minuteRounded)} />
-    </View>
-  );
-}
-
-function Wheel({ values, value, format, onChange }: { values: number[]; value: number; format: (v: number) => string; onChange: (v: number) => void }) {
-  const styles = useStyles();
-  const colors = useColors();
-  const ref = useRef<FlatList<number>>(null);
-  const index = Math.max(0, values.indexOf(value));
-
-  useEffect(() => {
-    ref.current?.scrollToOffset({ offset: index * ROW, animated: false });
-    // 처음 한 번만 위치 맞춤 (이후는 사용자가 스크롤)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <FlatList
-      ref={ref}
-      data={values}
-      keyExtractor={(v) => String(v)}
-      style={styles.wheel}
-      showsVerticalScrollIndicator={false}
-      snapToInterval={ROW}
-      decelerationRate="fast"
-      nestedScrollEnabled
-      contentContainerStyle={{ paddingVertical: ROW }}
-      getItemLayout={(_, i) => ({ length: ROW, offset: ROW * i, index: i })}
-      onMomentumScrollEnd={(e) => {
-        const i = Math.min(values.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.y / ROW)));
-        if (values[i] !== value) onChange(values[i]);
-      }}
-      renderItem={({ item }) => (
-        <View style={styles.wheelItem}>
-          <AppText variant={item === value ? 'title4' : 'body1'} color={item === value ? colors.textStrong : colors.textMuted}>
-            {format(item)}
-          </AppText>
-        </View>
-      )}
-    />
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { maxHeight: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: colors.popup },
@@ -275,19 +213,6 @@ const useStyles = makeStyles((colors) => ({
   cell: { width: `${100 / 7}%` },
   day: { height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.xs },
   daySelected: { backgroundColor: colors.primaryLight },
-  wheels: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, height: ROW * 3 },
-  wheelHighlight: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    top: ROW,
-    height: ROW,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.surfaceStrong,
-  },
-  wheel: { height: ROW * 3, flexGrow: 0, width: 56 },
-  wheelItem: { height: ROW, alignItems: 'center', justifyContent: 'center' },
   ttsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   preview: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   buttons: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28 },

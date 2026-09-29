@@ -22,6 +22,7 @@ export { Switch } from './Switch';
 export { Tag } from './Tag';
 export { TermsAgreement, requiredAgreed, type TermItem } from './TermsAgreement';
 export { TextField } from './TextField';
+export { TimeWheels } from './TimeWheels';
 export { ThemedStatusBar } from './ThemedStatusBar';
 export { ToggleRow } from './ToggleRow';
 export { UnderlineTabs } from './UnderlineTabs';

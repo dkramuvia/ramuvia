@@ -1,22 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { AppText, Button, Screen, ToggleRow } from '@/components/ui';
+import { AppText, Button, Popup, Screen, TimeWheels, ToggleRow } from '@/components/ui';
 import { useAlertStore } from '@/features/alerts/alertStore';
 import { SAMPLE_CARDS, SAMPLE_POPUPS } from '@/features/alerts/samples';
+import { useNotificationSettings, useSaveNotificationSettings } from '@/features/settings/queries';
 import { fontFamily, makeStyles, radius, useColors } from '@/theme';
+import type { NotificationSettings } from '@/types/models';
 
-type SettingKey =
-  | 'dnd'
-  | 'sos'
-  | 'battery'
-  | 'geofence'
-  | 'locationRequest'
-  | 'friendRequest'
-  | 'groupActivity'
-  | 'notice'
-  | 'marketing';
+/** 켜고 끄는 항목들 (방해 금지는 따로 다룹니다) */
+type SettingKey = 'sos' | 'battery' | 'geofence' | 'locationRequest' | 'friendRequest' | 'groupActivity' | 'notice' | 'marketing';
 
 const SECTIONS: { titleKey: string; items: SettingKey[] }[] = [
   { titleKey: 'sectionSafety', items: ['sos', 'battery'] },
@@ -28,23 +22,26 @@ const SECTIONS: { titleKey: string; items: SettingKey[] }[] = [
 // TODO(정책): 배터리 경고 기준값은 서버 정책값 사용 (WBS 8.9)
 const BATTERY_ALERT_LEVEL = 15;
 
+/** `23:00` → 23시 / 0분 */
+const parseHhmm = (value: string) => {
+  const [h, m] = value.split(':').map(Number);
+  return { hours24: h || 0, minutes: m || 0 };
+};
+const toHhmm = (hours24: number, minutes: number) => `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
 /** 피그마: 알림 설정 (283:27507) */
 export default function NotificationSettingsScreen() {
   const styles = useStyles();
   const { t } = useTranslation();
-  // TODO(5단계): 서버 알림 설정 API 연동. 지금은 화면 안에서만 유지
-  const [values, setValues] = useState<Record<SettingKey, boolean>>({
-    dnd: false,
-    sos: true,
-    battery: false,
-    geofence: false,
-    locationRequest: false,
-    friendRequest: false,
-    groupActivity: false,
-    notice: false,
-    marketing: false,
-  });
-  const set = (key: SettingKey) => (value: boolean) => setValues((v) => ({ ...v, [key]: value }));
+  const { data: settings } = useNotificationSettings();
+  const save = useSaveNotificationSettings();
+  /** 시간 고르는 창: 시작인지 끝인지 */
+  const [editing, setEditing] = useState<'start' | 'end' | null>(null);
+
+  if (!settings) return <Screen title={t('screens.notificationSettings')} tab="map" contentStyle={styles.content} />;
+
+  const patch = (changes: Partial<NotificationSettings>) => save.mutate({ ...settings, ...changes });
+  const editingValue = editing === 'end' ? settings.dndEnd : settings.dndStart;
 
   return (
     <Screen title={t('screens.notificationSettings')} tab="map" contentStyle={styles.content}>
@@ -52,14 +49,23 @@ export default function NotificationSettingsScreen() {
         <ToggleRow
           title={t('notificationSettings.dnd')}
           description={t('notificationSettings.dndDesc')}
-          value={values.dnd}
-          onValueChange={set('dnd')}
+          value={settings.dndEnabled}
+          onValueChange={(dndEnabled) => patch({ dndEnabled })}
         />
-        {/* TODO: 시간 선택기 연결 */}
-        <View style={[styles.timeBox, !values.dnd && styles.timeBoxOff]}>
-          <TimeRow label={t('notificationSettings.start')} value="23:00" />
+        <View style={[styles.timeBox, !settings.dndEnabled && styles.timeBoxOff]}>
+          <TimeRow
+            label={t('notificationSettings.start')}
+            value={settings.dndStart}
+            disabled={!settings.dndEnabled}
+            onPress={() => setEditing('start')}
+          />
           <View style={styles.divider} />
-          <TimeRow label={t('notificationSettings.end')} value="05:00" />
+          <TimeRow
+            label={t('notificationSettings.end')}
+            value={settings.dndEnd}
+            disabled={!settings.dndEnabled}
+            onPress={() => setEditing('end')}
+          />
         </View>
       </View>
 
@@ -72,16 +78,77 @@ export default function NotificationSettingsScreen() {
             <ToggleRow
               key={key}
               title={t(`notificationSettings.${key}`)}
-              description={t(`notificationSettings.${key}Desc`, { level: BATTERY_ALERT_LEVEL })}
-              value={values[key]}
-              onValueChange={set(key)}
+              // SOS 는 꺼도 서버가 보냅니다. 끄면 그 사실을 알려 줍니다
+              description={
+                key === 'sos' && !settings.sos
+                  ? t('notificationSettings.sosAlwaysOn')
+                  : t(`notificationSettings.${key}Desc`, { level: BATTERY_ALERT_LEVEL })
+              }
+              value={settings[key]}
+              onValueChange={(value) => patch({ [key]: value } as Partial<NotificationSettings>)}
             />
           ))}
         </View>
       ))}
 
+      {editing ? (
+        <TimePopup
+          title={t(editing === 'start' ? 'notificationSettings.start' : 'notificationSettings.end')}
+          value={editingValue}
+          onCancel={() => setEditing(null)}
+          onConfirm={(next) => {
+            patch(editing === 'start' ? { dndStart: next } : { dndEnd: next });
+            setEditing(null);
+          }}
+        />
+      ) : null}
+
       {__DEV__ ? <AlertPreview /> : null}
     </Screen>
+  );
+}
+
+/** 시작·끝 시각을 고르는 팝업 (예약 메시지와 같은 휠) */
+function TimePopup({
+  title,
+  value,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  value: string;
+  onCancel: () => void;
+  onConfirm: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [time, setTime] = useState(parseHhmm(value));
+  return (
+    <Popup
+      visible
+      title={title}
+      confirmLabel={t('common.confirm')}
+      onConfirm={() => onConfirm(toHhmm(time.hours24, time.minutes))}
+      cancelLabel={t('common.cancel')}
+      onCancel={onCancel}
+      onDismiss={onCancel}
+    >
+      <TimeWheels hours24={time.hours24} minutes={time.minutes} onChange={(hours24, minutes) => setTime({ hours24, minutes })} />
+    </Popup>
+  );
+}
+
+function TimeRow({ label, value, disabled, onPress }: { label: string; value: string; disabled?: boolean; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${value}`} disabled={disabled} onPress={onPress} style={styles.timeRow}>
+      <AppText variant="label2" color={colors.textSecondary}>
+        {label}
+      </AppText>
+      <AppText variant="title4" style={styles.timeValue}>
+        {value}
+      </AppText>
+    </Pressable>
   );
 }
 
@@ -104,21 +171,6 @@ function AlertPreview() {
           <Button key={c.kind} label={`card:${c.kind}`} variant="soft" size="xs" shape="square" onPress={() => pushCard(c)} />
         ))}
       </View>
-    </View>
-  );
-}
-
-function TimeRow({ label, value }: { label: string; value: string }) {
-  const styles = useStyles();
-  const colors = useColors();
-  return (
-    <View style={styles.timeRow}>
-      <AppText variant="label2" color={colors.textSecondary}>
-        {label}
-      </AppText>
-      <AppText variant="title4" style={styles.timeValue}>
-        {value}
-      </AppText>
     </View>
   );
 }

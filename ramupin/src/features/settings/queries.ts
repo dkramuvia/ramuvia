@@ -5,17 +5,19 @@ import {
   geofencesApi,
   hideModeApi,
   historyApi,
+  notificationSettingsApi,
   profileApi,
   safetyApi,
   scheduledMessagesApi,
 } from '@/api/endpoints/settings';
 import { useAuthStore } from '@/stores/authStore';
 import { saveGeofenceSnapshot } from '@/features/location/geofenceSnapshot';
-import type { Geofence, HideModeSetting, HistoryCategory, SafetySetting, ScheduledMessage, User } from '@/types/models';
+import type { Geofence, HideModeSetting, HistoryCategory, NotificationSettings, SafetySetting, ScheduledMessage, User } from '@/types/models';
 
 const keys = {
   hideMode: ['settings', 'hide-mode'] as const,
   safety: ['settings', 'safety'] as const,
+  notifications: ['settings', 'notifications'] as const,
   geofences: ['geofences'] as const,
   scheduled: ['scheduled-messages'] as const,
   history: (category?: HistoryCategory) => ['history', category ?? 'all'] as const,
@@ -28,6 +30,17 @@ export function useSaveHideMode() {
   return useMutation({
     mutationFn: (setting: HideModeSetting) => hideModeApi.save(setting),
     onSuccess: (_d, setting) => queryClient.setQueryData(keys.hideMode, setting),
+  });
+}
+
+export const useNotificationSettings = () => useQuery({ queryKey: keys.notifications, queryFn: notificationSettingsApi.get });
+export function useSaveNotificationSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: NotificationSettings) => notificationSettingsApi.save(settings),
+    // 화면에서 토글을 누르면 바로 반영돼야 합니다 (서버 응답을 기다리지 않음)
+    onMutate: (settings) => queryClient.setQueryData(keys.notifications, settings),
+    onSuccess: (saved) => queryClient.setQueryData(keys.notifications, saved),
   });
 }
 

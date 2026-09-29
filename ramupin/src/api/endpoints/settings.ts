@@ -1,3 +1,5 @@
+import { getCalendars } from 'expo-localization';
+
 import { apiClient, mockResponse } from '../client';
 import { mockFriends, mockMe } from '../mock/data';
 import {
@@ -18,6 +20,7 @@ import type {
   HistoryEvent,
   JourneyDay,
   SafetySetting,
+  NotificationSettings,
   ScheduledMessage,
   User,
 } from '@/types/models';
@@ -115,6 +118,53 @@ export const geofencesApi = {
       return mockResponse(undefined);
     }
     await apiClient.delete(`/geofences/${id}`);
+  },
+};
+
+/** 기본값. 서버 마이그레이션의 기본값과 같아야 합니다 */
+const DEFAULT_NOTIFICATIONS: NotificationSettings = {
+  dndEnabled: false,
+  dndStart: '23:00',
+  dndEnd: '05:00',
+  timezone: 'Asia/Seoul',
+  sos: true,
+  battery: true,
+  geofence: true,
+  locationRequest: true,
+  friendRequest: true,
+  groupActivity: true,
+  notice: true,
+  marketing: false,
+};
+
+let mockNotifications: NotificationSettings = { ...DEFAULT_NOTIFICATIONS };
+
+/**
+ * 이 기기의 시간대 (`Asia/Seoul`).
+ *
+ * 방해 금지 "23시" 는 **사용자가 있는 곳의 23시**입니다. 기기가 알려 주는 값을 저장해 두고,
+ * 서버가 알림을 보낼 때 그 시간대로 따집니다. 해외에 나가면 기기 시간대가 바뀌므로,
+ * 저장할 때마다 지금 값으로 덮어씁니다.
+ */
+function deviceTimezone(): string {
+  return getCalendars()[0]?.timeZone || 'Asia/Seoul';
+}
+
+export const notificationSettingsApi = {
+  async get(): Promise<NotificationSettings> {
+    if (!isLive('me')) return mockResponse(clone(mockNotifications));
+    const { data } = await apiClient.get<NotificationSettings>('/me/notification-settings');
+    return data;
+  },
+  async save(settings: NotificationSettings): Promise<NotificationSettings> {
+    // 시간대는 화면에서 고르는 값이 아니라 기기에서 읽는 값이라 여기서 채웁니다
+    const withTimezone = { ...settings, timezone: deviceTimezone() };
+    if (!isLive('me')) {
+      mockNotifications = withTimezone;
+      return mockResponse(clone(mockNotifications));
+    }
+    const { data } = await apiClient.put<NotificationSettings>('/me/notification-settings', withTimezone);
+    return data;
   },
 };
 

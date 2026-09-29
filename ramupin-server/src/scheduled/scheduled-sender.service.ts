@@ -119,6 +119,7 @@ export class ScheduledSenderService implements OnModuleInit, OnApplicationShutdo
           title: row.title,
           body: row.body,
           channel: 'general',
+          category: 'notice',
           route: '/settings/scheduled-messages',
           // 받는 폰이 소리로 읽어 줄지 판단합니다 (푸시 data 는 문자열만 담깁니다)
           data: { kind: 'scheduledMessage', tts: row.tts ? '1' : '0' },

@@ -258,6 +258,26 @@ export interface SafetySetting {
   agencies: EmergencyAgency[];
 }
 
+/** 알림 설정 (WBS 8.1). 앱 [설정 > 알림] 화면 */
+export interface NotificationSettings {
+  /** 방해 금지 시간을 쓰는지 */
+  dndEnabled: boolean;
+  /** `23:00` 꼴. **사용자가 있는 곳의 시각**입니다 */
+  dndStart: string;
+  dndEnd: string;
+  /** 기기 시간대 (`Asia/Seoul`) */
+  timezone: string;
+  /** 화면에서는 끌 수 있지만 **서버는 그래도 보냅니다** — 위험할 때 오는 알림이라 */
+  sos: boolean;
+  battery: boolean;
+  geofence: boolean;
+  locationRequest: boolean;
+  friendRequest: boolean;
+  groupActivity: boolean;
+  notice: boolean;
+  marketing: boolean;
+}
+
 export interface ScheduledMessage {
   id: string;
   /** 메시지를 받을 사람 (내가 친구에게 예약, WBS 8.2) */

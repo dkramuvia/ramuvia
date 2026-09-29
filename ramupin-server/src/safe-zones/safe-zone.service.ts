@@ -256,6 +256,7 @@ export class SafeZoneService {
         title: '라무핀',
         body,
         channel: 'general',
+        category: 'geofence',
         route: `/journey/${userId}`,
         data: { zoneId, kind: crossing },
       })

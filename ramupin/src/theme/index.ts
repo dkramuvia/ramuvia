@@ -30,3 +30,6 @@ export const layout = {
 // 다크 모드 (피그마 2026-09-28). 색이 들어가는 스타일은 makeStyles 로 만듭니다
 export * from './palettes';
 export * from './useTheme';
+
+// 지도 위에 얹는 것들은 앱 화면 색이 아니라 지도 밝기를 따라갑니다
+export * from './mapOverlay';

@@ -25,7 +25,7 @@ import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
-import { layout, makeStyles, radius, useColors, type Palette } from '@/theme';
+import { layout, makeMapStyles, makeStyles, radius, useColors, useMapOverlay, type Palette } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
@@ -57,6 +57,10 @@ type SheetContent = 'feed' | 'friends';
 export default function MapScreen() {
   const styles = useStyles();
   const colors = useColors();
+  // 지도 위에 얹는 것들은 앱 화면 색이 아니라 지도 밝기를 따라갑니다.
+  // 앱만 다크로 두면 밝은 지도 위에 흰 글자가 되어 지역명·날씨·버튼이 사라집니다
+  const overlayStyles = useOverlayStyles();
+  const overlay = useMapOverlay();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
   const mapRef = useRef<AppMapViewHandle>(null);
@@ -165,7 +169,7 @@ export default function MapScreen() {
       <SafeAreaView edges={['top']} style={styles.overlayTop} pointerEvents="box-none">
         <View style={styles.topRow} pointerEvents="box-none">
           <View style={styles.addressBlock}>
-            <AppText variant="display" color={colors.textStrong} numberOfLines={1}>
+            <AppText variant="display" color={overlay.text} numberOfLines={1}>
               {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
             </AppText>
             <WeatherBadge weather={weather} />
@@ -174,8 +178,8 @@ export default function MapScreen() {
             <Pressable accessibilityLabel={t('map.profile')} onPress={() => router.push('/settings')}>
               <Avatar name={me?.nickname ?? ''} imageUrl={me?.avatarUrl} />
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => router.push('/sos')} style={styles.pillButton}>
-              <AppText variant="headline" color={colors.black}>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/sos')} style={overlayStyles.pillButton}>
+              <AppText variant="headline" color={overlay.pillText}>
                 {t('map.sos')}
               </AppText>
             </Pressable>
@@ -184,9 +188,9 @@ export default function MapScreen() {
               accessibilityLabel={t('map.myLocation')}
               disabled={!location}
               onPress={() => location && mapRef.current?.moveTo(location)}
-              style={[styles.roundButton, !location && styles.disabled]}
+              style={[overlayStyles.roundButton, !location && styles.disabled]}
             >
-              <Ionicons name="locate" size={20} color={colors.text} />
+              <Ionicons name="locate" size={20} color={overlay.pillText} />
             </Pressable>
             {/* 로드뷰(거리뷰)는 네이버 지도 기능이라 유료 플랜에서만 (WBS 10.5) */}
             <Pressable
@@ -199,9 +203,9 @@ export default function MapScreen() {
                   ? router.push({ pathname: '/street-view', params: { lat: location.latitude, lng: location.longitude, name: areaName ?? '' } })
                   : showToast(t('streetView.premiumOnly', { plan: PLAN_NAMES[minPlanFor('premiumMap')] })))
               }
-              style={[styles.roundButton, !location && styles.disabled]}
+              style={[overlayStyles.roundButton, !location && styles.disabled]}
             >
-              <Ionicons name="man-outline" size={20} color={colors.text} />
+              <Ionicons name="man-outline" size={20} color={overlay.pillText} />
             </Pressable>
           </View>
         </View>
@@ -308,22 +312,6 @@ const useStyles = makeStyles((colors) => ({
   addressBlock: { flex: 1, gap: 4 },
   address: { flex: 1 },
   topButtons: { alignItems: 'flex-end', gap: 12, paddingTop: 8 },
-  pillButton: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(247,247,248,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roundButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(247,247,248,0.95)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   disabled: { opacity: 0.4 },
   permissionBanner: {
     flexDirection: 'row',
@@ -380,4 +368,40 @@ const useStyles = makeStyles((colors) => ({
   feedItem: { flexDirection: 'row', gap: 16, paddingVertical: 8 },
   feedIcon: { width: 48, height: 48 },
   feedTexts: { flex: 1, gap: 12 },
+}));
+
+/**
+ * 지도 위에 얹는 버튼들 — 앱 화면 색이 아니라 지도 밝기를 따라갑니다.
+ *
+ * 그림자를 넣는 이유: 알약 바탕(#F7F7F8)이 밝은 지도 바탕과 거의 같은 색이라,
+ * 폰에서 재 보니 차이가 1~2 밖에 안 나 버튼이 안 보였습니다. 글자·아이콘만
+ * 공중에 떠 있는 것처럼 보입니다.
+ */
+const BUTTON_SHADOW = {
+  elevation: 3,
+  shadowColor: '#000000',
+  shadowOpacity: 0.18,
+  shadowRadius: 4,
+  shadowOffset: { width: 0, height: 2 },
+} as const;
+
+const useOverlayStyles = makeMapStyles((overlay) => ({
+  pillButton: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    backgroundColor: overlay.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...BUTTON_SHADOW,
+  },
+  roundButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: overlay.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...BUTTON_SHADOW,
+  },
 }));

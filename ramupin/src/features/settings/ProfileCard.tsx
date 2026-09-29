@@ -28,11 +28,18 @@ export function ProfileCard({ onPress }: { onPress?: () => void }) {
         ) : null}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={t('friendAdd.myQr')} onPress={() => router.push('/friends/my-qr')} style={styles.qr}>
-        <Ionicons name="qr-code" size={40} color={colors.textStrong} />
+        <Ionicons name="qr-code" size={40} color={QR_GLYPH} />
       </Pressable>
     </Card>
   );
 }
+
+/**
+ * QR 타일은 테마를 따라가지 않습니다. 밝은 바탕에 어두운 무늬여야
+ * QR 로 읽히고, 다크 모드에서 흰 무늬가 되면 거의 안 보였습니다.
+ */
+const QR_TILE = 'rgba(255,255,255,0.92)';
+const QR_GLYPH = '#0C0D0E';
 
 const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, minHeight: 78 },
@@ -41,7 +48,7 @@ const styles = StyleSheet.create({
     width: 57,
     height: 57,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.67)',
+    backgroundColor: QR_TILE,
     alignItems: 'center',
     justifyContent: 'center',
   },

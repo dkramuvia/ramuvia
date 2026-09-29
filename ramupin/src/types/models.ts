@@ -266,4 +266,6 @@ export interface ScheduledMessage {
   body: string;
   scheduledAt: string;
   tts: boolean;
+  /** 이미 보냈는지 (서버가 채웁니다). 지난 예약을 흐리게 보여 줄 때 씁니다 */
+  sent?: boolean;
 }

@@ -16,11 +16,12 @@ import { PushModule } from './push/push.module.js';
 import { JourneyModule } from './journey/journey.module.js';
 import { WeatherModule } from './weather/weather.module.js';
 import { SafeZoneModule } from './safe-zones/safe-zone.module.js';
+import { ScheduledModule } from './scheduled/scheduled.module.js';
 import { SosModule } from './sos/sos.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, JourneyModule, WeatherModule, AnomalyModule, AdminModule, HealthModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, JourneyModule, WeatherModule, AnomalyModule, AdminModule, HealthModule],
 })
 export class AppModule {}

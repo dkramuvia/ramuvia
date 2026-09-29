@@ -365,6 +365,25 @@ export interface PushTokensTable {
   updated_at: Generated<Date>;
 }
 
+/** 예약 메시지 (WBS 8.2). 보내는 사람 폰이 꺼져 있어도 가야 해서 서버가 보냅니다 */
+export interface ScheduledMessagesTable {
+  id: Generated<string>;
+  /** 예약을 건 사람 */
+  user_id: string;
+  /** 받을 사람 (건 사람의 친구) */
+  target_id: string;
+  title: string;
+  body: string;
+  scheduled_at: Date;
+  /** 받는 폰에서 소리로 읽어 줄지 */
+  tts: Generated<boolean>;
+  /** 보낸 시각. NULL 이면 아직 안 보냈습니다 */
+  sent_at: Date | null;
+  failed_reason: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -398,4 +417,5 @@ export interface MainDatabase {
   'member.safe_zones': SafeZonesTable;
   'member.safe_zone_recipients': SafeZoneRecipientsTable;
   'member.safe_zone_events': SafeZoneEventsTable;
+  'member.scheduled_messages': ScheduledMessagesTable;
 }

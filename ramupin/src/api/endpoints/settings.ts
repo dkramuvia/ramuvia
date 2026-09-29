@@ -120,12 +120,12 @@ export const geofencesApi = {
 
 export const scheduledMessagesApi = {
   async list(): Promise<ScheduledMessage[]> {
-    if (env.useMock) return mockResponse(clone(mockScheduledMessages));
+    if (!isLive('scheduled')) return mockResponse(clone(mockScheduledMessages));
     const { data } = await apiClient.get<ScheduledMessage[]>('/scheduled-messages');
     return data;
   },
   async save(message: Omit<ScheduledMessage, 'id'> & { id?: string }): Promise<ScheduledMessage> {
-    if (env.useMock) {
+    if (!isLive('scheduled')) {
       if (message.id) {
         const index = mockScheduledMessages.findIndex((m) => m.id === message.id);
         mockScheduledMessages[index] = message as ScheduledMessage;
@@ -141,7 +141,7 @@ export const scheduledMessagesApi = {
     return data;
   },
   async remove(id: string): Promise<void> {
-    if (env.useMock) {
+    if (!isLive('scheduled')) {
       const index = mockScheduledMessages.findIndex((m) => m.id === id);
       if (index >= 0) mockScheduledMessages.splice(index, 1);
       return mockResponse(undefined);

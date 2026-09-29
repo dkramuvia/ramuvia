@@ -6,9 +6,13 @@ import { colors as light } from './colors';
  * **왜 지금 나누나**: 다크 모드는 화면 몇 개를 고치는 일이 아니라 색을 쓰는 방식 자체를
  * 바꾸는 일입니다. `colors` 를 쓰는 파일이 98개라, 나중에 하면 그만큼 다시 만져야 합니다.
  *
- * **아직 하지 않은 것**: 다크 값은 피그마에서 아직 뽑지 못했습니다 (피그마가 속도 제한).
- * 지금 값은 라이트를 뒤집은 **임시값**이고, 피그마 값이 들어오면 이 파일만 고치면 됩니다.
- * 화면 코드는 건드릴 필요가 없습니다 — 그게 이렇게 나누는 이유입니다.
+ * **다크 값은 어디서 왔나**: 피그마 다크 페이지를 그림으로 받아(파일 조회가 속도 제한에
+ * 걸려 있었습니다) 픽셀에서 많이 쓰인 색을 세어 뽑았습니다 (`scripts/sample-colors.mjs`).
+ * 배경·카드처럼 넓게 칠한 색은 이 방법으로도 정확합니다. 실제로 나온 비율은
+ * #1C1C1C 15%, #0C0C0C 12%, #101010 9%, #303030 7% 였습니다.
+ *
+ * 글자·선처럼 가는 것은 그림에서 흐려져 정확하지 않을 수 있습니다.
+ * 피그마 조회가 풀리면 그 값으로 한 번 맞춰 보는 것이 좋습니다.
  */
 
 /**
@@ -31,29 +35,30 @@ const dark: Palette = {
   white: '#FFFFFF',
   black: '#000000',
 
-  // 배경 — 피그마 다크 화면의 밑색
-  background: '#121212',
-  backgroundWarm: '#1A1A1A',
-  surface: '#1E1E1E',
-  surfaceStrong: '#252525',
-  surfaceSoft: '#2525258A',
-  popup: '#1E1E1E',
+  // 배경 — 그림에서 가장 많이 나온 순서대로
+  background: '#101010', // 화면 밑색
+  backgroundWarm: '#0C0C0C', // 가입·온보딩 (더 어둡게)
+  surface: '#1C1C1C', // 카드·설정 메뉴
+  surfaceStrong: '#303030', // 세그먼트 트랙, 비활성 버튼
+  surfaceSoft: '#30303066',
+  popup: '#242424',
 
-  // 글자 — 라이트의 반대 방향으로. 순백은 눈이 부셔 쓰지 않습니다
-  text: '#E3E6E8',
-  textStrong: '#F7F7F8',
-  textTitle: '#F7F7F8',
-  textSecondary: '#C7CDD1',
+  // 글자 — 그림에서 나온 밝은 색 기준. 순백(#FFFFFF)은 눈이 부셔 쓰지 않습니다
+  text: '#F0F0F0',
+  textStrong: '#FCFCFC',
+  textTitle: '#FCFCFC',
+  textSecondary: '#D8D8D8',
   textTertiary: '#ACB3B9',
   textPlaceholder: '#74818B',
   textMuted: '#6D6E6E',
   textLabel: '#9AA0AA',
-  textOnDark: '#F7F7F8',
+  textOnDark: '#F4F4F8',
 
-  // 선
-  border: '#3D3D3E',
-  borderLight: '#2E3438',
-  divider: '#2E3438',
+  // 선 — 어두운 배경에서는 선을 밝게 하는 대신 **더 밝은 면**으로 구분합니다.
+  // 라이트처럼 진한 선을 쓰면 어두운 바탕에서 보이지 않습니다
+  border: '#3C3C3C',
+  borderLight: '#282828',
+  divider: '#282828',
 
   // 브랜드는 어두운 배경에서도 그대로 씁니다 (식별용 색이라 바뀌면 안 됩니다)
   brown: '#5B4F4B',
@@ -61,12 +66,12 @@ const dark: Palette = {
   brownLight: '#7C6D67',
 
   // 아바타
-  avatarBackground: '#2E3438',
+  avatarBackground: '#2C2C2C',
   avatarText: '#ACB3B9',
 
   // 하단 탭
-  tabBar: '#1A1A1A',
-  tabBarBorder: '#252525',
+  tabBar: '#181818',
+  tabBarBorder: '#242424',
   tabInactive: '#6D6E6E',
 };
 

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -48,12 +49,14 @@ export default function FreeTrialScreen() {
 
   return (
     <LinearGradient colors={['#F8C9E8', '#C9B6FF']} style={styles.flex}>
+      {/* 늘 밝은 화면이라 시계·배터리는 검은 글자로 (테마를 따라가면 다크에서 안 보입니다) */}
+      <StatusBar style="dark" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => router.back()} hitSlop={8} style={styles.close}>
-          <Ionicons name="close" size={26} color={colors.textStrong} />
+          <Ionicons name="close" size={26} color={ON_LIGHT} />
         </Pressable>
         <ScrollView contentContainerStyle={styles.content}>
-          <AppText variant="title2" align="center" style={styles.headline}>
+          <AppText variant="title2" color={ON_LIGHT} align="center" style={styles.headline}>
             {t('plans.trialHeadline')}
           </AppText>
           <View style={styles.heroIcon}>
@@ -67,7 +70,7 @@ export default function FreeTrialScreen() {
                   <LinearGradient colors={['#FFD3F1', '#C7B8FF']} style={styles.benefitIcon}>
                     <Ionicons name={b.icon} size={30} color={colors.white} />
                   </LinearGradient>
-                  <AppText variant="label1Bold" align="center">
+                  <AppText variant="label1Bold" color={ON_LIGHT} align="center">
                     {t(`plans.${b.key}`)}
                   </AppText>
                 </View>
@@ -78,7 +81,9 @@ export default function FreeTrialScreen() {
               <BillingToggle yearly={yearly} onChange={setYearly} labels={[t('plans.monthly'), t('plans.yearly')]} />
             </View>
             <View style={[styles.outline, styles.price]}>
-              <AppText variant="label1">{t('plans.trialPrice')}</AppText>
+              <AppText variant="label1" color={ON_LIGHT}>
+                {t('plans.trialPrice')}
+              </AppText>
             </View>
 
             <Pressable accessibilityRole="button" disabled={pending} onPress={start}>
@@ -88,7 +93,7 @@ export default function FreeTrialScreen() {
                 </AppText>
               </LinearGradient>
             </Pressable>
-            <AppText variant="caption" color={colors.textTertiary} align="center">
+            <AppText variant="caption" color={ON_LIGHT_SUB} align="center">
               {t('plans.trialNotice')}
             </AppText>
           </View>
@@ -98,6 +103,13 @@ export default function FreeTrialScreen() {
   );
 }
 
+/**
+ * 이 화면은 **라이트에서도 다크에서도 파스텔 그라데이션 위의 흰 시트**입니다.
+ * 늘 밝은 배경이라 글자는 테마를 따라가면 안 됩니다 (다크에서 흰 글자가 되어 사라집니다).
+ */
+const ON_LIGHT = '#0C0D0E';
+const ON_LIGHT_SUB = '#5D676F';
+
 const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   close: { position: 'absolute', top: 56, right: 20, zIndex: 2 },
@@ -105,11 +117,12 @@ const useStyles = makeStyles((colors) => ({
   headline: { paddingHorizontal: 24 },
   heroIcon: { alignItems: 'center', paddingVertical: 36 },
   sheet: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, backgroundColor: colors.white, padding: 16, gap: 16 },
+  // 혜택 칸·가격 줄도 흰 시트 위라 늘 밝은 회색이어야 합니다
   benefits: { flexDirection: 'row', gap: 10 },
-  benefit: { flex: 1, height: 150, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  benefit: { flex: 1, height: 150, borderRadius: 12, backgroundColor: '#EFF0F2', alignItems: 'center', justifyContent: 'center', gap: 16 },
   benefitIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   outline: { borderRadius: 28, borderWidth: 2, borderColor: '#D7A4F5', padding: 2 },
-  price: { height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceStrong },
+  price: { height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E3E6E8' },
   cta: { height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   dim: { opacity: 0.6 },
 }));

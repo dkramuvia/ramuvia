@@ -10,7 +10,14 @@ interface BillingToggleProps {
   labels?: [string, string];
 }
 
-/** 피그마 "매달 / 연간 -20% off" 전환 */
+/**
+ * 피그마 "매달 / 연간 -20% off" 전환.
+ *
+ * 고른 쪽은 **항상 흰 알약**이라 그 위 글자도 고정으로 어둡게 둡니다.
+ * `colors.textStrong` 을 쓰면 다크에서 흰 글자가 되어 흰 알약 위에서 사라집니다.
+ */
+const SELECTED_TEXT = '#0C0D0E';
+
 export function BillingToggle({ yearly, onChange, dark, labels = ['매달', '연간'] }: BillingToggleProps) {
   const styles = useStyles();
   const colors = useColors();
@@ -26,10 +33,10 @@ export function BillingToggle({ yearly, onChange, dark, labels = ['매달', '연
             onPress={() => onChange(isYearly)}
             style={[styles.item, selected && styles.itemSelected]}
           >
-            <AppText variant={selected ? 'body1Bold' : 'body1'} color={selected ? colors.textStrong : dark ? '#BDBDBD' : colors.textTertiary}>
+            <AppText variant={selected ? 'body1Bold' : 'body1'} color={selected ? SELECTED_TEXT : dark ? '#BDBDBD' : colors.textTertiary}>
               {labels[isYearly ? 1 : 0]}
               {isYearly ? (
-                <AppText variant="caption" color={selected ? colors.textStrong : dark ? '#BDBDBD' : colors.textTertiary}>
+                <AppText variant="caption" color={selected ? SELECTED_TEXT : dark ? '#BDBDBD' : colors.textTertiary}>
                   {'  -20% off'}
                 </AppText>
               ) : null}

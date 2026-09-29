@@ -53,8 +53,10 @@ export default function PlansScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <Ionicons name="calendar" size={40} color={colors.accent} />
-          <AppText variant="title4">{t('plans.heroTitle')}</AppText>
-          <AppText variant="label1" color={colors.textSecondary}>
+          <AppText variant="title4" color={ON_WHITE}>
+            {t('plans.heroTitle')}
+          </AppText>
+          <AppText variant="label1" color={ON_WHITE_SUB}>
             {t('plans.heroDesc')}
           </AppText>
         </View>
@@ -93,7 +95,7 @@ export default function PlansScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           {PLANS.map((p, i) => (
             <Pressable key={p.id} accessibilityRole="tab" accessibilityState={{ selected: i === index }} onPress={() => select(i)} style={[styles.chip, i === index && styles.chipSelected]}>
-              <AppText variant="label1" color={i === index ? '#FF6A4D' : colors.textSecondary}>
+              <AppText variant="label1" color={i === index ? '#FF6A4D' : ON_WHITE_SUB}>
                 {p.name}
               </AppText>
             </Pressable>
@@ -134,6 +136,13 @@ export default function PlansScreen() {
     </SafeAreaView>
   );
 }
+
+/**
+ * 이 화면은 **라이트에서도 어둡습니다** (#232323). 그 위의 흰 카드·칩도 늘 흰색이라,
+ * 그 안의 글자는 테마를 따라가면 안 됩니다 — 다크에서 흰 글자가 되어 사라집니다.
+ */
+const ON_WHITE = '#0C0D0E';
+const ON_WHITE_SUB = '#464D53';
 
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#232323' },

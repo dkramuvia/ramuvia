@@ -111,7 +111,19 @@ export default function MapScreen() {
   }, []);
 
   // 내 상태는 활동 인식을 먼저 봅니다. 실내에서는 속도가 튀어 "이동중" 이 잘못 뜹니다
-  const myStatus = statusText({ activity: getActivity()?.type, speedKmh: location?.speedKmh, stayedSince: myStayedSince });
+  const status = statusText({ activity: getActivity()?.type, speedKmh: location?.speedKmh, stayedSince: myStayedSince });
+  /**
+   * 내용이 같으면 **같은 객체**로 유지합니다.
+   *
+   * 마커 목록은 이 값이 바뀔 때만 다시 만듭니다. 매번 새 객체를 주면 화면을 그릴 때마다
+   * 마커가 새로 만들어지고, 안드로이드 지도는 그때마다 마커를 그림으로 다시 구워
+   * 지도가 버벅입니다.
+   */
+  const myStatus = useMemo(
+    () => status,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [status?.text, status?.kind],
+  );
 
   const markers = useMemo<MapMarkerItem[]>(() => {
     const items: MapMarkerItem[] = friends

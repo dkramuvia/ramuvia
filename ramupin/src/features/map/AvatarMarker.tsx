@@ -3,14 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import { Avatar } from '@/components/ui';
 import { makeStyles } from '@/theme';
 import { StatusBadge } from './StatusBadge';
+import type { MovementStatus } from './statusText';
 
 interface AvatarMarkerProps {
   name: string;
   imageUrl?: string;
   online?: boolean;
   isMe?: boolean;
-  /** 아바타 아래 상태 한 줄 (피그마 2026-09-28: "걸어서 이동중", "같은 자리에서 1시간 40분") */
-  status?: string | null;
+  /** 아바타 아래 상태 한 줄 + 이동 수단 그림 (피그마 2026-09-28) */
+  status?: MovementStatus | null;
   battery?: number | null;
 }
 
@@ -29,7 +30,7 @@ export function AvatarMarker({ name, imageUrl, online, isMe, status, battery }: 
       </View>
       {status ? (
         <View style={styles.badge}>
-          <StatusBadge text={status} battery={battery} tone={isMe ? 'mine' : 'friend'} />
+          <StatusBadge text={status.text} kind={status.kind} battery={battery} tone={isMe ? 'mine' : 'friend'} />
         </View>
       ) : null}
     </View>

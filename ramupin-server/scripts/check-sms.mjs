@@ -51,21 +51,29 @@ console.log('\n2. 업체가 키를 받아 주는가 (문자 안 감)');
 // 남은 건수 조회. 키가 틀리면 여기서 바로 막힙니다 — 문자를 보내 보지 않고도 알 수 있습니다
 const 잔여 = await 호출('/remain/');
 확인('키·아이디가 맞음', Number(잔여.result_code) === 1, 잔여.message ?? '');
-if (Number(잔여.result_code) === -101) {
-  // 알리고는 **키가 틀린 경우·아이디가 틀린 경우·IP 가 등록되지 않은 경우를 모두 같은 말로** 답합니다
-  // (직접 확인했습니다 — 세 경우 다 "인증오류입니다."). 그래서 볼 곳을 여기에 적어 둡니다
-  let ip = '확인 실패';
-  try {
-    const r = await fetch('https://api.ipify.org', { signal: AbortSignal.timeout(8000) });
-    if (r.ok) ip = (await r.text()).trim();
-  } catch {}
+if (Number(잔여.result_code) < 0) {
+  // 알리고 응답을 직접 찔러 보고 알아낸 뜻입니다. 화면 메시지만으로는 헷갈립니다
+  //   -101 "인증오류입니다."      아이디가 그런 계정이 없음
+  //   -101 "인증오류입니다.-IP"   아이디·키는 맞고 **보내는 IP 가 등록되지 않음**
+  //   -102 "API 인증오류입니다."  계정은 있는데 문자 API 를 쓸 수 없는 상태
+  const 메시지 = String(잔여.message ?? '');
   console.log('');
-  console.log('     알리고는 아래 세 가지를 모두 같은 "인증오류" 로 답해서 구분이 안 됩니다.');
-  console.log('     관리자 화면에서 순서대로 봐 주세요:');
-  console.log(`     1) 발송 가능 IP 목록에 이 PC 의 IP 가 있는지 — 지금 이 PC: ${ip}`);
-  console.log('        등록 안 된 IP 에서는 보낼 수 없습니다. 서버로 옮기면 서버 IP 도 등록해야 합니다');
-  console.log('     2) ALIGO_USER_ID 가 알리고 **로그인 아이디** 인지');
-  console.log('     3) ALIGO_API_KEY 가 관리자 > 문자 API 의 **발급키** 인지 (다른 서비스 키 아님)');
+  if (메시지.includes('-IP')) {
+    let ip = '확인 실패';
+    try {
+      const r = await fetch('https://api.ipify.org', { signal: AbortSignal.timeout(8000) });
+      if (r.ok) ip = (await r.text()).trim();
+    } catch {}
+    console.log('     아이디와 발급키는 맞습니다. **보내는 IP 가 등록되지 않았습니다.**');
+    console.log(`     알리고 관리자 > 발송 가능 IP 에 이 주소를 넣어 주세요 — ${ip}`);
+    console.log('     서버로 옮기면 서버 IP 도 넣어야 하고, 회선이 바뀌면 다시 막힙니다');
+  } else if (Number(잔여.result_code) === -102) {
+    console.log('     계정은 찾았는데 문자 API 를 쓸 수 없는 상태입니다.');
+    console.log('     알리고 관리자 > 문자 API 에서 사용 신청·발급키를 확인해 주세요');
+  } else {
+    console.log('     ALIGO_USER_ID 가 알리고 **로그인 아이디** 인지 봐 주세요 (그런 계정이 없다는 답입니다).');
+    console.log('     발급키는 관리자 > 문자 API 의 것이어야 합니다 (다른 서비스 키 아님)');
+  }
 }
 if (Number(잔여.result_code) === 1) {
   console.log(`     남은 건수 — SMS ${잔여.SMS_CNT ?? '?'} · LMS ${잔여.LMS_CNT ?? '?'} · MMS ${잔여.MMS_CNT ?? '?'}`);

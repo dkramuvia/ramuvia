@@ -36,8 +36,15 @@ export function Popup({
   const styles = useStyles();
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss ?? onCancel ?? onConfirm}>
-      <Pressable style={styles.backdrop} onPress={onDismiss}>
-        <Pressable style={styles.card} onPress={() => undefined}>
+      <View style={styles.backdrop}>
+        {/*
+          바깥을 눌러 닫는 영역은 카드 **뒤에** 깝니다.
+          예전에는 카드를 Pressable 로 감싸 "바깥 누름"을 막았는데, 그러면 카드가 터치를
+          먼저 가져가서 **안에 있는 스크롤이 동작하지 않습니다** — 시간 선택 휠이 안 넘어갔습니다
+          (2026-09-30 폰에서 확인).
+        */}
+        {onDismiss ? <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} /> : null}
+        <View style={styles.card}>
           {image ? (
             <View style={styles.imageArea}>
               <Image source={image} style={styles.image} resizeMode="contain" />
@@ -56,8 +63,8 @@ export function Popup({
               <Button label={confirmLabel} variant="dark" size="md" onPress={onConfirm} style={styles.button} />
             </View>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

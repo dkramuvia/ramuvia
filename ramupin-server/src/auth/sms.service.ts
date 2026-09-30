@@ -1,12 +1,37 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { maskPhone } from '../common/phone.js';
+import { maskPhone, normalizePhone } from '../common/phone.js';
 import { env } from '../config/env.js';
 
 /**
- * 문자 발송. 업체는 대표님이 계약 예정.
- * TODO(문자 업체): 아래 send() 안에서 업체 API 호출로 교체 (발신번호 사전 등록 필요)
+ * 문자 발송.
+ *
+ * 업체는 **알리고**(<https://smartsms.aligo.in>)입니다. `SMS_PROVIDER` 로 고릅니다.
+ *   dev    — 실제로 보내지 않고 로그에만. 인증번호는 123456 고정
+ *   aligo  — 실제 발송
+ *
+ * **키는 서버에만 있습니다.** 앱에 넣으면 공개된 키가 되어 누구나 그 키로 문자를
+ * 보낼 수 있고 요금은 우리가 냅니다. 그래서 앱은 "인증번호 보내줘" 만 요청하고
+ * 번호와 키는 서버가 다룹니다.
  */
+
+/** 알리고 문자 발송 주소 */
+const ALIGO_SEND_URL = 'https://apis.aligo.in/send/';
+
+/** 업체가 늦게 답해도 앱이 하염없이 기다리지 않게 */
+const TIMEOUT_MS = 10_000;
+
+/**
+ * 알리고 응답.
+ * `result_code` 가 1 이면 성공, 0 보다 작으면 실패이고 `message` 에 이유가 옵니다.
+ */
+interface AligoResponse {
+  result_code: number | string;
+  message?: string;
+  success_cnt?: number;
+  error_cnt?: number;
+}
+
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
@@ -32,5 +57,56 @@ export class SmsService {
       return;
     }
     if (!phone) throw new Error('문자를 보낼 번호가 없습니다');
+    await this.sendViaAligo(phone, text, label);
+  }
+
+  /**
+   * 알리고로 보냅니다.
+   *
+   * **로그에 번호 원문과 키를 남기지 않습니다.** 서버 로그는 여러 사람이 보고 오래 남습니다.
+   */
+  private async sendViaAligo(phone: string, text: string, label: string): Promise<void> {
+    const body = new URLSearchParams({
+      key: env.ALIGO_API_KEY,
+      user_id: env.ALIGO_USER_ID,
+      sender: env.ALIGO_SENDER,
+      // 알리고는 숫자만 받습니다 ("010-1234-5678" → "01012345678")
+      receiver: normalizePhone(phone),
+      msg: text,
+      // 90바이트가 넘으면 LMS 라 요금이 다릅니다. 인증번호는 짧아 SMS 로 충분합니다
+      msg_type: 'SMS',
+      testmode_yn: env.ALIGO_TEST_MODE,
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(ALIGO_SEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (error) {
+      // 업체가 죽었거나 느린 경우. 번호는 가린 채로 남깁니다
+      this.logger.error(`문자 발송 실패 (${label} → ${maskPhone(phone)}): 업체 연결 ${String(error)}`);
+      throw new Error('문자 발송에 실패했습니다');
+    }
+
+    if (!response.ok) {
+      this.logger.error(`문자 발송 실패 (${label} → ${maskPhone(phone)}): HTTP ${response.status}`);
+      throw new Error('문자 발송에 실패했습니다');
+    }
+
+    const result = (await response.json()) as AligoResponse;
+    // 알리고는 숫자로도 문자열로도 줍니다
+    const code = Number(result.result_code);
+    if (code !== 1) {
+      // `message` 에 "잔액 부족", "발신번호 미등록" 같은 이유가 옵니다. 원인을 찾으려면 남겨야 합니다
+      this.logger.error(`문자 발송 거절 (${label} → ${maskPhone(phone)}): [${code}] ${result.message ?? '이유 없음'}`);
+      throw new Error('문자 발송에 실패했습니다');
+    }
+
+    const mode = env.ALIGO_TEST_MODE === 'Y' ? ' (테스트 모드 — 실제로 가지 않음)' : '';
+    this.logger.log(`문자 발송${mode}: ${label} → ${maskPhone(phone)}`);
   }
 }

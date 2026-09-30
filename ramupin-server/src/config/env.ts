@@ -18,8 +18,34 @@ const schema = z.object({
   // access token 은 짧게: 기기 교체·로그아웃이 늦어도 이 시간 안에는 반영됨 (가드가 세션도 매번 확인)
   JWT_EXPIRES_IN: z.string().default('1h'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(60),
-  // 문자 발송: dev = 서버 로그에만 출력하고 인증번호 123456 고정. TODO: 대표님 계약 업체 연동
-  SMS_PROVIDER: z.enum(['dev']).default('dev'),
+  /**
+   * 문자 발송 업체.
+   *   dev    — 실제로 보내지 않고 서버 로그에만 남깁니다. 인증번호는 123456 고정
+   *   aligo  — 알리고 (https://smartsms.aligo.in)
+   */
+  SMS_PROVIDER: z.enum(['dev', 'aligo']).default('dev'),
+  /**
+   * 알리고 로그인 아이디 (Identifier).
+   * 알리고 관리자 화면에 적힌 **아이디** 그대로입니다.
+   */
+  ALIGO_USER_ID: z.string().default(''),
+  /**
+   * 알리고 API 발급키.
+   *
+   * **비밀값입니다.** 저장소에 올리지 말고, 앱에도 넣지 마세요.
+   * 앱에 넣은 키는 공개된 키입니다 — 누구나 그 키로 문자를 보낼 수 있고 요금은 우리가 냅니다.
+   */
+  ALIGO_API_KEY: z.string().default(''),
+  /**
+   * 발신번호. **알리고에 미리 등록한 번호만** 쓸 수 있습니다 (전기통신사업법).
+   * 등록하지 않은 번호로 보내면 업체가 거절합니다.
+   */
+  ALIGO_SENDER: z.string().default(''),
+  /**
+   * 테스트 모드 (`Y`). 요금이 나가지 않고 실제 문자도 가지 않지만
+   * 나머지는 실제와 똑같이 동작합니다. 붙일 때 이걸로 먼저 확인하세요.
+   */
+  ALIGO_TEST_MODE: z.enum(['Y', 'N']).default('N'),
   // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
   KAKAO_APP_ID: z.coerce.number().int().positive(),
   /** X(트위터) OAuth 2.0 Client ID. 공개 클라이언트(PKCE)라 secret 은 쓰지 않습니다 */
@@ -77,6 +103,11 @@ export const env = parsed.data;
 if (env.NODE_ENV === 'production' && env.DEV_LOGIN_ENABLED) {
   console.error('운영 환경에서는 DEV_LOGIN_ENABLED=false 여야 합니다');
   process.exit(1);
+}
+
+if (env.SMS_PROVIDER === 'aligo' && !(env.ALIGO_USER_ID && env.ALIGO_API_KEY && env.ALIGO_SENDER)) {
+  // 여기서 막지 않으면 인증번호가 조용히 안 가고, 사용자는 "문자가 안 와요" 만 겪습니다
+  throw new Error('SMS_PROVIDER=aligo 인데 ALIGO_USER_ID / ALIGO_API_KEY / ALIGO_SENDER 중 빠진 값이 있습니다');
 }
 
 if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'dev') {

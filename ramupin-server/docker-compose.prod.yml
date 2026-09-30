@@ -1,0 +1,38 @@
+# 서버 1대(AWS EC2) 운영용 덮어쓰기.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile app up -d --build
+#
+# 개발용 `docker-compose.yml` 과 **무엇이 다른가**
+#   1. DB·Redis·저장소 포트를 **바깥으로 열지 않습니다.** 컨테이너끼리만 붙습니다
+#   2. API 도 127.0.0.1 에만 열고, 앞에 웹서버(TLS)를 둡니다
+#   3. 로그가 디스크를 채우지 않게 크기를 제한합니다
+#
+# **왜 포트를 닫는가**: 열어 두면 인터넷에서 바로 DB 에 붙습니다. 비밀번호가 있어도
+# 무차별 대입과 알려진 취약점 공격이 하루에도 수천 번 들어옵니다. 보안 그룹만
+# 믿지 않고 여기서도 닫아 둡니다 (둘 중 하나가 잘못 열려도 나머지가 막습니다).
+
+services:
+  db:
+    ports: !override []
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  redis:
+    ports: !override []
+    logging: *logging
+
+  storage:
+    # 사진·동영상은 API 를 거쳐 나가므로 저장소도 바깥에 열지 않습니다
+    ports: !override []
+    logging: *logging
+
+  api:
+    # 웹서버(Caddy/nginx)가 이 포트로 넘겨줍니다. 바깥에서 직접 오지는 못합니다
+    ports: !override
+      - '127.0.0.1:3000:3000'
+    environment:
+      NODE_ENV: production
+    logging: *logging

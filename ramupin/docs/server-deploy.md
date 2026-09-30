@@ -12,12 +12,33 @@
 | 항목 | 값 | 왜 |
 |---|---|---|
 | **리전** | **서울 `ap-northeast-2`** | 한국 사용자 위치를 받습니다. 스톡홀름은 왕복 250ms, 서울은 10~30ms. **리전은 나중에 못 바꿉니다** — 새로 만들어야 합니다 |
-| AMI | **Amazon Linux 2023** (x86_64) | 기본값 그대로. 2029-06까지 지원 |
+| **AMI** | **Ubuntu 24.04 LTS** (x86_64) — **Ubuntu Pro 아님** | 아래 §1-2. Pro 는 시간당 요금이 더 붙습니다 |
 | **인스턴스 유형** | **`t3.medium`** (2 vCPU · **4GiB**) | 아래 §1-1 참고. 유형은 나중에 바꿀 수 있습니다(중지 → 변경 → 시작) |
 | **스토리지** | **gp3 `60GiB`** | 기본 8GiB는 도커 이미지만으로 찹니다 |
 | 키 페어 | 새로 만들어 `.pem` 내려받기 | **다시 받을 수 없습니다.** 안전한 곳에 두세요 |
 | 퍼블릭 IP 자동 할당 | 켜기 | |
 | **탄력적 IP** | 만든 뒤 붙이기 | 없으면 재부팅할 때 주소가 바뀌어 앱 설정을 매번 고쳐야 합니다 |
+
+### 1-2. Ubuntu 인가 Amazon Linux 인가
+
+**둘 다 문제없이 돌아갑니다.** 성능·안정성·보안 차이는 이 규모에서 못 느끼고,
+지원 기한도 비슷합니다 (AL2023 은 2029-06, Ubuntu 24.04 LTS 는 2029-04).
+요금도 같습니다 — 화면의 `Ubuntu Pro` 는 유료판이라 더 비싸고,
+**그냥 Ubuntu 는 Amazon Linux 와 같은 단가**입니다.
+
+**Ubuntu 를 권하는 이유는 우리가 쓸 두 가지가 덜 번거롭기 때문입니다.**
+
+| | Amazon Linux 2023 | Ubuntu 24.04 |
+|---|---|---|
+| Docker Compose v2 | 저장소에 **없음.** 바이너리를 직접 받고 갱신도 손으로 | 공식 저장소에 있음, 갱신 자동 |
+| Caddy (HTTPS 자동) | 공식 저장소 없음 (COPR 은 AL2023 미지원일 수 있음) | 공식 apt 저장소 있음 |
+| 검색해서 나오는 문서 | 적음 | 대부분 Ubuntu 기준 |
+
+Amazon Linux 의 장점(AWS 지원 계약 포함, AWS 도구 선탑재)은 **유료 지원 플랜이
+있어야** 의미가 있고, SSM 에이전트는 Ubuntu AMI 에도 들어 있습니다.
+
+> **이미 Amazon Linux 로 만들었다면 다시 만들 필요 없습니다.** §2 에 두 쪽 명령을
+> 모두 적어 두었습니다.
 
 ### 1-1. 왜 t3.micro 로는 안 되는가
 
@@ -55,9 +76,25 @@ t3.micro 는 **1GiB** 입니다. 게다가 서버에서 도커 이미지를 빌�
 
 ## 2. 서버에 올리는 순서
 
-SSH 로 붙은 뒤 차례대로 칩니다. (`ec2-user@탄력적IP`)
+SSH 로 붙은 뒤 차례대로 칩니다.
+접속 계정은 **Ubuntu 면 `ubuntu@`**, **Amazon Linux 면 `ec2-user@`** 입니다.
 
-### 2-1. 도커
+### 2-1. 도커 — **Ubuntu**
+
+Docker 공식 설치 스크립트가 **도커와 Compose v2 를 한 번에** 넣습니다.
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git
+curl -fsSL https://get.docker.com | sudo sh
+sudo systemctl enable --now docker
+sudo usermod -aG docker ubuntu
+```
+
+여기서 **한 번 로그아웃했다 다시 접속**합니다 (그래야 `sudo` 없이 `docker` 가 됩니다).
+`docker compose version` 이 v2.x 를 찍으면 됩니다.
+
+### 2-1-a. 도커 — **Amazon Linux 2023** (이쪽으로 만들었다면)
 
 ```bash
 sudo dnf update -y
@@ -66,9 +103,7 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker ec2-user
 ```
 
-여기서 **한 번 로그아웃했다 다시 접속**합니다 (그래야 `sudo` 없이 `docker` 가 됩니다).
-
-Amazon Linux 2023 에는 **Docker Compose v2 가 들어 있지 않습니다.** 따로 넣습니다:
+로그아웃했다 다시 접속한 뒤, **Compose v2 를 따로 넣습니다.** AL2023 저장소에는 없습니다:
 
 ```bash
 mkdir -p ~/.docker/cli-plugins
@@ -77,6 +112,8 @@ curl -SL https://github.com/docker/compose/releases/latest/download/docker-compo
 chmod +x ~/.docker/cli-plugins/docker-compose
 docker compose version      # v2.x 가 나오면 됨
 ```
+
+> 이 방식은 **자동으로 갱신되지 않습니다.** 새 버전이 필요하면 같은 명령을 다시 칩니다.
 
 ### 2-2. 스왑 (t3.small 이하면 **필수**, t3.medium 이면 권장)
 
@@ -109,7 +146,7 @@ PC 의 Git Bash 에서:
 ```bash
 cd /e/ramuvia
 rsync -avz --exclude node_modules --exclude dist --exclude .git \
-  -e "ssh -i <키파일>.pem" ramupin-server ec2-user@<탄력적IP>:~/
+  -e "ssh -i <키파일>.pem" ramupin-server ubuntu@<탄력적IP>:~/   # AL2023 이면 ec2-user@
 ```
 
 ### 2-4. `.env` 만들기
@@ -176,13 +213,27 @@ API 는 `127.0.0.1:3000` 에만 열려 있어서, 앞에 웹서버를 둬야 합
 도메인의 A 레코드를 탄력적 IP 로 맞춰 둔 뒤:
 
 ```bash
-sudo dnf install -y 'dnf-command(copr)'
-sudo dnf copr enable -y @caddy/caddy
-sudo dnf install -y caddy
+# --- Ubuntu: 공식 저장소 ---
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+
+# --- Amazon Linux 2023: 공식 저장소가 없어 바이너리로 ---
+#   (COPR 은 AL2023 을 지원하지 않을 수 있습니다)
+# curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o caddy
+# sudo install -m 755 caddy /usr/bin/caddy
+# sudo useradd --system --home /var/lib/caddy --shell /usr/sbin/nologin caddy
+# sudo mkdir -p /etc/caddy /var/lib/caddy && sudo chown caddy:caddy /var/lib/caddy
+# sudo curl -fsSL https://raw.githubusercontent.com/caddyserver/dist/master/init/caddy.service -o /etc/systemd/system/caddy.service
+
+# --- 둘 다 공통: 설정을 쓰고 켭니다 ---
 echo 'api.example.com {
   reverse_proxy 127.0.0.1:3000
 }' | sudo tee /etc/caddy/Caddyfile
+sudo systemctl daemon-reload
 sudo systemctl enable --now caddy
+sudo systemctl status caddy
 ```
 
 Caddy 가 **인증서를 알아서 받아 갱신합니다.** 앱의 `EXPO_PUBLIC_API_BASE_URL` 을

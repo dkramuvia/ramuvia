@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { FlatList, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { AppText } from './AppText';
 import { makeStyles, useColors } from '@/theme';
@@ -43,41 +43,56 @@ export function TimeWheels({ hours24, minutes, onChange }: TimeWheelsProps) {
   );
 }
 
+/**
+ * 값이 12개뿐이라 **`ScrollView` 를 씁니다.**
+ *
+ * `FlatList` 를 쓰면 두 가지가 걸립니다.
+ *   1. 바깥이 세로 스크롤일 때 "VirtualizedLists should never be nested" 경고가 뜨고,
+ *      실제로 제자리 맞춤이 어긋납니다 (2026-09-30 폰에서 확인: 고른 값과 강조줄이 한 칸 어긋남)
+ *   2. 12개를 가상화해 봐야 얻는 것이 없습니다
+ *
+ * 처음 위치는 `contentOffset` 으로 **그릴 때 바로** 정합니다. 그려진 뒤에 명령으로
+ * 옮기면 바깥 목록이 아직 자리를 안 잡아 어긋납니다.
+ */
 function Wheel({ values, value, format, onChange }: { values: number[]; value: number; format: (v: number) => string; onChange: (v: number) => void }) {
   const styles = useStyles();
   const colors = useColors();
-  const ref = useRef<FlatList<number>>(null);
+  const ref = useRef<ScrollView>(null);
   const index = Math.max(0, values.indexOf(value));
+  const first = useRef(true);
 
+  // 밖에서 값이 바뀌면(성별 전환처럼) 따라갑니다. 처음 위치는 contentOffset 이 맡습니다
   useEffect(() => {
-    ref.current?.scrollToOffset({ offset: index * ROW, animated: false });
-    // 처음 한 번만 위치 맞춤 (이후는 사용자가 스크롤)
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    ref.current?.scrollTo({ y: index * ROW, animated: false });
+  }, [index]);
 
   return (
-    <FlatList
+    <ScrollView
       ref={ref}
-      data={values}
-      keyExtractor={(v) => String(v)}
       style={styles.wheel}
       showsVerticalScrollIndicator={false}
       snapToInterval={ROW}
       decelerationRate="fast"
       nestedScrollEnabled
+      contentOffset={{ x: 0, y: index * ROW }}
       contentContainerStyle={{ paddingVertical: ROW }}
-      getItemLayout={(_, i) => ({ length: ROW, offset: ROW * i, index: i })}
       onMomentumScrollEnd={(e) => {
         const i = Math.min(values.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.y / ROW)));
         if (values[i] !== value) onChange(values[i]);
       }}
-      renderItem={({ item }) => (
-        <View style={styles.wheelItem}>
+    >
+      {values.map((item) => (
+        <View key={item} style={styles.wheelItem}>
           <AppText variant={item === value ? 'title4' : 'body1'} color={item === value ? colors.textStrong : colors.textMuted}>
             {format(item)}
           </AppText>
         </View>
-      )}
-    />
+      ))}
+    </ScrollView>
   );
 }
 

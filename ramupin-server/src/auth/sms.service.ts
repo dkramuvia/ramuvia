@@ -66,13 +66,23 @@ export class SmsService {
    * **로그에 번호 원문과 키를 남기지 않습니다.** 서버 로그는 여러 사람이 보고 오래 남습니다.
    */
   private async sendViaAligo(phone: string, text: string, label: string): Promise<void> {
+    const receiver = normalizePhone(phone);
+    if (env.NODE_ENV !== 'production' && !this.allowedInDev(receiver)) {
+      // 씨드 계정에는 지어낸 번호가 들어 있습니다. 여기서 막지 않으면 확인 스크립트를
+      // 돌릴 때마다 모르는 사람에게 문자가 가고 요금도 나갑니다.
+      // 조용히 넘기지 않고 던집니다 — 넘기면 "왜 안 왔지" 를 한참 찾게 됩니다
+      throw new Error(
+        `개발 중에는 ALIGO_ALLOW_NUMBERS 에 적은 번호로만 보냅니다 (${maskPhone(phone)} 은 목록에 없습니다)`,
+      );
+    }
+
     const body = new URLSearchParams({
       key: env.ALIGO_API_KEY,
       user_id: env.ALIGO_USER_ID,
       // 발신번호도 숫자만. `.env` 에 "010-1234-5678" 처럼 적어 두면 업체가 거절합니다
       sender: normalizePhone(env.ALIGO_SENDER),
       // 알리고는 숫자만 받습니다 ("010-1234-5678" → "01012345678")
-      receiver: normalizePhone(phone),
+      receiver,
       msg: text,
       // 90바이트가 넘으면 LMS 라 요금이 다릅니다. 인증번호는 짧아 SMS 로 충분합니다
       msg_type: 'SMS',
@@ -109,5 +119,13 @@ export class SmsService {
 
     const mode = env.ALIGO_TEST_MODE === 'Y' ? ' (테스트 모드 — 실제로 가지 않음)' : '';
     this.logger.log(`문자 발송${mode}: ${label} → ${maskPhone(phone)}`);
+  }
+
+  /** 개발 중에 이 번호로 실제 문자를 보내도 되는가 */
+  private allowedInDev(receiver: string): boolean {
+    return env.ALIGO_ALLOW_NUMBERS.split(',')
+      .map((n) => normalizePhone(n))
+      .filter((n) => n.length > 0)
+      .includes(receiver);
   }
 }

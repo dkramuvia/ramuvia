@@ -46,6 +46,15 @@ const schema = z.object({
    * 나머지는 실제와 똑같이 동작합니다. 붙일 때 이걸로 먼저 확인하세요.
    */
   ALIGO_TEST_MODE: z.enum(['Y', 'N']).default('N'),
+  /**
+   * **개발 중에 문자를 받아도 되는 번호 목록** (쉼표로 구분).
+   *
+   * 씨드 계정에는 지어낸 번호가 들어 있습니다. 운영이 아닌 곳에서 `aligo` 를 켜면
+   * 확인 스크립트가 그 번호로 **실제 문자를 보내 버립니다.** 지어낸 번호는
+   * 모르는 사람의 번호일 수 있고 요금도 나갑니다.
+   * 그래서 운영이 아닌 곳에서는 여기 적은 번호로만 나갑니다.
+   */
+  ALIGO_ALLOW_NUMBERS: z.string().default(''),
   // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
   KAKAO_APP_ID: z.coerce.number().int().positive(),
   /** X(트위터) OAuth 2.0 Client ID. 공개 클라이언트(PKCE)라 secret 은 쓰지 않습니다 */
@@ -108,6 +117,15 @@ if (env.NODE_ENV === 'production' && env.DEV_LOGIN_ENABLED) {
 if (env.SMS_PROVIDER === 'aligo' && !(env.ALIGO_USER_ID && env.ALIGO_API_KEY && env.ALIGO_SENDER)) {
   // 여기서 막지 않으면 인증번호가 조용히 안 가고, 사용자는 "문자가 안 와요" 만 겪습니다
   throw new Error('SMS_PROVIDER=aligo 인데 ALIGO_USER_ID / ALIGO_API_KEY / ALIGO_SENDER 중 빠진 값이 있습니다');
+}
+
+if (env.SMS_PROVIDER === 'aligo' && env.NODE_ENV !== 'production' && !env.ALIGO_ALLOW_NUMBERS.trim()) {
+  // 비워 두면 "아무 번호나 허용" 이 되어, 씨드의 지어낸 번호로 모르는 사람에게 문자가 갑니다.
+  // 안전한 쪽이 기본이 되도록 아예 시작을 막습니다
+  throw new Error(
+    'SMS_PROVIDER=aligo 로 개발하려면 ALIGO_ALLOW_NUMBERS 에 문자를 받을 번호를 적어 주세요 ' +
+      '(예: ALIGO_ALLOW_NUMBERS=01012345678). 씨드 계정의 지어낸 번호로 실제 문자가 나가는 것을 막기 위한 것입니다',
+  );
 }
 
 if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'dev') {

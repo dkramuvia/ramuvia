@@ -14,6 +14,7 @@ import { applyLoginResult } from '@/features/auth/session';
 import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
+import { useSignUpStore } from '@/stores/signUpStore';
 import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
@@ -137,6 +138,27 @@ export default function WelcomeScreen() {
     }
   };
 
+  /**
+   * 개발용: 소셜 계정 없이 **가입 흐름**으로 들어갑니다.
+   *
+   * 위 devSkip 은 이미 있는 계정으로 **로그인**해 버려서 가입 화면을 볼 수 없습니다.
+   * 휴대폰 인증(문자)만 시험하려면 이쪽이 필요합니다.
+   */
+  const devSignUp = async () => {
+    if (!isLive('auth')) {
+      showToast('서버 연결(auth)이 꺼져 있습니다');
+      return;
+    }
+    try {
+      const { signUpToken } = await authApi.devSignUpToken();
+      useSignUpStore.getState().reset();
+      useSignUpStore.getState().set({ signUpToken, provider: 'dev' });
+      router.push('/profile-setup');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <OnboardingLayout showBack={false}>
       <View style={styles.hero}>
@@ -183,17 +205,25 @@ export default function WelcomeScreen() {
       </View>
 
       {env.devSkipAuth || __DEV__ ? (
-        <Pressable accessibilityRole="button" onPress={devSkip} style={styles.devSkip}>
-          <AppText variant="caption" color={colors.textMuted}>
-            {t('onboarding.devSkip')}
-          </AppText>
-        </Pressable>
+        <View style={styles.devRow}>
+          <Pressable accessibilityRole="button" onPress={devSkip} style={styles.devSkip}>
+            <AppText variant="caption" color={colors.textMuted}>
+              {t('onboarding.devSkip')}
+            </AppText>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={devSignUp} style={styles.devSkip}>
+            <AppText variant="caption" color={colors.textMuted}>
+              개발용: 가입 흐름
+            </AppText>
+          </Pressable>
+        </View>
       ) : null}
     </OnboardingLayout>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
+  devRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   hero: { height: 210 },
   heroText: { paddingTop: 16 },
   cloud: { position: 'absolute', left: 60, bottom: -10, width: 200, height: 134 },

@@ -15,6 +15,18 @@ import { env } from '../config/env.js';
  * 번호와 키는 서버가 다룹니다.
  */
 
+/**
+ * **개발 중에는 절대 보내지 않는 번호들.**
+ *
+ * 010-1234-5678 같은 자리표시 번호는 실제로 **다른 사람이 쓰고 있을 수 있습니다.**
+ * 시드·시험 계정에 이런 번호가 들어 있어서, `ALIGO_ALLOW_NUMBERS=*` 로 열어 두면
+ * 새 기기 인증 같은 흐름에서 모르는 사람에게 문자가 갑니다
+ * (2026-09-30 에 실제로 한 통 나갔습니다).
+ *
+ * `*` 로 열어도 이 목록은 막습니다 — 열어 둔 것을 잊는 쪽이 정상이기 때문입니다.
+ */
+const 자리표시_번호 = new Set(['01012345678', '01000000000', '01011111111', '01099999999']);
+
 /** 알리고 문자 발송 주소 */
 const ALIGO_SEND_URL = 'https://apis.aligo.in/send/';
 
@@ -67,6 +79,9 @@ export class SmsService {
    */
   private async sendViaAligo(phone: string, text: string, label: string): Promise<void> {
     const receiver = normalizePhone(phone);
+    if (env.NODE_ENV !== 'production' && 자리표시_번호.has(receiver)) {
+      throw new Error(`자리표시 번호로는 보내지 않습니다 (${maskPhone(phone)}) — 실제 쓰는 사람이 있을 수 있습니다`);
+    }
     if (env.NODE_ENV !== 'production' && !this.allowedInDev(receiver)) {
       // 씨드 계정에는 지어낸 번호가 들어 있습니다. 여기서 막지 않으면 확인 스크립트를
       // 돌릴 때마다 모르는 사람에게 문자가 가고 요금도 나갑니다.

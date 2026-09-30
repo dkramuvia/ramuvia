@@ -175,6 +175,21 @@ export const authApi = {
     return data;
   },
 
+  /**
+   * 개발용: 소셜 로그인 없이 가입 흐름을 시작합니다 (서버 DEV_LOGIN_ENABLED=true 일 때만).
+   *
+   * 휴대폰 인증 화면은 피그마 순서상 **소셜 로그인 다음**이라, 카카오 계정 없이는
+   * 그 화면까지 갈 수 없습니다. 문자 인증만 시험할 때 씁니다.
+   */
+  async devSignUpToken(nickname?: string): Promise<{ signUpToken: string }> {
+    const { data } = await apiClient.post<{ signUpToken: string }>('/auth/dev-sign-up-token', {
+      // 돌릴 때마다 다른 사람이어야 "이미 가입됨" 에 걸리지 않습니다
+      providerUserId: `dev-${Date.now()}`,
+      nickname: nickname ?? null,
+    });
+    return data;
+  },
+
   /** 가입 중 휴대폰 인증번호 발송. 이미 가입된 번호면 alreadyRegistered (WBS 3.7) */
   async requestSignUpCode(signUpToken: string, phone: string): Promise<SmsRequestResult> {
     if (!isLive('auth')) return mockResponse({ alreadyRegistered: false, codeExpiresInSec: 180, resendAfterSec: 30, phoneMasked: null });

@@ -17,26 +17,26 @@ const points = (pairs: [number, number | null][]): SpeedPoint[] =>
 
 describe('speedingSeconds', () => {
   it('지금 과속 중이 아니면 0', () => {
-    expect(speedingSeconds(points([[60, 130], [30, 130], [0, 80]]))).toBe(0);
+    expect(speedingSeconds(points([[60, 160], [30, 160], [0, 80]]))).toBe(0);
   });
 
   it('이어서 넘은 시간만 셉니다', () => {
-    // 90초 전부터 계속 130km/h
-    expect(speedingSeconds(points([[90, 130], [60, 130], [30, 130], [0, 130]]))).toBe(90);
+    // 90초 전부터 계속 160km/h
+    expect(speedingSeconds(points([[90, 160], [60, 160], [30, 160], [0, 160]]))).toBe(90);
   });
 
   it('중간에 기준 아래로 내려가면 거기서 끊깁니다', () => {
     // 90초 전 과속 → 60초 전 정상 → 그 뒤 다시 과속. 30초만 셉니다
-    expect(speedingSeconds(points([[90, 130], [60, 80], [30, 130], [0, 130]]))).toBe(30);
+    expect(speedingSeconds(points([[90, 160], [60, 80], [30, 160], [0, 160]]))).toBe(30);
   });
 
   it('한 점만 튄 것은 거의 0초입니다', () => {
-    expect(speedingSeconds(points([[60, 70], [30, 70], [0, 200]]))).toBe(0);
+    expect(speedingSeconds(points([[60, 70], [30, 70], [0, 220]]))).toBe(0);
   });
 
   it('속도를 모르는 점은 끊는 것으로 봅니다', () => {
     // 속도가 없는 점은 "과속 중이었다" 는 근거가 못 됩니다
-    expect(speedingSeconds(points([[90, 130], [60, null], [30, 130], [0, 130]]))).toBe(30);
+    expect(speedingSeconds(points([[90, 160], [60, null], [30, 160], [0, 160]]))).toBe(30);
   });
 
   it('점이 없으면 0', () => {
@@ -44,7 +44,7 @@ describe('speedingSeconds', () => {
   });
 
   it('순서가 뒤섞여 들어와도 시간 순으로 봅니다', () => {
-    expect(speedingSeconds(points([[0, 130], [90, 130], [30, 130], [60, 130]]))).toBe(90);
+    expect(speedingSeconds(points([[0, 160], [90, 160], [30, 160], [60, 160]]))).toBe(90);
   });
 });
 
@@ -77,9 +77,9 @@ describe('canNotifyAgain', () => {
 
 describe('peakSpeed', () => {
   it('가장 빨랐던 값', () => {
-    expect(peakSpeed(points([[60, 130], [30, 155], [0, 140]]))).toBe(155);
+    expect(peakSpeed(points([[60, 160], [30, 185], [0, 170]]))).toBe(185);
   });
   it('속도를 모르는 점이 섞여도 됩니다', () => {
-    expect(peakSpeed(points([[60, null], [0, 130]]))).toBe(130);
+    expect(peakSpeed(points([[60, null], [0, 160]]))).toBe(160);
   });
 });

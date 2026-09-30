@@ -69,7 +69,8 @@ export class SmsService {
     const body = new URLSearchParams({
       key: env.ALIGO_API_KEY,
       user_id: env.ALIGO_USER_ID,
-      sender: env.ALIGO_SENDER,
+      // 발신번호도 숫자만. `.env` 에 "010-1234-5678" 처럼 적어 두면 업체가 거절합니다
+      sender: normalizePhone(env.ALIGO_SENDER),
       // 알리고는 숫자만 받습니다 ("010-1234-5678" → "01012345678")
       receiver: normalizePhone(phone),
       msg: text,

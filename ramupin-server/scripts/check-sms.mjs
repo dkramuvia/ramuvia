@@ -1,6 +1,7 @@
 // 문자(알리고) 연동 확인
 //   node scripts/check-sms.mjs         키가 맞는지, 남은 건수가 얼마인지만 봅니다 (문자 안 감)
-//   node scripts/check-sms.mjs --send  ALIGO_ALLOW_NUMBERS 의 첫 번호로 실제로 보냅니다
+//   node scripts/check-sms.mjs --send         ALIGO_ALLOW_NUMBERS 의 첫 번호로 보냅니다
+//   node scripts/check-sms.mjs --send --real  이번 한 번만 테스트 모드를 끄고 진짜로 보냅니다
 //
 // 서버를 띄우지 않아도 됩니다. `.env` 를 직접 읽어 업체에 물어봅니다.
 //
@@ -97,15 +98,27 @@ if (!보낼까) {
   확인('ALIGO_ALLOW_NUMBERS 에 번호가 있음', false, '.env 에 받을 번호를 적어 주세요');
 } else {
   console.log(`\n3. 실제 발송 (${받는번호.slice(0, 3)}-****-${받는번호.slice(-4)})`);
-  if (testmode === 'Y') console.log('     ALIGO_TEST_MODE=Y 라 요금은 안 나가지만 문자도 오지 않습니다');
+  // --real 은 .env 를 고치지 않고 이번 한 번만 실제로 보냅니다.
+  // 받는 번호는 여전히 ALIGO_ALLOW_NUMBERS 안에서만 고르므로 엉뚱한 사람에게 갈 일은 없습니다
+  const 이번모드 = process.argv.includes('--real') ? 'N' : testmode;
+  if (이번모드 === 'Y') console.log('     테스트 모드 — 요금은 안 나가지만 문자도 오지 않습니다 (--real 을 붙이면 진짜로 갑니다)');
+  else console.log('     실제 발송입니다 — 문자가 가고 1건 차감됩니다');
   const 결과 = await 호출('/send/', {
     sender: sender.replace(/\D/g, ''),
     receiver: 받는번호,
     msg: '[라무핀] 인증번호 123456\n3분 안에 입력해 주세요.',
     msg_type: 'SMS',
-    testmode_yn: testmode,
+    testmode_yn: 이번모드,
   });
   확인('업체가 받아들임', Number(결과.result_code) === 1, 결과.message ?? '');
+  if (String(결과.message ?? '').includes('발신번호')) {
+    // 키·IP 와는 다른 문제입니다. 보내는 쪽 번호를 미리 등록해야 합니다 (전기통신사업법)
+    console.log('');
+    console.log('     ALIGO_SENDER 번호가 알리고에 등록되어 있지 않습니다.');
+    console.log('     알리고 관리자 > 발신번호 사전등록 에서 그 번호를 등록해 주세요.');
+    console.log('     통신서비스 이용증명원 같은 서류가 필요하고, 승인까지 시간이 걸립니다.');
+    console.log('     이미 등록해 둔 다른 번호가 있으면 ALIGO_SENDER 를 그 번호로 바꿔도 됩니다');
+  }
   if (Number(결과.result_code) === 1) console.log(`     성공 ${결과.success_cnt} · 실패 ${결과.error_cnt}`);
 }
 

@@ -60,9 +60,12 @@ ALIGO_ALLOW_NUMBERS=<개발 중에 문자를 받을 내 번호>
 
 ```
 cd ramupin-server
-node scripts/check-sms.mjs           # 키가 맞는지·남은 건수 (문자 안 감)
-node scripts/check-sms.mjs --send    # ALIGO_ALLOW_NUMBERS 의 첫 번호로 실제 발송
+node scripts/check-sms.mjs                  # 키가 맞는지·남은 건수 (문자 안 감)
+node scripts/check-sms.mjs --send           # ALIGO_ALLOW_NUMBERS 의 첫 번호로 (모드는 .env 따라)
+node scripts/check-sms.mjs --send --real    # .env 를 안 고치고 이번 한 번만 진짜로
 ```
+
+거절당하면 **건수가 차감되지 않습니다.** 발신번호 미등록으로 막혔을 때 확인했습니다.
 
 **번호는 `.env` 에만 적습니다.** 명령줄에 적으면 셸 기록과 화면에 남고,
 그 화면을 남에게 보여 주게 됩니다.
@@ -110,4 +113,10 @@ node scripts/check-sms.mjs --send    # ALIGO_ALLOW_NUMBERS 의 첫 번호로 실
 **번호 원문과 발급키는 로그에 남기지 않습니다** (번호는 `010-****-5678` 로 가립니다).
 로그는 여러 사람이 보고 오래 남기 때문입니다.
 
-자주 나오는 이유 — 발신번호 미등록 · 잔액(건수) 부족 · 아이디/키 불일치.
+| 응답 메시지 | 뜻 |
+|---|---|
+| `등록/인증되지 않은 발신번호입니다.` | `ALIGO_SENDER` 를 알리고에 **사전등록**하지 않았습니다 |
+| `인증오류입니다.-IP` | 보내는 IP 가 등록되지 않았습니다 (2장) |
+| 잔액·건수 부족 | 충전이 필요합니다 |
+
+`check-sms.mjs` 가 이 메시지들을 읽어 어디를 볼지 찍어 줍니다.

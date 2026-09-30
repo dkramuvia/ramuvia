@@ -1,10 +1,12 @@
 // 문자(알리고) 연동 확인
-//   node scripts/check-sms.mjs              키가 맞는지, 남은 건수가 얼마인지만 봅니다 (문자 안 감)
-//   node scripts/check-sms.mjs 01012345678  그 번호로 인증번호 모양의 문자를 실제로 보냅니다
+//   node scripts/check-sms.mjs         키가 맞는지, 남은 건수가 얼마인지만 봅니다 (문자 안 감)
+//   node scripts/check-sms.mjs --send  ALIGO_ALLOW_NUMBERS 의 첫 번호로 실제로 보냅니다
 //
 // 서버를 띄우지 않아도 됩니다. `.env` 를 직접 읽어 업체에 물어봅니다.
 //
-// 키는 화면에 찍지 않습니다. 로그가 남는 곳에서 돌릴 수 있기 때문입니다.
+// **번호를 명령줄에 적지 않습니다.** `.env` 에서 읽습니다.
+// 명령줄에 적으면 셸 기록과 화면에 남고, 그 화면을 남에게 보여 주게 됩니다.
+// 같은 이유로 키도, 번호 원문도 찍지 않습니다 (010-****-5678 로 가립니다).
 import { readFileSync } from 'node:fs';
 
 const envText = readFileSync(new URL('../.env', import.meta.url), 'utf8');
@@ -80,9 +82,19 @@ if (Number(잔여.result_code) === 1) {
   확인('보낼 건수가 남아 있음', Number(잔여.SMS_CNT ?? 0) > 0, '0 이면 충전이 필요합니다');
 }
 
-const 받는번호 = process.argv[2]?.replace(/\D/g, '');
-if (!받는번호) {
-  console.log('\n실제로 보내 보려면 번호를 붙여 주세요:  node scripts/check-sms.mjs 01012345678');
+const 보낼까 = process.argv.includes('--send');
+// 개발 중 문자를 받아도 되는 번호. 서버도 같은 값을 보고 판단합니다 (src/auth/sms.service.ts)
+const 허용 = 값('ALIGO_ALLOW_NUMBERS')
+  .split(',')
+  .map((n) => n.replace(/\D/g, ''))
+  .filter((n) => n.length > 0);
+const 받는번호 = 보낼까 ? 허용[0] : undefined;
+
+if (!보낼까) {
+  console.log('\n실제로 보내 보려면:  node scripts/check-sms.mjs --send');
+  console.log('  (ALIGO_ALLOW_NUMBERS 의 첫 번호로 갑니다. 번호는 .env 에만 적으세요)');
+} else if (!받는번호) {
+  확인('ALIGO_ALLOW_NUMBERS 에 번호가 있음', false, '.env 에 받을 번호를 적어 주세요');
 } else {
   console.log(`\n3. 실제 발송 (${받는번호.slice(0, 3)}-****-${받는번호.slice(-4)})`);
   if (testmode === 'Y') console.log('     ALIGO_TEST_MODE=Y 라 요금은 안 나가지만 문자도 오지 않습니다');

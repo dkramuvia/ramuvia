@@ -60,9 +60,12 @@ ALIGO_ALLOW_NUMBERS=<개발 중에 문자를 받을 내 번호>
 
 ```
 cd ramupin-server
-node scripts/check-sms.mjs                 # 키가 맞는지·남은 건수 (문자 안 감)
-node scripts/check-sms.mjs 01012345678     # 그 번호로 실제 발송
+node scripts/check-sms.mjs           # 키가 맞는지·남은 건수 (문자 안 감)
+node scripts/check-sms.mjs --send    # ALIGO_ALLOW_NUMBERS 의 첫 번호로 실제 발송
 ```
+
+**번호는 `.env` 에만 적습니다.** 명령줄에 적으면 셸 기록과 화면에 남고,
+그 화면을 남에게 보여 주게 됩니다.
 
 `ALIGO_TEST_MODE=Y` 인 동안은 **요금이 나가지 않고 문자도 오지 않습니다.**
 나머지 동작(키 확인·발신번호 확인)은 실제와 같으므로, 먼저 `Y` 로 확인하고

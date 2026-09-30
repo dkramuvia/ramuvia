@@ -11,7 +11,18 @@
 import { readFileSync } from 'node:fs';
 
 const envText = readFileSync(new URL('../.env', import.meta.url), 'utf8');
-const 값 = (이름) => (new RegExp(`^${이름}=(.*)$`, 'm').exec(envText)?.[1] ?? '').trim();
+/**
+ * `.env` 에서 값을 읽습니다.
+ *
+ * **같은 키가 여러 줄 있으면 마지막 줄이 이깁니다** — Node 의 `--env-file` 과 같게 맞춥니다.
+ * 첫 줄을 읽으면 서버가 쓰는 값과 달라져서, 통과했다고 해 놓고 실제로는 다른 설정으로
+ * 돌아가게 됩니다 (2026-09-30 에 SMS_PROVIDER 가 두 줄이라 이걸로 헛짚었습니다).
+ */
+const 값 = (이름) => {
+  const 모두 = [...envText.matchAll(new RegExp(`^${이름}=(.*)$`, 'gm'))];
+  if (모두.length > 1) console.log(`  ! .env 에 ${이름} 가 ${모두.length}줄 있습니다 — 마지막 줄을 씁니다`);
+  return (모두.at(-1)?.[1] ?? '').trim();
+};
 
 const provider = 값('SMS_PROVIDER') || 'dev';
 const user_id = 값('ALIGO_USER_ID');

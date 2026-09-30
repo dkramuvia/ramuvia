@@ -123,6 +123,8 @@ export class SmsService {
 
   /** 개발 중에 이 번호로 실제 문자를 보내도 되는가 */
   private allowedInDev(receiver: string): boolean {
+    // `*` = 아무 번호나. 앱 가입 화면에서 여러 번호로 시험할 때 씁니다
+    if (env.ALIGO_ALLOW_NUMBERS.trim() === '*') return true;
     return env.ALIGO_ALLOW_NUMBERS.split(',')
       .map((n) => normalizePhone(n))
       .filter((n) => n.length > 0)

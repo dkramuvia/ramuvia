@@ -53,6 +53,9 @@ const schema = z.object({
    * 확인 스크립트가 그 번호로 **실제 문자를 보내 버립니다.** 지어낸 번호는
    * 모르는 사람의 번호일 수 있고 요금도 나갑니다.
    * 그래서 운영이 아닌 곳에서는 여기 적은 번호로만 나갑니다.
+   *
+   * `*` 로 두면 **아무 번호나 허용합니다.** 앱 가입 화면에서 여러 번호로 시험할 때 씁니다.
+   * 대신 확인 스크립트가 씨드의 지어낸 번호로 문자를 보내게 되니, 시험이 끝나면 되돌리세요.
    */
   ALIGO_ALLOW_NUMBERS: z.string().default(''),
   // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
@@ -124,8 +127,14 @@ if (env.SMS_PROVIDER === 'aligo' && env.NODE_ENV !== 'production' && !env.ALIGO_
   // 안전한 쪽이 기본이 되도록 아예 시작을 막습니다
   throw new Error(
     'SMS_PROVIDER=aligo 로 개발하려면 ALIGO_ALLOW_NUMBERS 에 문자를 받을 번호를 적어 주세요 ' +
-      '(예: ALIGO_ALLOW_NUMBERS=01012345678). 씨드 계정의 지어낸 번호로 실제 문자가 나가는 것을 막기 위한 것입니다',
+      '(예: ALIGO_ALLOW_NUMBERS=01012345678). 아무 번호나 보내려면 ALIGO_ALLOW_NUMBERS=* 로 두세요. ' +
+      '씨드 계정의 지어낸 번호로 실제 문자가 나가는 것을 막기 위한 것입니다',
   );
+}
+
+if (env.SMS_PROVIDER === 'aligo' && env.NODE_ENV !== 'production' && env.ALIGO_ALLOW_NUMBERS.trim() === '*') {
+  // 켜 둔 것을 잊기 쉬우므로 뜰 때마다 말합니다. 조용하면 몇 주 뒤에 요금으로 알게 됩니다
+  console.warn('[문자] ALIGO_ALLOW_NUMBERS=* — 아무 번호로나 실제 문자가 나갑니다 (씨드의 지어낸 번호 포함)');
 }
 
 if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'dev') {

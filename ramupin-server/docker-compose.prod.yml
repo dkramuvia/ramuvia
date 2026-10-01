@@ -37,6 +37,14 @@ services:
     ports: !override []
     environment:
       NODE_ENV: production
+      # 푸시 알림용 Firebase 키. 아래에서 마운트하는 자리를 가리킵니다.
+      # 이 키는 저장소에 올라가지 않으므로(.gitignore) 이미지에도 없습니다 —
+      # **서버 파일을 넣어 주지 않으면 푸시가 조용히 꺼진 채 돌아갑니다**
+      FIREBASE_SERVICE_ACCOUNT_FILE: /run/secrets/firebase.json
+    volumes:
+      # 서버의 ~/ramupin-secrets/firebase.json 을 읽기 전용으로 넣습니다.
+      # 넣는 방법은 docs/server-deploy.md 의 "Firebase 키 올리기" 참고
+      - ${FIREBASE_SECRET_PATH:-/home/ubuntu/ramupin-secrets/firebase.json}:/run/secrets/firebase.json:ro
     logging: *logging
 
   # 게이트웨이. 지시서가 요구하는 유일한 바깥 창구입니다

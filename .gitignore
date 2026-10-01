@@ -25,3 +25,10 @@ naver-review/
 *.ppk
 *_rsa
 *_ed25519
+
+# Firebase 서비스 계정 키 — 절대 커밋하지 마세요 (서버 권한을 통째로 가진 키입니다)
+*adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
+# 뿌리에 떨어진 안드로이드 설정 사본 (실제로 쓰는 것은 ramupin/google-services.json)
+/google-services.json

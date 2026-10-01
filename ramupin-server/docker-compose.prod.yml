@@ -45,8 +45,11 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     environment:
-      # 인증서 발급·TLS 에 쓰는 도메인. .env 에 SERVER_NAME=api.example.com 을 넣으세요
+      # .env 에 적습니다
+      #   SERVER_NAME=api.ramuviamanager.com        앱이 붙는 API
+      #   ADMIN_SERVER_NAME=ramuviamanager.com      관리자 웹
       SERVER_NAME: ${SERVER_NAME}
+      ADMIN_SERVER_NAME: ${ADMIN_SERVER_NAME}
     volumes:
       # ${...} 를 치환해서 넣어 주는 폴더입니다 (nginx 공식 이미지 기능)
       - ./docker/nginx/nginx.conf:/etc/nginx/templates/default.conf.template:ro

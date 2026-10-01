@@ -155,7 +155,8 @@ nano .env
 
 | 값 | 설명 |
 |---|---|
-| `SERVER_NAME` | **도메인** (예: `api.ramuvia.co.kr`). nginx·인증서가 씁니다 |
+| `SERVER_NAME` | **앱이 붙는 주소** — `api.ramuviamanager.com` |
+| `ADMIN_SERVER_NAME` | **관리자 웹 주소** — `ramuviamanager.com` |
 | `POSTGRES_PASSWORD` · `APP_MAIN_PASSWORD` · `APP_LOCATION_PASSWORD` · `REDIS_PASSWORD` | **새로 만드세요.** 개발 PC 것을 쓰지 마세요 |
 | `JWT_SECRET` | 32자 이상 |
 | `PHONE_ENC_KEY` · `PHONE_HASH_KEY` | base64 32바이트 |
@@ -174,6 +175,23 @@ openssl rand -base64 24      # 비밀번호들
 
 **알리고를 쓰려면 서버의 공인 IP 를 알리고 발송 가능 IP 에 등록**해야 합니다 (PC IP 와 다릅니다).
 
+### 2-5-a. 도메인 (가비아)
+
+`ramuviamanager.com` 은 **가비아**에서 관리합니다 (네임서버 `ns.gabia.net`).
+지금 가비아 기본 안내 페이지만 떠 있어 비어 있습니다.
+
+가비아 DNS 관리에서 **A 레코드 두 개**를 탄력적 IP 로 추가합니다.
+
+| 호스트 | 타입 | 값 | 용도 |
+|---|---|---|---|
+| `@` (또는 비움) | A | `<탄력적 IP>` | 관리자 웹 |
+| `api` | A | `<탄력적 IP>` | 앱이 붙는 API |
+| `www` | A | `<탄력적 IP>` | (선택) |
+
+> 앱 패키지명이 `com.ramuviamanager.ramupin` 이라 도메인과 짝이 맞습니다.
+> **DNS 가 퍼지는 데 몇 분~몇 시간 걸립니다.** `nslookup api.ramuviamanager.com`
+> 이 탄력적 IP 를 답할 때까지 기다렸다가 인증서를 받으세요 — 먼저 시도하면 실패합니다.
+
 ### 2-6. 인증서 먼저 받기
 
 nginx 는 인증서 파일이 없으면 뜨지 않습니다. 도메인 A 레코드를 탄력적 IP 로 맞춘 뒤:
@@ -181,7 +199,7 @@ nginx 는 인증서 파일이 없으면 뜨지 않습니다. 도메인 A 레코�
 ```bash
 docker volume create ramupin-server_certbot-conf
 docker volume create ramupin-server_certbot-www
-docker run --rm -p 80:80 -v ramupin-server_certbot-conf:/etc/letsencrypt -v ramupin-server_certbot-www:/var/www/certbot certbot/certbot certonly --standalone -d <도메인> --agree-tos -m <메일> --no-eff-email
+docker run --rm -p 80:80 -v ramupin-server_certbot-conf:/etc/letsencrypt -v ramupin-server_certbot-www:/var/www/certbot certbot/certbot certonly --standalone -d api.ramuviamanager.com -d ramuviamanager.com -d www.ramuviamanager.com --agree-tos -m <메일> --no-eff-email
 ```
 
 볼륨 이름은 폴더명을 따릅니다. `docker volume ls` 로 확인하세요.
@@ -197,7 +215,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile app up
 
 ```bash
 docker compose ps                      # nginx·api·db·redis·storage
-curl -s https://<도메인>/health         # 응답 확인
+curl -s https://api.ramuviamanager.com/health    # 앱이 붙는 주소
+curl -sI https://ramuviamanager.com/            # 관리자 웹
 docker compose logs -f api
 ```
 

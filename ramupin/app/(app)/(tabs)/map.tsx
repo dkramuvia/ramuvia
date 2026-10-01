@@ -20,6 +20,8 @@ import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { AvatarMarker } from '@/features/map/AvatarMarker';
+import { BadgeMarker } from '@/features/map/BadgeMarker';
+import { markerAvatarSource } from '@/features/map/markerAvatars';
 import { statusText } from '@/features/map/statusText';
 import { WeatherBadge } from '@/features/weather/WeatherBadge';
 import { useWeather } from '@/features/weather/useWeather';
@@ -126,41 +128,62 @@ export default function MapScreen() {
   );
 
   const markers = useMemo<MapMarkerItem[]>(() => {
-    const items: MapMarkerItem[] = friends
-      .filter((f) => f.location)
-      .map((f) => ({
+    const items: MapMarkerItem[] = [];
+    for (const f of friends) {
+      if (!f.location) continue;
+      // 친구 배지는 머문 시간만 보여 줍니다 (피그마 2026-09-28: 검은 배지)
+      const 상태 = statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince });
+      const 캐릭터 = markerAvatarSource(f.avatarUrl, false);
+      items.push({
         id: f.id,
-        coordinate: f.location!,
+        coordinate: f.location,
         label: f.nickname,
         tintColor: f.isOnline ? colors.check : colors.textMuted,
-        children: (
-          <AvatarMarker
-            name={f.nickname}
-            imageUrl={f.avatarUrl}
-            online={f.isOnline}
-            // 친구 배지는 머문 시간만 보여 줍니다 (피그마 2026-09-28: 검은 배지)
-            status={statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince })}
-          />
+        // 캐릭터는 그림 파일로 올립니다 — 뷰로 구우면 그림이 빠집니다 (markerAvatars.ts)
+        iconImage: 캐릭터,
+        // 이 값이 바뀔 때만 마커를 다시 굽습니다 (TrackedMarker 설명 참고)
+        trackKey: `${f.avatarUrl ?? ''}|${f.isOnline}|${상태?.text ?? ''}`,
+        children: 캐릭터 ? null : (
+          <AvatarMarker name={f.nickname} imageUrl={f.avatarUrl} online={f.isOnline} status={상태} />
         ),
         onPress: () => router.push(`/journey/${f.id}`),
-      }));
+      });
+      // 캐릭터를 그림으로 올린 마커에는 배지를 같이 못 답니다. 배지는 따로 겁니다
+      if (캐릭터 && 상태) {
+        items.push({
+          id: `${f.id}:badge`,
+          coordinate: f.location,
+          anchor: { x: 0.5, y: 0 },
+          trackKey: 상태.text,
+          children: <BadgeMarker status={상태} />,
+          onPress: () => router.push(`/journey/${f.id}`),
+        });
+      }
+    }
     if (location && me) {
+      const 내캐릭터 = markerAvatarSource(me.avatarUrl, true);
       items.push({
         id: 'me',
         coordinate: location,
         zIndex: 10,
         label: me.nickname,
+        trackKey: `${me.avatarUrl ?? ''}|${myStatus?.text ?? ''}|${myBattery ?? ''}`,
+        iconImage: 내캐릭터,
         tintColor: colors.primary,
-        children: (
-          <AvatarMarker
-            name={me.nickname}
-            imageUrl={me.avatarUrl}
-            isMe
-            status={myStatus}
-            battery={myBattery}
-          />
+        children: 내캐릭터 ? null : (
+          <AvatarMarker name={me.nickname} imageUrl={me.avatarUrl} isMe status={myStatus} battery={myBattery} />
         ),
       });
+      if (내캐릭터 && myStatus) {
+        items.push({
+          id: 'me:badge',
+          coordinate: location,
+          zIndex: 11,
+          anchor: { x: 0.5, y: 0 },
+          trackKey: `${myStatus.text}|${myBattery ?? ''}`,
+          children: <BadgeMarker status={myStatus} battery={myBattery} isMe />,
+        });
+      }
     }
     return items;
   }, [friends, location, me, myStatus, myBattery]);

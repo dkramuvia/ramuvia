@@ -16,6 +16,11 @@ interface AvatarProps {
   size?: number;
   /** 접속 중이면 오른쪽 아래 초록 점 */
   online?: boolean;
+  /**
+   * 그림이 다 떴을 때(또는 실패했을 때) 부릅니다.
+   * 지도 마커가 이걸 보고 **다시 한 번 굽습니다** → `features/map/TrackedMarker.tsx`
+   */
+  onImageSettled?: () => void;
 }
 
 /** 이름에서 두 글자 이니셜을 만듭니다. 영문은 대문자, 한글은 앞 두 글자. */
@@ -26,7 +31,7 @@ function initials(name: string) {
 }
 
 /** 피그마 "Avatar Placeholder" / "Avatar With Status Badge" */
-export function Avatar({ name, imageUrl, size = 40, online }: AvatarProps) {
+export function Avatar({ name, imageUrl, size = 40, online, onImageSettled }: AvatarProps) {
   const styles = useStyles();
   const colors = useColors();
   const badge = Math.round(size / 4);
@@ -35,7 +40,20 @@ export function Avatar({ name, imageUrl, size = 40, online }: AvatarProps) {
     <View style={{ width: size, height: size }}>
       <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
         {source ? (
-          <Image source={source} style={{ width: size, height: size }} />
+          <Image
+            source={source}
+            // 부모에서 잘라내지 않고 **그림 자체를 둥글게** 합니다.
+            // 안드로이드 지도는 마커를 소프트웨어 캔버스에 굽는데, 둥글게 잘라낸
+            // 자식은 그때 통째로 빠집니다 — 그래서 배경색만 남았습니다 (2026-10-01)
+            style={{ width: size, height: size, borderRadius: size / 2 }}
+            // **지도 마커에 꼭 필요합니다.** 안드로이드 Image 는 기본으로 300ms 동안
+            // 서서히 나타나는데, 지도는 그 전에 마커를 그림으로 구워 버립니다.
+            // 그래서 투명한 상태가 찍혀 배경색(검정)만 남았습니다 (2026-10-01 확인)
+            fadeDuration={0}
+            // 실패해도 알립니다. 안 알리면 마커가 계속 다시 그려져 지도가 버벅입니다
+            onLoad={onImageSettled}
+            onError={onImageSettled}
+          />
         ) : (
           <AppText variant="label1" color={colors.avatarText} style={{ fontSize: size * 0.35 }}>
             {initials(name)}
@@ -56,7 +74,6 @@ const useStyles = makeStyles((colors) => ({
     borderColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   badge: {
     position: 'absolute',

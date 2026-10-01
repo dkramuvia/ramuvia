@@ -1,8 +1,9 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { Platform, StyleSheet } from 'react-native';
-import MapView, { Circle, Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { DARK_MAP_STYLE } from './darkMapStyle';
+import { TrackedMarker } from './TrackedMarker';
 import type { MapImplHandle, MapImplProps } from './types';
 import type { Preferences } from '@/stores/preferencesStore';
 
@@ -73,9 +74,7 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
         <Polyline key={p.id} coordinates={p.coordinates} strokeColor={p.color} strokeWidth={p.width ?? 6} lineCap="round" lineJoin="round" />
       ))}
       {markers.map((m) => (
-        <Marker key={m.id} coordinate={m.coordinate} anchor={{ x: 0.5, y: 0.5 }} onPress={m.onPress} zIndex={m.zIndex}>
-          {m.children}
-        </Marker>
+        <TrackedMarker key={m.id} item={m} />
       ))}
     </MapView>
   );

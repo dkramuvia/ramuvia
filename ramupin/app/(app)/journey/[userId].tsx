@@ -67,7 +67,7 @@ export default function JourneyScreen() {
 
   const markers = useMemo<MapMarkerItem[]>(() => {
     if (!current || !name) return [];
-    return [{ id: 'person', coordinate: current, zIndex: 5, children: <AvatarMarker name={name} imageUrl={friend?.avatarUrl} isMe={isMe} /> }];
+    return [{ id: 'person', coordinate: current, zIndex: 5, trackKey: `${friend?.avatarUrl ?? ''}`, children: <AvatarMarker name={name} imageUrl={friend?.avatarUrl} isMe={isMe} /> }];
   }, [current, name, friend, isMe]);
 
   const battery = journey?.batteryLevel ?? friend?.batteryLevel;

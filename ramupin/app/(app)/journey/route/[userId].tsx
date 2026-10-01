@@ -52,7 +52,7 @@ export default function RouteScreen() {
     if (!first || !last) return [];
     return [
       { id: 'start', coordinate: first, children: <View style={styles.startDot} /> },
-      { id: 'end', coordinate: last, zIndex: 5, children: <AvatarMarker name={name} imageUrl={friend?.avatarUrl} isMe={isMe} /> },
+      { id: 'end', coordinate: last, zIndex: 5, trackKey: `${friend?.avatarUrl ?? ''}`, children: <AvatarMarker name={name} imageUrl={friend?.avatarUrl} isMe={isMe} /> },
     ];
   }, [first, last, name, friend, isMe]);
 

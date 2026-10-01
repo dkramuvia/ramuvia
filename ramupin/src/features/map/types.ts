@@ -1,3 +1,4 @@
+import type { ImageURISource } from 'react-native';
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -10,6 +11,19 @@ export interface MapMarkerItem {
   coordinate: LatLng;
   /** 마커 모양 (React 뷰) */
   children: ReactNode;
+  /**
+   * 뷰 대신 **그림 파일을 마커 아이콘으로** 씁니다 (안드로이드).
+   * 뷰를 구워 올리는 방식은 그림이 빠지므로, 캐릭터는 이쪽으로 넣습니다.
+   */
+  iconImage?: number | ImageURISource;
+  /** 마커의 어느 지점을 좌표에 맞출지 (기본 가운데). {x:0.5,y:0} 이면 위쪽 가운데 */
+  anchor?: { x: number; y: number };
+  /**
+   * 마커 내용이 바뀌었는지 알려 주는 값 (이름·캐릭터·상태 문구 등을 이어 붙인 문자열).
+   * 안드로이드 지도는 마커를 그림으로 구워 두기 때문에, 이 값이 바뀔 때만 다시 굽습니다.
+   * 주지 않으면 처음 한 번만 굽습니다 → `TrackedMarker.tsx`
+   */
+  trackKey?: string;
   onPress?: () => void;
   zIndex?: number;
   /** 마커 크기(px). 네이버 지도는 크기를 알려줘야 그려집니다 (기본 52 = 아바타 마커) */

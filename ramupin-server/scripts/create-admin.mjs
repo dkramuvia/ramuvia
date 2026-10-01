@@ -20,21 +20,46 @@ const { hashPassword } = await import('../dist/admin/admin-password.js').catch((
  * 관리자 계정 만들기 / 비밀번호 바꾸기.
  *
  *   개발 PC   npm run admin:create
- *   운영 서버  docker compose -f docker-compose.yml -f docker-compose.prod.yml \
- *                exec api node scripts/create-admin.mjs
- *              (컨테이너에 MAIN_DATABASE_URL 이 이미 들어 있습니다)
+ *   운영 서버  ~/create-admin.sh   (bash 가 물어보고 이 스크립트에 넘겨 줍니다)
  *
  * 비밀번호는 인자로 받지 않습니다. 명령 기록(history)과 프로세스 목록에 그대로 남기 때문입니다.
+ *
+ * **입력을 두 가지로 받습니다.**
+ *   터미널이면  한 줄씩 물어봅니다 (개발 PC 에서 쓰는 길)
+ *   아니면      stdin 을 통째로 읽어 다섯 줄로 나눕니다
+ *
+ * 왜 둘인가: 컨테이너 안에서 readline 으로 물어보면 **첫 줄만 받고 멈춥니다**
+ * (2026-10-01 확인 — `docker exec -i` 로 파이프를 넣으면 `이름:` 에서 더 안 읽습니다).
+ * 그래서 터미널이 아닐 때는 묻지 않고 통째로 읽습니다.
  */
 
-const rl = createInterface({ input: stdin, output: stdout });
+/** stdin 을 끝까지 읽습니다 */
+async function readAll() {
+  const chunks = [];
+  for await (const c of stdin) chunks.push(c);
+  return Buffer.concat(chunks).toString('utf8');
+}
 
-const loginId = (await rl.question('아이디: ')).trim();
-const name = (await rl.question('이름: ')).trim();
-const roleInput = (await rl.question('권한 (viewer / editor / owner) [editor]: ')).trim() || 'editor';
-const password = (await rl.question('비밀번호 (10자 이상): ')).trim();
-const again = (await rl.question('비밀번호 확인: ')).trim();
-rl.close();
+let loginId, name, roleInput, password, again;
+
+if (stdin.isTTY) {
+  const rl = createInterface({ input: stdin, output: stdout });
+  loginId = (await rl.question('아이디: ')).trim();
+  name = (await rl.question('이름: ')).trim();
+  roleInput = (await rl.question('권한 (viewer / editor / owner) [editor]: ')).trim() || 'editor';
+  password = (await rl.question('비밀번호 (10자 이상): ')).trim();
+  again = (await rl.question('비밀번호 확인: ')).trim();
+  rl.close();
+} else {
+  const lines = (await readAll()).split('\n');
+  if (lines.length < 5) {
+    throw new Error(
+      `입력이 ${lines.length}줄입니다. 아이디·이름·권한·비밀번호·비밀번호확인 다섯 줄이 필요합니다`,
+    );
+  }
+  [loginId, name, roleInput, password, again] = lines.map((l) => l.replace(/\r$/, '').trim());
+  roleInput = roleInput || 'editor';
+}
 
 if (!loginId || !name) throw new Error('아이디와 이름은 비울 수 없습니다');
 if (!['viewer', 'editor', 'owner'].includes(roleInput)) throw new Error('권한은 viewer / editor / owner 중 하나여야 합니다');

@@ -2,12 +2,27 @@ import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import pg from 'pg';
 
-import { hashPassword } from '../src/admin/admin-password.ts';
+/**
+ * 비밀번호 해시 함수를 가져옵니다.
+ *
+ * **운영 이미지에는 `src/` 가 없습니다** — Dockerfile 이 `dist`·`migrations`·`scripts`
+ * 만 복사합니다. 그래서 `../src/...ts` 를 바로 가져오면 서버에서
+ * `ERR_MODULE_NOT_FOUND` 로 죽습니다. 관리자 계정은 **운영에서 만들어야 하는데**
+ * 정작 거기서만 안 되는 셈이었습니다 (2026-10-01 확인).
+ *
+ * 빌드된 쪽을 먼저 보고, 없으면(개발 PC) 원본을 봅니다.
+ */
+const { hashPassword } = await import('../dist/admin/admin-password.js').catch(() =>
+  import('../src/admin/admin-password.ts'),
+);
 
 /**
  * 관리자 계정 만들기 / 비밀번호 바꾸기.
  *
- *   npm run admin:create
+ *   개발 PC   npm run admin:create
+ *   운영 서버  docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+ *                exec api node scripts/create-admin.mjs
+ *              (컨테이너에 MAIN_DATABASE_URL 이 이미 들어 있습니다)
  *
  * 비밀번호는 인자로 받지 않습니다. 명령 기록(history)과 프로세스 목록에 그대로 남기 때문입니다.
  */

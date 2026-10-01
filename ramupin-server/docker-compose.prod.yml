@@ -1,10 +1,13 @@
-# 서버 1대(AWS EC2) 운영용 덮어쓰기.
+# 서버 1대(AWS EC2) 운영용 덮어쓰기. **외주작업지시서 1단계 구성**입니다.
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile app up -d --build
 #
+# 지시서 2-1: nginx(Gateway) -> nestjs(App) -> postgres(DB) 로 컨테이너를 나눕니다.
+# 바깥에서 들어오는 문은 nginx 하나뿐이고, 나머지는 도커 네트워크 안에만 있습니다.
+#
 # 개발용 `docker-compose.yml` 과 **무엇이 다른가**
 #   1. DB·Redis·저장소 포트를 **바깥으로 열지 않습니다.** 컨테이너끼리만 붙습니다
-#   2. API 도 127.0.0.1 에만 열고, 앞에 웹서버(TLS)를 둡니다
+#   2. API 도 호스트에 포트를 열지 않고, 앞의 nginx 가 도커 네트워크로만 붙습니다
 #   3. 로그가 디스크를 채우지 않게 크기를 제한합니다
 #
 # **왜 포트를 닫는가**: 열어 두면 인터넷에서 바로 DB 에 붙습니다. 비밀번호가 있어도
@@ -30,9 +33,46 @@ services:
     logging: *logging
 
   api:
-    # 웹서버(Caddy/nginx)가 이 포트로 넘겨줍니다. 바깥에서 직접 오지는 못합니다
-    ports: !override
-      - '127.0.0.1:3000:3000'
+    # **호스트에 포트를 열지 않습니다.** nginx 가 도커 네트워크 안에서 api:3000 으로 붙습니다
+    ports: !override []
     environment:
       NODE_ENV: production
     logging: *logging
+
+  # 게이트웨이. 지시서가 요구하는 유일한 바깥 창구입니다
+  nginx:
+    profiles: ['app']
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      # 인증서 발급·TLS 에 쓰는 도메인. .env 에 SERVER_NAME=api.example.com 을 넣으세요
+      SERVER_NAME: ${SERVER_NAME}
+    volumes:
+      # ${...} 를 치환해서 넣어 주는 폴더입니다 (nginx 공식 이미지 기능)
+      - ./docker/nginx/nginx.conf:/etc/nginx/templates/default.conf.template:ro
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    ports:
+      # 지시서 2-1: 인바운드는 22(SSH)와 443(HTTPS)만.
+      # 80 은 인증서 발급·갱신(Let's Encrypt 소유 확인) 때문에 필요합니다
+      - '80:80'
+      - '443:443'
+    depends_on:
+      - api
+    logging: *logging
+
+  # 인증서 발급·갱신. 12시간마다 깨어나 만료가 가까우면 갱신합니다
+  certbot:
+    profiles: ['app']
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: /bin/sh
+    command: -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    logging: *logging
+
+volumes:
+  certbot-conf:
+  certbot-www:

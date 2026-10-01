@@ -19,3 +19,9 @@ figma-page-cache.json
 
 # 네이버 검수 제출용 캡처 (개인정보가 들어가 저장소에 두지 않습니다)
 naver-review/
+
+# 서버 접속 키 (SSH 개인키). 올라가면 서버를 통째로 내줍니다
+*.pem
+*.ppk
+*_rsa
+*_ed25519

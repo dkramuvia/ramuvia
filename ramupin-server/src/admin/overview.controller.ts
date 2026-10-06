@@ -89,19 +89,25 @@ export class OverviewController {
     };
   }
 
-  /** 국가별 한 줄씩. 가입자 많은 순 */
+  /**
+   * 국가별 한 줄씩. 가입자 많은 순.
+   *
+   * 유료·무료·1인가구·노인은 **활성 사용자 안에서** 셉니다. 피그마에서 네 칸을 더하면
+   * 활성 사용자와 같고, 아래 등급별 표·도넛과도 숫자가 맞물립니다.
+   */
   private async byCountry(since: Date): Promise<CountryRow[]> {
+    const 활성 = sql`last_active_at >= ${since}`;
     const rows = await this.db
       .selectFrom('member.users')
       .where('status', '=', 'active')
       .select(({ fn, eb }) => [
         'country',
         fn.countAll<string>().as('signUps'),
-        eb.fn.count<string>(sql`CASE WHEN last_active_at >= ${since} THEN 1 END`).as('activeUsers'),
-        eb.fn.count<string>(sql`CASE WHEN plan = ANY(${PAID_PLANS}) THEN 1 END`).as('paidUsers'),
-        eb.fn.count<string>(sql`CASE WHEN plan = 'basic' THEN 1 END`).as('freeUsers'),
-        eb.fn.count<string>(sql`CASE WHEN plan = 'guardian' THEN 1 END`).as('singleHousehold'),
-        eb.fn.count<string>(sql`CASE WHEN plan = 'care' THEN 1 END`).as('senior'),
+        eb.fn.count<string>(sql`CASE WHEN ${활성} THEN 1 END`).as('activeUsers'),
+        eb.fn.count<string>(sql`CASE WHEN ${활성} AND plan = ANY(${PAID_PLANS}) THEN 1 END`).as('paidUsers'),
+        eb.fn.count<string>(sql`CASE WHEN ${활성} AND plan = 'basic' THEN 1 END`).as('freeUsers'),
+        eb.fn.count<string>(sql`CASE WHEN ${활성} AND plan = 'guardian' THEN 1 END`).as('singleHousehold'),
+        eb.fn.count<string>(sql`CASE WHEN ${활성} AND plan = 'care' THEN 1 END`).as('senior'),
       ])
       .groupBy('country')
       .orderBy('signUps', 'desc')

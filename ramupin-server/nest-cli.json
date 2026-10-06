@@ -7,7 +7,8 @@
     "assets": [
       {
         "include": "**/*.html",
-        "outDir": "dist"
+        "outDir": "dist",
+        "watchAssets": true
       }
     ]
   }

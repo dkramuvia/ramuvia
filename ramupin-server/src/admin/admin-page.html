@@ -3,19 +3,87 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>라무핀 관리자</title>
+    <title>RamuPin 관제센터</title>
+    <script>
+      // 화면이 그려지기 전에 테마를 정해 둡니다. 늦게 정하면 밝은 화면이 한 번 번쩍입니다
+      try {
+        const saved = localStorage.getItem('ramupin-admin-theme');
+        if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+      } catch {}
+    </script>
     <style>
+      /* 색은 피그마 관리자 파일(10-06)의 라이트/다크 프레임에서 뽑았습니다 */
       :root {
-        --bg: #f6f7f9;
-        --panel: #ffffff;
-        --line: #e3e6ea;
-        --text: #1c1f23;
-        --dim: #6b7280;
-        --blue: #0095ff;
+        --bg: #ffffff;
+        --surface: #ffffff;
+        --surface-2: #f4f6f8;
+        --line: #e3e7ec;
+        --text: #1c2129;
+        --dim: #6b7684;
+        --faint: #9aa3ae;
+        --accent: #2266c9;
+        --accent-soft: #e8eff9;
+        --accent-line: #b9cdee;
+        --good: #12924f;
+        --good-soft: #e3f4ea;
         --red: #d92d20;
-        --green: #067647;
+        --warn: #b54708;
         --warn-bg: #fff8e6;
         --warn-line: #f0c454;
+        --series-blue: #2266c9;
+        --series-aqua: #0f8f62;
+        --series-orange: #c15420;
+        --series-yellow: #b3760a;
+        --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #121820;
+          --surface: #121820;
+          --surface-2: #1a222c;
+          --line: #26303c;
+          --text: #e6eaef;
+          --dim: #8b95a3;
+          --faint: #5f6977;
+          --accent: #3987e5;
+          --accent-soft: #1a2c44;
+          --accent-line: #214e89;
+          --good: #3fbf6e;
+          --good-soft: #15301f;
+          --red: #f0645a;
+          --warn: #f0a050;
+          --warn-bg: #2b2414;
+          --warn-line: #6b5420;
+          --series-blue: #3987e5;
+          --series-aqua: #199e70;
+          --series-orange: #d95926;
+          --series-yellow: #c98500;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #121820;
+        --surface: #121820;
+        --surface-2: #1a222c;
+        --line: #26303c;
+        --text: #e6eaef;
+        --dim: #8b95a3;
+        --faint: #5f6977;
+        --accent: #3987e5;
+        --accent-soft: #1a2c44;
+        --accent-line: #214e89;
+        --good: #3fbf6e;
+        --good-soft: #15301f;
+        --red: #f0645a;
+        --warn: #f0a050;
+        --warn-bg: #2b2414;
+        --warn-line: #6b5420;
+        --series-blue: #3987e5;
+        --series-aqua: #199e70;
+        --series-orange: #d95926;
+        --series-yellow: #c98500;
+        color-scheme: dark;
       }
       * {
         box-sizing: border-box;
@@ -25,70 +93,211 @@
         background: var(--bg);
         color: var(--text);
         font:
-          15px/1.55 'Malgun Gothic',
+          14px/1.55 Pretendard,
+          'Malgun Gothic',
           -apple-system,
           system-ui,
           sans-serif;
       }
-      header {
-        background: var(--panel);
-        border-bottom: 1px solid var(--line);
-        padding: 14px 24px;
+      .num {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── 틀: 왼쪽 메뉴 + 본문 ─────────────────────────── */
+      #app {
         display: flex;
-        align-items: center;
-        gap: 16px;
+        min-height: 100vh;
+      }
+      aside {
+        width: 248px;
+        flex: none;
+        border-right: 1px solid var(--line);
+        padding: 22px 16px;
         position: sticky;
         top: 0;
-        z-index: 10;
+        height: 100vh;
+        overflow-y: auto;
       }
-      header h1 {
-        font-size: 17px;
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .brand .logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        background: var(--accent);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        flex: none;
+      }
+      .brand b {
+        display: block;
+        font-size: 15px;
+      }
+      .brand small {
+        display: block;
+        color: var(--dim);
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+      }
+      .theme-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 22px;
+      }
+      nav .group {
+        color: var(--dim);
+        font-size: 12px;
+        margin: 14px 10px 6px;
+      }
+      nav button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font: inherit;
+        font-size: 14px;
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+      }
+      nav button svg {
+        color: var(--dim);
+        flex: none;
+      }
+      nav button:hover {
+        background: var(--surface-2);
+      }
+      nav button.on {
+        background: var(--accent-soft);
+        border-color: var(--accent-line);
+        font-weight: 600;
+      }
+      nav button.on svg {
+        color: var(--accent);
+      }
+      .content {
+        flex: 1;
+        min-width: 0;
+        padding: 24px 28px 48px;
+      }
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+      .topbar h1 {
+        font-size: 19px;
         margin: 0;
       }
-      header .who {
-        margin-left: auto;
+      .topbar .sub {
         color: var(--dim);
         font-size: 13px;
       }
-      main {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 24px;
-      }
-      .tabs {
+      .topbar .right {
+        margin-left: auto;
         display: flex;
-        gap: 4px;
-        margin-bottom: 18px;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
       }
-      .tabs button {
-        background: none;
-        border: 0;
-        border-bottom: 2px solid transparent;
-        padding: 8px 14px;
-        font-size: 15px;
-        cursor: pointer;
+      .pill {
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        border-radius: 999px;
+        padding: 3px 11px;
+        font-size: 12px;
+        font-weight: 600;
         color: var(--dim);
       }
-      .tabs button.on {
-        color: var(--text);
-        border-bottom-color: var(--blue);
-        font-weight: 600;
+      .asof {
+        color: var(--dim);
       }
-      .panel {
-        background: var(--panel);
+      .me {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: 999px;
+        padding: 4px 12px 4px 4px;
+      }
+      .me .avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--good);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .me b {
+        display: block;
+        font-size: 13px;
+        line-height: 1.2;
+      }
+      .me small {
+        display: block;
+        color: var(--dim);
+        font-size: 11px;
+      }
+      .me button {
+        margin-left: 6px;
+      }
+
+      /* ── 공통 ─────────────────────────────────────────── */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
         padding: 20px;
         margin-bottom: 18px;
       }
       .panel h2 {
-        font-size: 15px;
+        font-size: 14px;
         margin: 0 0 4px;
       }
       .panel .sub {
         color: var(--dim);
         font-size: 13px;
         margin-bottom: 16px;
+      }
+      .panel-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .panel-head h2 {
+        margin: 0;
+        color: var(--dim);
+      }
+      .panel-head .hint {
+        margin-left: auto;
+        color: var(--faint);
+        font-size: 12px;
+        text-align: right;
       }
       table {
         width: 100%;
@@ -125,7 +334,7 @@
         padding: 7px 9px;
         font-size: 14px;
         width: 130px;
-        background: #fff;
+        background: var(--surface);
         color: inherit;
       }
       input[type='text'],
@@ -139,11 +348,11 @@
       }
       .changed input,
       .changed select {
-        border-color: var(--blue);
-        background: #f0f8ff;
+        border-color: var(--accent);
+        background: var(--accent-soft);
       }
       button.action {
-        background: var(--blue);
+        background: var(--accent);
         color: #fff;
         border: 0;
         border-radius: 7px;
@@ -152,7 +361,7 @@
         cursor: pointer;
       }
       button.action:disabled {
-        background: #c7cdd4;
+        background: var(--faint);
         cursor: default;
       }
       button.ghost {
@@ -163,6 +372,10 @@
         cursor: pointer;
         font-size: 14px;
         color: inherit;
+      }
+      button.ghost.small {
+        padding: 3px 9px;
+        font-size: 12px;
       }
       .row {
         display: flex;
@@ -178,11 +391,27 @@
         font-size: 13px;
         margin-bottom: 16px;
       }
+      .info {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 13px;
+        margin-bottom: 18px;
+      }
+      .info svg {
+        color: var(--accent);
+        flex: none;
+        margin-top: 2px;
+      }
       .msg {
         font-size: 13px;
       }
       .msg.ok {
-        color: var(--green);
+        color: var(--good);
       }
       .msg.err {
         color: var(--red);
@@ -216,17 +445,187 @@
         display: none !important;
       }
       code {
-        background: #f1f3f5;
+        background: var(--surface-2);
         border-radius: 4px;
         padding: 1px 5px;
         font-size: 12px;
+      }
+
+      /* ── 01 종합 모니터링 ─────────────────────────────── */
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .kpi {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+      }
+      .kpi .label {
+        font-size: 13px;
+      }
+      .kpi .value {
+        font-family: var(--mono);
+        font-size: 28px;
+        font-weight: 700;
+        margin: 8px 0 10px;
+        letter-spacing: -0.01em;
+      }
+      .kpi .value.good {
+        color: var(--good);
+      }
+      .kpi .foot {
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .chart svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .chart text {
+        fill: var(--dim);
+        font-size: 12px;
+      }
+      .grid-table {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      .grid-table th {
+        background: var(--surface-2);
+        font-weight: 500;
+        font-size: 12px;
+        border-bottom: 0;
+        white-space: nowrap;
+      }
+      .grid-table td {
+        border-bottom: 0;
+        padding: 10px 12px;
+        white-space: nowrap;
+      }
+      .grid-table th.r,
+      .grid-table td.r {
+        text-align: right;
+      }
+      .grid-table td.muted {
+        color: var(--faint);
+      }
+      .grid-table tr.total td {
+        background: var(--surface-2);
+        font-weight: 700;
+      }
+      .cc {
+        display: inline-block;
+        min-width: 26px;
+        text-align: center;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--dim);
+        padding: 0 4px;
+        margin-right: 6px;
+        vertical-align: 1px;
+      }
+      .table-foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        color: var(--faint);
+        font-size: 12px;
+      }
+      .badge-good {
+        background: var(--good-soft);
+        color: var(--good);
+        border: 1px solid var(--good);
+        border-radius: 999px;
+        padding: 1px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 14px;
+      }
+      .split .panel {
+        margin-bottom: 0;
+      }
+      .donut-wrap {
+        display: flex;
+        gap: 28px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .legend {
+        flex: 1;
+        min-width: 220px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .legend li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--dim);
+        margin-bottom: 10px;
+      }
+      .legend .sw {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex: none;
+      }
+      .legend .v {
+        margin-left: auto;
+        color: var(--text);
+        font-weight: 700;
+        font-family: var(--mono);
+      }
+
+      @media (max-width: 1200px) {
+        .kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .split {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 860px) {
+        #app {
+          flex-direction: column;
+        }
+        aside {
+          width: auto;
+          height: auto;
+          position: static;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .content {
+          padding: 18px 16px 40px;
+        }
+        .kpis {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
     </style>
   </head>
   <body>
     <!-- 로그인 -->
-    <div id="login" class="panel">
-      <h2>라무핀 관리자</h2>
+    <div id="login" class="panel hidden">
+      <h2>RamuPin 관제센터</h2>
       <div class="sub">관리자 계정으로 로그인하세요.</div>
       <label for="loginId">아이디</label>
       <input id="loginId" type="text" autocomplete="username" />
@@ -238,18 +637,201 @@
 
     <!-- 본 화면 -->
     <div id="app" class="hidden">
-      <header>
-        <h1>라무핀 관리자</h1>
-        <div class="tabs">
-          <button data-tab="monitor" class="on">모니터링</button>
-          <button data-tab="plans">등급별 설정</button>
-          <button data-tab="user">사용자별 예외</button>
-          <button data-tab="audit">변경 이력</button>
+      <aside>
+        <div class="brand">
+          <div class="logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="7" />
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+          </div>
+          <div>
+            <b>RamuPin 관제센터</b>
+            <small>GLOBAL OPS CONSOLE</small>
+          </div>
         </div>
-        <div class="who"><span id="who"></span> <button class="ghost" id="logoutBtn">로그아웃</button></div>
-      </header>
-      <main>
-        <section id="tab-monitor">
+        <button class="theme-btn" id="themeBtn"></button>
+
+        <!--
+          피그마 메뉴: 종합 모니터링 / 사용자별 설정 / 일반 설정 / 등급·요금 관리 / 옵션 관리.
+          02~05 화면이 생길 때까지는 지금 있는 기능을 같은 자리에 둡니다.
+        -->
+        <nav>
+          <div class="group">모니터링</div>
+          <button data-page="overview" class="on">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="9" cy="8" r="3.5" />
+              <path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.5 3.5 5.2" />
+            </svg>
+            종합 모니터링
+          </button>
+          <button data-page="monitor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3 2.5 20h19L12 3Z" />
+              <path d="M12 10v4.5M12 17.2v.3" />
+            </svg>
+            이상징후 · SOS
+          </button>
+          <div class="group">운영관리</div>
+          <button data-page="user">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c.8-4 4-6.5 8-6.5s7.2 2.5 8 6.5" />
+            </svg>
+            사용자별 예외
+          </button>
+          <div class="group">시스템 설정</div>
+          <button data-page="plans">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 14H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.6V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3Z"
+              />
+            </svg>
+            등급별 설정
+          </button>
+          <button data-page="audit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="4" y="4" width="16" height="5" rx="1.5" />
+              <rect x="4" y="11" width="16" height="4" rx="1.5" />
+              <path d="M4 19h10" />
+            </svg>
+            변경 이력
+          </button>
+        </nav>
+      </aside>
+
+      <div class="content">
+        <div class="topbar">
+          <div>
+            <h1 id="pageTitle"></h1>
+            <div class="sub" id="pageSub"></div>
+          </div>
+          <div class="right">
+            <span class="pill" id="envPill">GLOBAL</span>
+            <span class="asof num" id="asOf"></span>
+            <div class="me">
+              <div class="avatar">관</div>
+              <div>
+                <b id="who"></b>
+                <small id="whoRole"></small>
+              </div>
+              <button class="ghost small" id="logoutBtn">로그아웃</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 01 종합 모니터링 -->
+        <section id="page-overview">
+          <div class="info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5M12 7.5v.5" />
+            </svg>
+            <div>
+              사용자 개인별 결제 내역은 포함하지 않고, 국가 · 등급 단위 집계만 보여줍니다. 1인가구(가디언) · 노인(케어) 등급은 정책상
+              대한민국 전용이라 해외 국가는 '-'로 표기됩니다.
+            </div>
+          </div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="label">전체 다운로드 (글로벌)</div>
+              <div class="value" id="kpiDownloads">-</div>
+              <div class="foot" id="kpiDownloadsFoot"></div>
+            </div>
+            <div class="kpi">
+              <div class="label">전체 가입자 (글로벌)</div>
+              <div class="value" id="kpiSignUps">-</div>
+              <div class="foot" id="kpiSignUpsFoot"></div>
+            </div>
+            <div class="kpi">
+              <div class="label">활성 사용자 (MAU · 글로벌)</div>
+              <div class="value" id="kpiActive">-</div>
+              <div class="foot" id="kpiActiveFoot"></div>
+            </div>
+            <div class="kpi">
+              <div class="label">다운로드 대비 활성화율</div>
+              <div class="value good" id="kpiRate">-</div>
+              <div class="foot" id="kpiRateFoot"></div>
+            </div>
+          </div>
+
+          <div class="panel chart">
+            <div class="panel-head">
+              <h2 id="chartTitle">국가별 다운로드 대비 활성 사용자</h2>
+              <span class="hint" id="chartHint"></span>
+            </div>
+            <div id="chart"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>국가별 사용자 현황</h2>
+              <span class="hint">다운로드 · 활성 사용자 · 결제 구분 (유료 / 무료 / 1인가구 / 노인)</span>
+            </div>
+            <div class="grid-table scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>국가</th>
+                    <th class="r">다운로드</th>
+                    <th class="r">가입자</th>
+                    <th class="r">활성 사용자</th>
+                    <th class="r" id="rateHead">활성화율</th>
+                    <th class="r">유료 결제자</th>
+                    <th class="r">무료 사용자</th>
+                    <th class="r">1인가구</th>
+                    <th class="r">노인</th>
+                  </tr>
+                </thead>
+                <tbody id="countryBody"></tbody>
+              </table>
+            </div>
+            <div class="table-foot">
+              <span class="badge-good">국내 전용</span>
+              유료 결제자 = 플래티넘+트리니티, 무료 사용자 = 베이직 등급 기준입니다. 결제 구분은 활성 사용자(MAU) 안에서 셉니다.
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>결제 등급(금액)별 사용자 수</h2>
+                <span class="hint">글로벌 · 활성 사용자(MAU) 기준</span>
+              </div>
+              <div class="grid-table scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>등급 코드</th>
+                      <th>등급명</th>
+                      <th class="r">월 요금</th>
+                      <th class="r">사용자 수</th>
+                      <th class="r">비중</th>
+                    </tr>
+                  </thead>
+                  <tbody id="planBody"></tbody>
+                </table>
+              </div>
+              <div class="table-foot">결제99(관리자)는 내부 계정으로 집계에서 제외되었습니다.</div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h2>사용자 구성 비중 (글로벌)</h2>
+                <span class="hint">활성 사용자(MAU) 기준</span>
+              </div>
+              <div class="donut-wrap">
+                <div id="donut"></div>
+                <ul class="legend" id="legend"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="msg err" id="overviewMsg" style="margin-top: 12px"></div>
+        </section>
+
+        <section id="page-monitor" class="hidden">
           <div class="note">
             여기에 뜬 분께는 <b>회사가 직접 전화합니다.</b> 1인단독 사용자는 친구에게 알림이 가지 않고 이 목록에만 나타납니다.
             확인하신 뒤에는 "확인함"을 눌러 주세요 — 목록에서 사라지지는 않고 표시만 바뀝니다.
@@ -294,7 +876,7 @@
           <div id="detailPanel" class="hidden"></div>
         </section>
 
-        <section id="tab-plans" class="hidden">
+        <section id="page-plans" class="hidden">
           <div class="note">
             <b>수집 주기를 바꾸면 전국 모든 기기에 적용됩니다.</b> 짧게 할수록 배터리와 서버 비용이 함께 올라갑니다. 앱을 다시 배포할 필요는
             없고, 각 기기가 다음 정책 갱신 때 새 값을 받습니다.
@@ -312,7 +894,7 @@
           </div>
         </section>
 
-        <section id="tab-user" class="hidden">
+        <section id="page-user" class="hidden">
           <div class="panel">
             <h2>사용자별 예외</h2>
             <div class="sub">
@@ -338,7 +920,7 @@
           </div>
         </section>
 
-        <section id="tab-audit" class="hidden">
+        <section id="page-audit" class="hidden">
           <div class="panel">
             <h2>변경 이력</h2>
             <div class="sub">누가 언제 무엇을 바꿨는지 남습니다.</div>
@@ -355,12 +937,13 @@
             </table>
           </div>
         </section>
-      </main>
+      </div>
     </div>
 
     <script>
       const API = '/admin/api';
       const PLAN_NAMES = { basic: '베이직', platinum: '플래티넘', trinity: '트리니티', care: '케어', guardian: '가디언' };
+      const ROLE_NAMES = { owner: 'Super Admin', editor: 'Editor', viewer: '보기 전용' };
 
       let fields = [];
       let role = 'viewer';
@@ -391,6 +974,29 @@
         return body;
       }
 
+      // ── 테마 ────────────────────────────────────────────
+      function isDark() {
+        const set = document.documentElement.dataset.theme;
+        if (set) return set === 'dark';
+        return matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      function paintThemeBtn() {
+        // 피그마처럼 "지금 누르면 바뀔 모드"를 적습니다
+        $('themeBtn').innerHTML = isDark()
+          ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>라이트 모드'
+          : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>다크 모드';
+      }
+      $('themeBtn').onclick = () => {
+        const next = isDark() ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try {
+          localStorage.setItem('ramupin-admin-theme', next);
+        } catch {}
+        paintThemeBtn();
+        if (lastOverview) renderOverview(lastOverview); // 차트 색을 새 테마로
+      };
+      paintThemeBtn();
+
       // ── 로그인 ───────────────────────────────────────────
       $('loginBtn').onclick = async () => {
         $('loginMsg').textContent = '';
@@ -418,26 +1024,246 @@
         const me = await api('/me');
         fields = me.fields;
         role = me.role;
-        $('who').textContent = me.name + (role === 'viewer' ? ' (보기 전용)' : '');
+        $('who').textContent = me.name;
+        $('whoRole').textContent = ROLE_NAMES[role] || role;
+        // 운영 화면과 개발 화면을 헷갈려 값을 바꾸는 일이 없게 어디에 붙었는지 보여 줍니다
+        const local = ['localhost', '127.0.0.1'].includes(location.hostname) || location.hostname.startsWith('192.168.');
+        $('envPill').textContent = local ? 'DEV · ' + location.host : 'PROD · Global';
         $('login').classList.add('hidden');
         $('app').classList.remove('hidden');
         plans = await api('/plans');
         $('planSel').innerHTML = plans.map((p) => `<option value="${p.plan}">${PLAN_NAMES[p.plan] || p.plan}</option>`).join('');
         selectPlan(plans[0].plan);
-        await loadMonitor();
+        await showPage('overview');
       }
 
-      // ── 탭 ──────────────────────────────────────────────
-      document.querySelectorAll('.tabs button').forEach((btn) => {
-        btn.onclick = async () => {
-          document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b === btn));
-          for (const name of ['monitor', 'plans', 'user', 'audit']) {
-            $('tab-' + name).classList.toggle('hidden', name !== btn.dataset.tab);
-          }
-          if (btn.dataset.tab === 'audit') await loadAudit();
-          if (btn.dataset.tab === 'monitor') await loadMonitor();
-        };
+      // ── 메뉴 ────────────────────────────────────────────
+      const PAGES = {
+        overview: ['종합 모니터링', '국가별 다운로드 · 활성 사용자 · 결제 등급별 사용자 구성 현황'],
+        monitor: ['이상징후 · SOS', '여기 뜬 분께는 회사가 직접 전화합니다'],
+        user: ['사용자별 예외', '한 사람만 등급과 다르게'],
+        plans: ['등급별 설정', '위치 수집 주기 · 제한 · 기능'],
+        audit: ['변경 이력', '누가 언제 무엇을 바꿨는지'],
+      };
+
+      async function showPage(name) {
+        document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.page === name));
+        for (const page of Object.keys(PAGES)) $('page-' + page).classList.toggle('hidden', page !== name);
+        $('pageTitle').textContent = PAGES[name][0];
+        $('pageSub').textContent = PAGES[name][1];
+        $('asOf').textContent = '';
+        if (name === 'overview') await loadOverview();
+        if (name === 'audit') await loadAudit();
+        if (name === 'monitor') await loadMonitor();
+      }
+
+      document.querySelectorAll('nav button').forEach((btn) => {
+        btn.onclick = () => showPage(btn.dataset.page);
       });
+
+      // 창 크기가 바뀌면 차트를 다시 그립니다 (칸 너비 기준으로 그리기 때문)
+      let resizeTimer;
+      addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (lastOverview && !$('page-overview').classList.contains('hidden')) renderOverview(lastOverview);
+        }, 150);
+      });
+
+      // ── 01 종합 모니터링 ────────────────────────────────
+      /** 등급 코드와 월 요금. 요금은 04 등급·요금 관리 화면이 생기면 거기서 받아 옵니다 */
+      const PLAN_META = {
+        basic: { code: '결제1', name: '베이직 (Basic)', fee: '0원 (무료)' },
+        platinum: { code: '결제2', name: '플래티넘 (Platinum)', fee: '미확정' },
+        trinity: { code: '결제3', name: '트리니티 (Trinity)', fee: '미확정' },
+        care: { code: '결제4', name: '케어 (Care · 국내전용)', fee: '0원 (무료)' },
+        guardian: { code: '결제5', name: '가디언 (Guardian · 국내전용)', fee: '0원 (무료)' },
+      };
+      /** 1인가구(가디언)·노인(케어)은 국내 전용 — 다른 나라 줄은 '-' 로 */
+      const DOMESTIC = 'KR';
+
+      const regionNames = (() => {
+        try {
+          return new Intl.DisplayNames(['ko'], { type: 'region' });
+        } catch {
+          return null;
+        }
+      })();
+
+      const fmt = (n) => (n == null ? '-' : Number(n).toLocaleString('en-US'));
+      const pct = (n) => (n == null ? '-' : n.toFixed(1) + '%');
+      const ratio = (a, b) => (a == null || !b ? null : Math.round((a / b) * 1000) / 10);
+
+      function countryName(row) {
+        if (row.country === 'ZZ') return `기타(${row.countries}개국)`;
+        return regionNames?.of(row.country) || row.country;
+      }
+
+      let lastOverview = null;
+
+      async function loadOverview() {
+        $('overviewMsg').textContent = '';
+        try {
+          lastOverview = await api('/overview');
+          renderOverview(lastOverview);
+        } catch (error) {
+          $('overviewMsg').textContent = error.message;
+        }
+      }
+
+      function renderOverview(data) {
+        const t = data.totals;
+        const d = new Date(data.asOf);
+        const two = (n) => String(n).padStart(2, '0');
+        $('asOf').textContent = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+
+        // 다운로드는 스토어 연동 전(출시 전)에는 null 입니다. 그 동안은 가입자를 기준으로 보여 줍니다
+        const hasDownloads = t.downloads.total != null;
+
+        $('kpiDownloads').textContent = fmt(t.downloads.total);
+        $('kpiDownloadsFoot').textContent = hasDownloads ? 'Google Play + App Store 합계' : '스토어 연동 후 표시 (출시 뒤)';
+        $('kpiSignUps').textContent = fmt(t.signUps);
+        $('kpiSignUpsFoot').textContent = hasDownloads ? `다운로드 대비 가입 전환 ${pct(ratio(t.signUps, t.downloads.total))}` : '탈퇴 회원 제외';
+        $('kpiActive').textContent = fmt(t.activeUsers);
+        $('kpiActiveFoot').textContent = `가입자 대비 활성률 ${pct(t.activeRate)} · 최근 ${data.activeDays}일`;
+        $('kpiRate').textContent = pct(ratio(t.activeUsers, t.downloads.total));
+        $('kpiRateFoot').textContent = hasDownloads ? '다운로드 → 활성 사용자(MAU) 종합 전환율' : '다운로드 수가 들어오면 계산됩니다';
+
+        // 활성화율은 피그마 정의대로 다운로드 대비. 다운로드가 없으면 가입자 대비로 바꾸고 제목에 적어 둡니다
+        $('rateHead').textContent = hasDownloads ? '활성화율' : '활성률(가입자 대비)';
+        const rate = (r) => (hasDownloads ? ratio(r.activeUsers, r.downloads) : r.activeRate);
+
+        $('chartTitle').textContent = hasDownloads ? '국가별 다운로드 대비 활성 사용자' : '국가별 가입자 대비 활성 사용자';
+        $('chartHint').textContent = hasDownloads
+          ? '막대: 다운로드(연한색) · 활성 사용자(진한색)'
+          : '막대: 가입자(연한색) · 활성 사용자(진한색) — 다운로드는 출시 뒤 스토어 연동';
+        renderChart(data.countries.map((c) => ({ label: c.country === 'ZZ' ? '--' : c.country, base: hasDownloads ? c.downloads : c.signUps, active: c.activeUsers })));
+
+        const cell = (row, key) => (row.country !== DOMESTIC && row.country !== '' ? '<td class="r num muted">-</td>' : `<td class="r num">${fmt(row[key])}</td>`);
+        $('countryBody').innerHTML = data.countries.length
+          ? data.countries
+              .map(
+                (c) => `<tr>
+                  <td><span class="cc">${c.country === 'ZZ' ? '--' : c.country}</span>${countryName(c)}</td>
+                  <td class="r num">${fmt(c.downloads)}</td>
+                  <td class="r num">${fmt(c.signUps)}</td>
+                  <td class="r num">${fmt(c.activeUsers)}</td>
+                  <td class="r num">${pct(rate(c))}</td>
+                  <td class="r num">${fmt(c.paidUsers)}</td>
+                  <td class="r num">${fmt(c.freeUsers)}</td>
+                  ${cell(c, 'singleHousehold')}
+                  ${cell(c, 'senior')}
+                </tr>`,
+              )
+              .join('') +
+            (() => {
+              const sum = (key) => data.countries.reduce((a, c) => a + (c[key] || 0), 0);
+              return `<tr class="total">
+                <td>글로벌 합계</td>
+                <td class="r num">${fmt(t.downloads.total)}</td>
+                <td class="r num">${fmt(t.signUps)}</td>
+                <td class="r num">${fmt(t.activeUsers)}</td>
+                <td class="r num">${pct(hasDownloads ? ratio(t.activeUsers, t.downloads.total) : t.activeRate)}</td>
+                <td class="r num">${fmt(sum('paidUsers'))}</td>
+                <td class="r num">${fmt(sum('freeUsers'))}</td>
+                <td class="r num">${fmt(sum('singleHousehold'))}</td>
+                <td class="r num">${fmt(sum('senior'))}</td>
+              </tr>`;
+            })()
+          : '<tr><td colspan="9" class="muted">아직 가입자가 없습니다.</td></tr>';
+
+        const planTotal = data.plans.reduce((a, p) => a + p.users, 0);
+        $('planBody').innerHTML =
+          data.plans
+            .map((p) => {
+              const meta = PLAN_META[p.plan] || { code: '-', name: p.label, fee: '-' };
+              return `<tr>
+                <td>${meta.code}</td>
+                <td>${meta.name}</td>
+                <td class="r">${meta.fee}</td>
+                <td class="r num">${fmt(p.users)}</td>
+                <td class="r num">${pct(p.share)}</td>
+              </tr>`;
+            })
+            .join('') +
+          `<tr class="total"><td colspan="3">합계 (결제99 관리자 제외)</td><td class="r num">${fmt(planTotal)}</td><td class="r num">${planTotal ? '100.0%' : '-'}</td></tr>`;
+
+        const users = (plan) => data.plans.find((p) => p.plan === plan)?.users || 0;
+        renderDonut(
+          [
+            { label: '무료 (베이직)', value: users('basic'), color: 'var(--series-blue)' },
+            { label: '유료 (플래티넘+트리니티)', value: users('platinum') + users('trinity'), color: 'var(--series-aqua)' },
+            { label: '노인 (케어 · 국내)', value: users('care'), color: 'var(--series-orange)' },
+            { label: '1인가구 (가디언 · 국내)', value: users('guardian'), color: 'var(--series-yellow)' },
+          ],
+          planTotal,
+        );
+      }
+
+      /** 국가마다 막대 2개. y축 최대 = 가장 큰 연한 막대 × 1.12, 기준선만 긋습니다 (피그마 각주) */
+      function renderChart(rows) {
+        // 칸의 실제 너비로 그립니다. viewBox 로 늘리면 넓은 화면에선 너무 높고 휴대폰에선 글자가 안 보입니다
+        const W = Math.max(300, $('chart').clientWidth);
+        const H = 250;
+        const top = 12;
+        const baseY = 212;
+        if (!rows.length) {
+          $('chart').innerHTML = '<div class="msg" style="color:var(--dim)">아직 가입자가 없습니다.</div>';
+          return;
+        }
+        const max = Math.max(1, ...rows.map((r) => Math.max(r.base || 0, r.active || 0))) * 1.12;
+        const slot = Math.min(140, (W - 20) / rows.length);
+        const startX = (W - slot * rows.length) / 2;
+        const bar = Math.min(44, slot * 0.32);
+        const h = (v) => ((v || 0) / max) * (baseY - top);
+        const bars = rows
+          .map((r, i) => {
+            const cx = startX + slot * i + slot / 2;
+            return `
+              <rect x="${cx - bar - 3}" y="${baseY - h(r.base)}" width="${bar}" height="${h(r.base)}" fill="var(--accent)" fill-opacity=".35" rx="1"><title>${r.label} ${fmt(r.base)}</title></rect>
+              <rect x="${cx + 3}" y="${baseY - h(r.active)}" width="${bar}" height="${h(r.active)}" fill="var(--accent)" rx="1"><title>${r.label} 활성 ${fmt(r.active)}</title></rect>
+              <text x="${cx}" y="${baseY + 22}" text-anchor="middle">${r.label}</text>`;
+          })
+          .join('');
+        $('chart').innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="국가별 막대 차트">
+          <line x1="${startX - 20}" x2="${W - startX + 20}" y1="${baseY}" y2="${baseY}" stroke="var(--line)" />
+          ${bars}
+        </svg>`;
+      }
+
+      /** 세그먼트 4개, 사이 2px 간격. 가운데는 합계를 k 단위로 (피그마 각주) */
+      function renderDonut(parts, total) {
+        const r = 62;
+        const stroke = 22;
+        const size = (r + stroke) * 2;
+        const c = 2 * Math.PI * r;
+        const gap = parts.filter((p) => p.value > 0).length > 1 ? 2 : 0;
+        let offset = 0;
+        const arcs = total
+          ? parts
+              .filter((p) => p.value > 0)
+              .map((p) => {
+                const len = (p.value / total) * c;
+                const arc = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${p.color}" stroke-width="${stroke}"
+                  stroke-dasharray="${Math.max(0, len - gap)} ${c}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${size / 2} ${size / 2})" />`;
+                offset += len;
+                return arc;
+              })
+              .join('')
+          : `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${stroke}" />`;
+        const k = total >= 1000 ? Math.round(total / 1000) + 'k' : String(total);
+        $('donut').innerHTML = `<svg width="${size * 0.9}" height="${size * 0.9}" viewBox="0 0 ${size} ${size}" role="img" aria-label="사용자 구성 비중">
+          ${arcs}
+          <text x="50%" y="48%" text-anchor="middle" font-size="19" font-weight="700" fill="var(--text)">${k}</text>
+          <text x="50%" y="60%" text-anchor="middle" font-size="10" fill="var(--dim)">활성 사용자</text>
+        </svg>`;
+        $('legend').innerHTML = parts
+          .map(
+            (p) =>
+              `<li><span class="sw" style="background:${p.color}"></span>${p.label}<span class="v">${fmt(p.value)}명 · ${total ? Math.round((p.value / total) * 100) : 0}%</span></li>`,
+          )
+          .join('');
+      }
 
       // ── 항목 그리기 ──────────────────────────────────────
       /** 'features.premiumMap' 같은 점 표기로 값 꺼내기 */
@@ -609,7 +1435,6 @@
           : '<tr><td colspan="4" style="color:var(--dim)">아직 변경 기록이 없습니다.</td></tr>';
       }
 
-
       // ── 모니터링 ────────────────────────────────────────
       /** 트랙 = 무엇을 보고 판단했는지 (docs/anomaly-alerts.md) */
       const TRACK_NAMES = {
@@ -624,7 +1449,7 @@
       /** 48시간은 최고 위험. 24시간부터 색을 올립니다 */
       function stageColor(stage) {
         if (stage === '48h') return 'var(--red)';
-        if (stage === '24h') return '#b54708';
+        if (stage === '24h') return 'var(--warn)';
         return 'var(--text)';
       }
 

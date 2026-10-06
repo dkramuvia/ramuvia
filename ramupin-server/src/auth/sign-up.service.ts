@@ -31,6 +31,11 @@ interface SignUpState {
   attempts: number;
   /** 문자 인증을 통과한 번호 */
   verifiedPhone?: string;
+  /**
+   * 휴대폰 인증 화면에서 고른 국가 (ISO 3166-1 alpha-2).
+   * 가입이 끝나면 사용자 행에 그대로 들어갑니다 — 관리자 관제센터의 국가별 집계용
+   */
+  country?: string;
 }
 
 /** 소셜에서 받아 온 사람. 제공자마다 주는 항목이 달라 없는 것은 null 입니다 */
@@ -115,10 +120,12 @@ export class SignUpService {
   }
 
   /** 가입 중 휴대폰 인증번호 발송. 이미 가입된 번호면 보내지 않고 알려줍니다 (WBS 3.7) */
-  async sendPhoneCode(signUpToken: string, rawPhone: string) {
+  async sendPhoneCode(signUpToken: string, rawPhone: string, country = 'KR') {
     const { id, state } = await this.load(signUpToken);
     const phone = normalizePhone(rawPhone);
     const now = Date.now();
+    // 인증 화면에서 고른 국가를 여기서 들고 있다가, 가입이 끝나면 사용자 행에 넣습니다
+    state.country = country;
 
     if (await this.phones.isRegistered(phone)) {
       return { alreadyRegistered: true, codeExpiresInSec: 0, resendAfterSec: 0, phoneMasked: maskPhone(phone) };
@@ -197,6 +204,8 @@ export class SignUpService {
           plan,
           age_verified: verified != null,
           single_household: profile.singleHousehold,
+          // 휴대폰 인증 화면에서 고른 국가. 없으면 KR (지금 가입자는 전부 국내입니다)
+          country: state.country ?? 'KR',
           last_active_at: new Date(),
         })
         .returning(['id', 'public_id'])

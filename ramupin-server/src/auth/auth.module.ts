@@ -77,7 +77,27 @@ const xLoginBody = z.object({
   redirectUri: z.string().url().max(200),
   device: deviceSchema,
 });
-const signUpSmsBody = z.object({ signUpToken: z.string().min(10), phone: z.string().regex(/^01[016789][-\s]?\d{3,4}[-\s]?\d{4}$/, '휴대폰 번호 형식이 아닙니다') });
+/**
+ * 휴대폰 인증번호 요청.
+ *
+ * `country` 는 인증 화면에서 고른 국가입니다 (ISO 3166-1 alpha-2). 가입자의 국가로
+ * 그대로 저장되어 관리자 관제센터의 국가별 집계에 쓰입니다 (2026-10-06 결정).
+ *
+ * **번호 형식은 국가에 따라 달리 봅니다.** 한국은 `010-1234-5678` 형태를 그대로
+ * 확인하고, 그 밖의 국가는 자릿수만 봅니다 — 나라마다 규칙이 달라 전부 적어 둘 수
+ * 없고, 틀린 번호는 어차피 인증번호가 오지 않아 다음 단계로 못 넘어갑니다.
+ */
+const signUpSmsBody = z
+  .object({
+    signUpToken: z.string().min(10),
+    phone: z.string().min(4).max(20),
+    country: z.string().regex(/^[A-Z]{2}$/, '국가 코드는 대문자 두 글자입니다').default('KR'),
+  })
+  .refine(
+    ({ phone, country }) =>
+      country === 'KR' ? /^01[016789][-\s]?\d{3,4}[-\s]?\d{4}$/.test(phone) : /^[\d\s+-]{6,20}$/.test(phone),
+    { message: '휴대폰 번호 형식이 아닙니다', path: ['phone'] },
+  );
 const signUpVerifyBody = z.object({ signUpToken: z.string().min(10), code: z.string().regex(/^\d{6}$/) });
 const signUpBody = z.object({
   signUpToken: z.string().min(10),
@@ -252,8 +272,8 @@ class AuthController {
   @Post('sign-up/sms')
   @HttpCode(HttpStatus.OK)
   sendSignUpCode(@Body() body: unknown) {
-    const { signUpToken, phone } = parseInput(signUpSmsBody, body);
-    return this.signUp.sendPhoneCode(signUpToken, phone);
+    const { signUpToken, phone, country } = parseInput(signUpSmsBody, body);
+    return this.signUp.sendPhoneCode(signUpToken, phone, country);
   }
 
   @Post('sign-up/sms/verify')

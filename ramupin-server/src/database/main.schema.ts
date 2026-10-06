@@ -36,6 +36,12 @@ export interface UsersTable {
    * **기본은 켜짐** — 상대가 내 번호를 이미 알아야 찾을 수 있어, 모르는 사람에게 노출되지 않습니다
    */
   phone_discoverable: Generated<boolean>;
+  /**
+   * 가입자의 국가 (ISO 3166-1 alpha-2: `KR` `US` `JP` …).
+   * **휴대폰 인증 화면에서 고릅니다** — 전원이 거치는 단계라 빠지는 사람이 없습니다.
+   * 관리자 관제센터가 이 값으로 국가별 집계를 냅니다
+   */
+  country: Generated<string>;
   last_active_at: Date | null;
   created_at: Timestamp;
   updated_at: Timestamp;

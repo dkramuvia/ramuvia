@@ -24,6 +24,7 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { AnomalyModule } from '../anomaly/anomaly.module.js';
 import { ADMIN_AUDIENCE, ADMIN_COOKIE, AdminGuard, CurrentAdmin, assertCanEdit, type AdminUser } from './admin.guard.js';
 import { MonitoringController } from './monitoring.controller.js';
+import { OverviewController } from './overview.controller.js';
 import { hashPassword, verifyPassword } from './admin-password.js';
 import { POLICY_FIELDS, applyPatch, parsePolicyPatch } from './policy-fields.js';
 
@@ -245,7 +246,7 @@ const DUMMY_HASH = hashPassword('ramupin-dummy-password');
 
 @Module({
   imports: [JwtModule.register({ secret: env.JWT_SECRET }), AnomalyModule],
-  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, MonitoringController],
+  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, MonitoringController, OverviewController],
   providers: [AdminGuard],
 })
 export class AdminModule {}

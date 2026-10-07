@@ -7,7 +7,7 @@
  * 넘기면 그대로 나옵니다.
  *
  * 그래서 둥글게 자르고 테두리를 두른 그림을 미리 만들어 둡니다
- * (132px = 44dp x 3배 화면). 만드는 스크립트: scripts/make-marker-avatars.mjs
+ * (핀 모양 120x156px = 40x52dp x 3배 화면). 만드는 스크립트: scripts/make-marker-avatars.mjs
  *
  * **이 파일은 스크립트가 만든 목록입니다** — 손으로 고치지 말고
  * scripts/gen-marker-avatar-list.mjs 를 다시 돌리세요.
@@ -57,7 +57,7 @@ const MARKER: Record<string, { normal: number; me: number }> = {
 
 /**
  * 캐릭터 키를 마커용 그림으로 바꿉니다.
- * 캐릭터가 아니면(올린 사진이거나 없음) undefined — 그때는 이름 두 글자 마커로 갑니다.
+ * 캐릭터가 아니면(올린 사진이거나 없음) undefined — 그때는 이름 핀으로 갑니다 (PinMarker.tsx).
  */
 export function markerAvatarSource(avatarUrl: string | undefined, isMe: boolean): number | undefined {
   if (!avatarUrl?.startsWith(PREFIX)) return undefined;

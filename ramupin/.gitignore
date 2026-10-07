@@ -43,3 +43,6 @@ yarn-error.*
 
 # 로컬 네이티브 모듈 빌드 산출물
 modules/*/android/build/
+
+# 지도 움직이는 그림 원본 (scripts/make-map-sprites.py 가 피그마에서 받음)
+scripts/.sprite-cache/

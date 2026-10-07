@@ -1,0 +1,15 @@
+diff --git a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/RNCNaverMapMarker.kt b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/RNCNaverMapMarker.kt
+index 509e1ec..ceaaeb2 100644
+--- a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/RNCNaverMapMarker.kt
++++ b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/RNCNaverMapMarker.kt
+@@ -46,7 +46,9 @@ class RNCNaverMapMarker(
+             reactTag,
+           )
+         }
+-        true
++        // ramupin patch: do not consume the click, so the map tap event (with x, y) still fires.
++        // The app decides which marker was hit from the tap position (markerPress.ts).
++        false
+       }
+     }
+   }

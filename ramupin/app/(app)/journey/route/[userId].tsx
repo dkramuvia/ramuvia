@@ -11,7 +11,7 @@ import { useFriends } from '@/features/friends/queries';
 import { allRouteCoordinates, routePolylines } from '@/features/journey/routeLayers';
 import { useAreaName } from '@/features/location/useAreaName';
 import { AppMapView, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
-import { AvatarMarker } from '@/features/map/AvatarMarker';
+import { personPin } from '@/features/map/PinMarker';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
@@ -52,9 +52,10 @@ export default function RouteScreen() {
     if (!first || !last) return [];
     return [
       { id: 'start', coordinate: first, children: <View style={styles.startDot} /> },
-      { id: 'end', coordinate: last, zIndex: 5, trackKey: `${friend?.avatarUrl ?? ''}`, children: <AvatarMarker name={name} imageUrl={friend?.avatarUrl} isMe={isMe} /> },
+      // 핀: 캐릭터가 있으면 캐릭터, 없으면 이름 (PinMarker.tsx)
+      { id: 'end', coordinate: last, zIndex: 5, ...personPin({ name, avatarUrl: isMe ? me?.avatarUrl : friend?.avatarUrl, active: isMe }) },
     ];
-  }, [first, last, name, friend, isMe]);
+  }, [first, last, name, friend, isMe, me]);
 
   return (
     <View style={styles.container}>

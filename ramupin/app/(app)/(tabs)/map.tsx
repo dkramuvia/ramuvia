@@ -19,9 +19,10 @@ import { useAreaName } from '@/features/location/useAreaName';
 import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
-import { AvatarMarker } from '@/features/map/AvatarMarker';
-import { BadgeMarker } from '@/features/map/BadgeMarker';
-import { markerAvatarSource } from '@/features/map/markerAvatars';
+import { BADGE_BOTTOM_GAP, BadgeMarker, badgeAnchor } from '@/features/map/BadgeMarker';
+import { personPin } from '@/features/map/PinMarker';
+import { badgeSprite } from '@/features/map/spriteClock';
+import { SPRITES } from '@/features/map/sprites';
 import { statusText } from '@/features/map/statusText';
 import { WeatherBadge } from '@/features/weather/WeatherBadge';
 import { useWeather } from '@/features/weather/useWeather';
@@ -71,6 +72,11 @@ export default function MapScreen() {
   const me = useAuthStore((s) => s.user);
   const mapRef = useRef<AppMapViewHandle>(null);
   const [sheet, setSheet] = useState<SheetContent>('feed');
+  /**
+   * 지도에서 **활성화된 사람** (처음엔 나). 누르면 그 사람이 파란 테두리로 바뀌고 맨 위로 올라옵니다 —
+   * 핀·배지가 겹쳐 있을 때 아래 사람을 눌러 꺼내 볼 수 있게. 활성화된 친구를 한 번 더 누르면 동선 화면으로 갑니다.
+   */
+  const [activeId, setActiveId] = useState<string>('me');
 
   const { permission, location } = useMyLocation();
   const { can, minPlanFor } = usePlan();
@@ -129,64 +135,82 @@ export default function MapScreen() {
 
   const markers = useMemo<MapMarkerItem[]>(() => {
     const items: MapMarkerItem[] = [];
+    /**
+     * 사람 한 명 = 핀 + 핀 위 배지 (피그마 `Component 20` · 지도 메인 548·550, 2026-10-07).
+     * 핀은 캐릭터 그림이거나 이름 핀(PinMarker.tsx), 배지는 글자라 뷰로 따로 겁니다.
+     */
+    const 사람 = (p: {
+      id: string;
+      coordinate: LatLng;
+      name: string;
+      avatarUrl?: string;
+      isMe?: boolean;
+      status: ReturnType<typeof statusText>;
+      battery?: number | null;
+      /** 이미 활성화된 사람을 다시 눌렀을 때 */
+      onOpen?: () => void;
+    }) => {
+      const 활성 = activeId === p.id;
+      // 겹칠 때 위에 오는 순서: 활성화된 사람 > 나 > 친구. 핀 < 배지 < 배지 속 그림 (GoogleMapImpl 이 +1)
+      const 높이 = 활성 ? 30 : p.isMe ? 10 : 1;
+      const onPress = () => (활성 ? p.onOpen?.() : setActiveId(p.id));
+      const 핀 = personPin({ name: p.name, avatarUrl: p.avatarUrl, active: 활성 });
+      items.push({ id: p.id, coordinate: p.coordinate, zIndex: 높이, onPress, ...핀 });
+      if (!p.status) return;
+      const 그림 = badgeSprite(p.status.kind);
+      // 배지 색: 다크 지도면 모두 검정, 라이트 지도면 활성화된 사람만 흰색 (StatusBadge)
+      const 색 = 활성 && !mapIsDark ? 'light' : 'dark';
+      items.push({
+        id: `${p.id}:badge`,
+        coordinate: p.coordinate,
+        zIndex: 높이 + 1,
+        // 핀 꼭대기 위 12dp 에 배지 바닥 (anchor 는 재기 전 짐작값)
+        anchor: badgeAnchor(),
+        lift: BADGE_BOTTOM_GAP,
+        // 이 값이 바뀔 때만 배지를 다시 굽습니다 (TrackedMarker 설명 참고)
+        trackKey: `${p.status.kind}|${p.status.text}|${p.battery ?? ''}|${색}`,
+        children: <BadgeMarker status={p.status} battery={p.battery} tone={색} />,
+        // 걷기·자전거·자동차는 피그마의 움직이는 그림 (spriteClock.ts)
+        badgeSprite: 그림 ? { sheet: 그림 } : undefined,
+        onPress,
+      });
+    };
+
     for (const f of friends) {
       if (!f.location) continue;
-      // 친구 배지는 머문 시간만 보여 줍니다 (피그마 2026-09-28: 검은 배지)
-      const 상태 = statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince });
-      const 캐릭터 = markerAvatarSource(f.avatarUrl, false);
-      items.push({
+      사람({
         id: f.id,
         coordinate: f.location,
-        label: f.nickname,
-        tintColor: f.isOnline ? colors.check : colors.textMuted,
-        // 캐릭터는 그림 파일로 올립니다 — 뷰로 구우면 그림이 빠집니다 (markerAvatars.ts)
-        iconImage: 캐릭터,
-        // 이 값이 바뀔 때만 마커를 다시 굽습니다 (TrackedMarker 설명 참고)
-        trackKey: `${f.avatarUrl ?? ''}|${f.isOnline}|${상태?.text ?? ''}`,
-        children: 캐릭터 ? null : (
-          <AvatarMarker name={f.nickname} imageUrl={f.avatarUrl} online={f.isOnline} status={상태} />
-        ),
-        onPress: () => router.push(`/journey/${f.id}`),
+        name: f.nickname,
+        avatarUrl: f.avatarUrl,
+        // 친구 배지는 이동 속도·머문 시간만 (피그마: 검은 배지)
+        status: statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince }),
+        onOpen: () => router.push(`/journey/${f.id}`),
       });
-      // 캐릭터를 그림으로 올린 마커에는 배지를 같이 못 답니다. 배지는 따로 겁니다
-      if (캐릭터 && 상태) {
-        items.push({
-          id: `${f.id}:badge`,
-          coordinate: f.location,
-          anchor: { x: 0.5, y: 0 },
-          trackKey: 상태.text,
-          children: <BadgeMarker status={상태} />,
-          onPress: () => router.push(`/journey/${f.id}`),
-        });
-      }
     }
     if (location && me) {
-      const 내캐릭터 = markerAvatarSource(me.avatarUrl, true);
-      items.push({
+      사람({
         id: 'me',
         coordinate: location,
-        zIndex: 10,
-        label: me.nickname,
-        trackKey: `${me.avatarUrl ?? ''}|${myStatus?.text ?? ''}|${myBattery ?? ''}`,
-        iconImage: 내캐릭터,
-        tintColor: colors.primary,
-        children: 내캐릭터 ? null : (
-          <AvatarMarker name={me.nickname} imageUrl={me.avatarUrl} isMe status={myStatus} battery={myBattery} />
-        ),
+        name: me.nickname,
+        avatarUrl: me.avatarUrl,
+        isMe: true,
+        status: myStatus,
+        battery: myBattery,
       });
-      if (내캐릭터 && myStatus) {
+      // 걷는 중이면 핀 오른쪽으로 발자국이 찍혀 나갑니다 (피그마 지도 메인 550: 핀 꼬리 끝에서 +83, +10)
+      if (myStatus?.kind === 'walking') {
         items.push({
-          id: 'me:badge',
+          id: 'me:footprints',
           coordinate: location,
-          zIndex: 11,
-          anchor: { x: 0.5, y: 0 },
-          trackKey: `${myStatus.text}|${myBattery ?? ''}`,
-          children: <BadgeMarker status={myStatus} battery={myBattery} isMe />,
+          zIndex: 9,
+          children: null,
+          sprite: { sheet: SPRITES.footprints.lg, offset: { x: 83, y: 10 } },
         });
       }
     }
     return items;
-  }, [friends, location, me, myStatus, myBattery]);
+  }, [friends, location, me, myStatus, myBattery, activeId, mapIsDark]);
 
   // GPS 감도 원 (WBS 2.6): 오차 반경이 클수록 원이 커짐
   const circles = useMemo<MapCircleItem[]>(() => {
@@ -204,6 +228,8 @@ export default function MapScreen() {
         initialCenter={location ?? FALLBACK_CENTER}
         markers={markers}
         circles={circles}
+        // 빈 곳을 누르면 다시 나를 활성화. 누가 눌렸는지는 지도가 판정합니다 (GoogleMapImpl useMarkerPress)
+        onPress={() => setActiveId('me')}
         padding={{ top: 120, right: 0, bottom: SHEET_HEIGHT + AD_HEIGHT + 40, left: 0 }}
       />
 
@@ -267,7 +293,7 @@ export default function MapScreen() {
         snapPoints={[SHEET_COLLAPSED, SHEET_HEIGHT]}
         above={
           <>
-            {/* 이동 상태·배터리는 2026-09-28 디자인부터 마커 아래 배지로 갑니다 (AvatarMarker).
+            {/* 이동 상태·배터리는 핀 위 배지로 갑니다 (BadgeMarker, 피그마 2026-10-07).
                 GPS 감도는 배지에 자리가 없어 여기 작은 점으로만 남깁니다 (WBS 2.6) */}
             {location ? (
               <View style={styles.signalRow}>

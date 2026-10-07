@@ -4,6 +4,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 import type { Preferences } from '@/stores/preferencesStore';
 import type { LatLng } from '@/types/models';
+import type { SpriteSheet } from './spriteTypes';
 
 /** 지도 위에 올리는 것들 (지도 SDK 와 무관한 공통 모양) */
 export interface MapMarkerItem {
@@ -19,6 +20,12 @@ export interface MapMarkerItem {
   /** 마커의 어느 지점을 좌표에 맞출지 (기본 가운데). {x:0.5,y:0} 이면 위쪽 가운데 */
   anchor?: { x: number; y: number };
   /**
+   * 마커 **바닥을 좌표보다 이만큼(dp) 위에** 놓습니다 (핀 위 배지). 구운 지도는 그려진 높이를 재서
+   * anchor 를 다시 계산합니다 — 높이를 짐작으로 두면 글꼴·기기에 따라 간격이 틀어집니다.
+   * `anchor` 는 재기 전까지 쓰는 짐작값입니다.
+   */
+  lift?: number;
+  /**
    * 마커 내용이 바뀌었는지 알려 주는 값 (이름·캐릭터·상태 문구 등을 이어 붙인 문자열).
    * 안드로이드 지도는 마커를 그림으로 구워 두기 때문에, 이 값이 바뀔 때만 다시 굽습니다.
    * 주지 않으면 처음 한 번만 굽습니다 → `TrackedMarker.tsx`
@@ -26,12 +33,16 @@ export interface MapMarkerItem {
   trackKey?: string;
   onPress?: () => void;
   zIndex?: number;
-  /** 마커 크기(px). 네이버 지도는 크기를 알려줘야 그려집니다 (기본 52 = 아바타 마커) */
-  size?: number;
-  /** 마커 이름. 네이버 지도에서는 마커 아래 이름으로 표시됩니다 */
-  label?: string;
-  /** 마커 테두리 색 (네이버 지도용. 내 마커 구분) */
-  tintColor?: string;
+  /**
+   * 이 마커는 **움직이는 그림 하나**입니다 (발자국). `children` 대신 씁니다.
+   * `offset` = 좌표에서 그림 가운데까지(dp). 지금은 안드로이드 구글 지도에서만 그립니다.
+   */
+  sprite?: { sheet: SpriteSheet; offset: { x: number; y: number } };
+  /**
+   * 배지 마커(BadgeMarker)의 그림 칸에 겹칠 움직이는 그림.
+   * 그림을 구워 올리는 지도(안드로이드 구글)에서만 씁니다 — 나머지는 배지 안에서 바로 움직입니다.
+   */
+  badgeSprite?: { sheet: SpriteSheet };
 }
 
 export interface MapCircleItem {

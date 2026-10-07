@@ -1,7 +1,10 @@
 import Mapbox, { Camera, CircleLayer, MapView, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, PixelRatio, StyleSheet, View } from 'react-native';
 
+import { useMarkerPress } from './markerPress';
+import { MarkerRenderContext } from './spriteClock';
+import { LiveSprite } from './StatusBadge';
 import type { MapImplHandle, MapImplProps } from './types';
 import type { Preferences } from '@/stores/preferencesStore';
 
@@ -14,8 +17,13 @@ import type { Preferences } from '@/stores/preferencesStore';
 
 // 공개 토큰(pk). 비밀 토큰(sk)은 SDK 를 내려받을 때만 쓰고 앱에는 들어가지 않습니다
 const ACCESS_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
-if (ACCESS_TOKEN) Mapbox.setAccessToken(ACCESS_TOKEN);
-else console.warn('[map] EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN 이 없어 해외 지도가 비어 보입니다');
+if (!ACCESS_TOKEN) console.warn('[map] EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN 이 없어 해외 지도가 비어 보입니다');
+
+/**
+ * 토큰이 지도에 들어간 뒤에 지도를 그립니다 (AppMapView 가 기다립니다).
+ * 알려진 문제: 앱이 **Mapbox 로 켜지면** 지도가 빈 화면입니다. 다른 지도에서 바꿔 들어오면 됩니다 (2026-10-07, 원인 미확인).
+ */
+export const mapboxReady: Promise<unknown> = ACCESS_TOKEN ? Mapbox.setAccessToken(ACCESS_TOKEN).catch(() => null) : Promise.resolve();
 
 /** 앱 설정의 지도 유형 → Mapbox 스타일 */
 const STYLES: Record<Preferences['mapType'], string> = {
@@ -51,6 +59,20 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
   ref,
 ) {
   const camera = useRef<Camera>(null);
+  const mapRef = useRef<MapView>(null);
+  /**
+   * 누가 눌렸는지는 앱이 판정합니다 (markerPress.ts — 세 지도 공통).
+   * Mapbox 마커 뷰를 직접 누르게 두었더니 손가락이 마커까지 오지 않고 지도로 갔습니다 (10-07 폰에서 확인).
+   * 지도 누름에는 탭한 자리(픽셀)가 들어 있고, 좌표 → 화면 변환(getPointInView)은 dp 를 줍니다.
+   */
+  const press = useMarkerPress({
+    project: async (c) => {
+      const p = await mapRef.current?.getPointInView([c.longitude, c.latitude]);
+      return p ? { x: p[0], y: p[1] } : null;
+    },
+    markers,
+    onMapPress: onPress,
+  });
   // 지도가 준비되기 전에 들어온 이동 요청은 준비된 뒤 실행합니다.
   // 앱이 켜지면 친구들이 다 보이게 맞추는데(fitTo), 그 호출이 지도보다 먼저 와서 그냥 사라졌습니다
   const ready = useRef(false);
@@ -91,7 +113,8 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
       features: circles.map((c) => ({
         type: 'Feature' as const,
         id: c.id,
-        properties: { radiusM: c.radiusM, fill: c.fillColor, stroke: c.strokeColor },
+        // 줌 0 에서 1m 가 몇 픽셀인지 (Mapbox 512px 타일 기준). 줌이 1 오를 때마다 2배 — 아래 CircleLayer
+        properties: { radiusM: c.radiusM, pxPerMeterZ0: 1 / (78271.517 * Math.cos((c.center.latitude * Math.PI) / 180)), fill: c.fillColor, stroke: c.strokeColor },
         geometry: { type: 'Point' as const, coordinates: [c.center.longitude, c.center.latitude] },
       })),
     }),
@@ -113,6 +136,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
 
   return (
     <MapView
+      ref={mapRef}
       style={style ?? StyleSheet.absoluteFill}
       styleURL={nightMode && mapType === 'road' ? Mapbox.StyleURL.Dark : STYLES[mapType]}
       scaleBarEnabled={false}
@@ -123,7 +147,12 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
       zoomEnabled={interactive}
       rotateEnabled={interactive}
       pitchEnabled={interactive}
-      onPress={onPress}
+      onPress={(feature) => {
+        const { screenPointX, screenPointY } = (feature.properties ?? {}) as { screenPointX?: number; screenPointY?: number };
+        if (screenPointX == null || screenPointY == null) return onPress?.();
+        const ratio = PixelRatio.get();
+        press.resolveAt({ x: screenPointX / ratio, y: screenPointY / ratio });
+      }}
       onDidFinishLoadingMap={() => {
         ready.current = true;
         pending.current?.();
@@ -155,11 +184,19 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
 
       {circles.length > 0 && (
         <ShapeSource id="ramupin-circles" shape={circleShape}>
-          {/* GPS 감도 원. Mapbox 는 미터 반경 원이 없어 화면 픽셀 원으로 그립니다 */}
+          {/* GPS 감도 원. Mapbox 원은 픽셀 단위라, 줌에 따라 미터 → 픽셀로 바꿔 다른 지도처럼 실제 반경으로 그립니다 */}
           <CircleLayer
             id="ramupin-circles-layer"
             style={{
-              circleRadius: ['interpolate', ['exponential', 2], ['zoom'], 10, 4, 20, 40],
+              circleRadius: [
+                'interpolate',
+                ['exponential', 2],
+                ['zoom'],
+                0,
+                ['*', ['get', 'radiusM'], ['get', 'pxPerMeterZ0']],
+                22,
+                ['*', ['get', 'radiusM'], ['get', 'pxPerMeterZ0'], 2 ** 22],
+              ],
               circleColor: ['get', 'fill'],
               circleStrokeColor: ['get', 'stroke'],
               circleStrokeWidth: 1,
@@ -177,12 +214,57 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
         </ShapeSource>
       )}
 
-      {markers.map((m) => (
-        <MarkerView key={m.id} id={m.id} coordinate={[m.coordinate.longitude, m.coordinate.latitude]} anchor={{ x: 0.5, y: 0.5 }}>
-          {/* MarkerView 는 자식이 하나여야 해서 감쌉니다 */}
-          <View onTouchEnd={m.onPress}>{m.children}</View>
-        </MarkerView>
-      ))}
+      {/* Mapbox 마커는 실제 뷰라서 배지 안의 움직이는 그림이 그대로 돕니다 */}
+      <MarkerRenderContext.Provider value="live">
+        {[...markers]
+          // 겹칠 때 위아래 순서: Mapbox 마커는 zIndex 가 없고 나중에 그린 것이 위에 옵니다.
+          // 순서가 바뀌면 key 도 바꿔 새로 붙여야 실제로 순서가 바뀝니다
+          .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+          .map((m) => {
+            const key = `${m.id}@${m.zIndex ?? 0}`;
+            if (m.sprite) {
+              // 움직이는 그림(발자국): 좌표에 가운데를 두고 offset 만큼 옮겨 그립니다. 누르지 않습니다
+              const { x, y } = m.sprite.offset;
+              return (
+                <MarkerView key={key} id={key} coordinate={[m.coordinate.longitude, m.coordinate.latitude]} anchor={{ x: 0.5, y: 0.5 }} allowOverlap>
+                  <View pointerEvents="none" style={{ transform: [{ translateX: x }, { translateY: y }] }}>
+                    <LiveSprite sheet={m.sprite.sheet} />
+                  </View>
+                </MarkerView>
+              );
+            }
+            return (
+              <MarkerView
+                key={key}
+                id={key}
+                coordinate={[m.coordinate.longitude, m.coordinate.latitude]}
+                // Mapbox 는 0~1 을 넘는 anchor 를 받지 않습니다. 띄울 거리(lift)는 아래 여백으로 줍니다 —
+                // Mapbox 마커는 실제 뷰라 구글 지도처럼 여백이 빠지는 일이 없습니다
+                anchor={m.lift != null ? { x: m.anchor?.x ?? 0.5, y: 1 } : (m.anchor ?? { x: 0.5, y: 0.5 })}
+                // 겹쳐도 숨기지 않습니다 (기본값은 겹치면 하나만 보여 줌)
+                allowOverlap
+              >
+                {/* 마커는 손가락을 받지 않습니다 — 누름은 지도가 받아 판정합니다 (위 press) */}
+                <View pointerEvents="none" style={m.lift != null ? { paddingBottom: m.lift } : undefined}>
+                  {/* 판정에 쓸 크기는 여백을 뺀 내용만 */}
+                  <View onLayout={(e) => press.setSize(m.id, { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
+                    {m.children ?? (m.iconImage ? <IconImage source={m.iconImage} /> : null)}
+                  </View>
+                </View>
+              </MarkerView>
+            );
+          })}
+      </MarkerRenderContext.Provider>
     </MapView>
   );
 });
+
+/**
+ * 그림 파일 마커(캐릭터 핀). 구글 지도처럼 그림 픽셀 그대로의 크기로 놓습니다 —
+ * 그림은 3배 화면 기준 픽셀로 만들어 두었습니다 (make-marker-avatars.mjs).
+ */
+function IconImage({ source }: { source: NonNullable<MapImplProps['markers']>[number]['iconImage'] }) {
+  const size = Image.resolveAssetSource(source as number);
+  const ratio = PixelRatio.get();
+  return <Image source={source} style={{ width: size.width / ratio, height: size.height / ratio }} fadeDuration={0} />;
+}

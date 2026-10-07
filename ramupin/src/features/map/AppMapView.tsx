@@ -25,7 +25,8 @@ const DEFAULT_DELTA = 0.012; // 약 1.3km 범위
  * 그냥 import 하면 국내에서만 쓰는 사람도 앱이 켜질 때 Mapbox 네이티브 지도가 함께 올라옵니다.
  * 안 쓰는 지도 표면이 떠 있으면 다른 화면을 뚫고 비쳐 보이는 문제가 생깁니다 (09-21 확인).
  */
-const MapboxImpl = lazy(() => import('./MapboxImpl').then((m) => ({ default: m.MapboxImpl })));
+// 토큰이 들어간 뒤에 지도를 그립니다 (MapboxImpl 의 mapboxReady 설명)
+const MapboxImpl = lazy(() => import('./MapboxImpl').then(async (m) => (await m.mapboxReady, { default: m.MapboxImpl })));
 
 /**
  * 지도를 바꾸기 전에 마커를 먼저 걷어 내는 시간(ms).

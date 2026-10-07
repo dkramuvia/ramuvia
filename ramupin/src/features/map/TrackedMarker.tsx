@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
+import { anchorFor } from './markerPress';
 import type { MapMarkerItem } from './types';
 import { MarkerReadyProvider } from './markerReady';
 
@@ -26,7 +28,18 @@ const GIVE_UP_MS = 4000;
 /** `onLoad` 뒤 실제로 꺼지기까지. 마지막 한 번을 확실히 굽기 위한 여유입니다 */
 const SETTLE_MS = 600;
 
-export function TrackedMarker({ item }: { item: MapMarkerItem }) {
+export function TrackedMarker({
+  item,
+  onContentSize,
+}: {
+  item: MapMarkerItem;
+  /** 마커 뷰의 크기(dp). 배지 그림 칸 위치를 계산할 때 씁니다 (GoogleMapImpl) */
+  onContentSize?: (size: { width: number; height: number }) => void;
+}) {
+  // 그려진 높이. `lift` 가 있으면 이 값으로 anchor 를 계산합니다
+  const [height, setHeight] = useState<number | null>(null);
+  const measure = item.lift != null || onContentSize != null;
+  const anchor = anchorFor(item, height ? { height } : null);
   const [tracks, setTracks] = useState(true);
   // 그림이 캐시에 들어온 뒤 **마커를 다시 만들기** 위한 값입니다 (아래 설명)
   const [gen, setGen] = useState(0);
@@ -63,7 +76,7 @@ export function TrackedMarker({ item }: { item: MapMarkerItem }) {
   if (item.iconImage) {
     return (
       <Marker
-        coordinate={item.coordinate}
+      coordinate={item.coordinate}
         anchor={item.anchor ?? { x: 0.5, y: 0.5 }}
         onPress={item.onPress}
         zIndex={item.zIndex}
@@ -76,12 +89,27 @@ export function TrackedMarker({ item }: { item: MapMarkerItem }) {
     <Marker
       key={gen}
       coordinate={item.coordinate}
-      anchor={item.anchor ?? { x: 0.5, y: 0.5 }}
+      anchor={anchor}
       onPress={item.onPress}
       zIndex={item.zIndex}
       tracksViewChanges={tracks}
     >
-      <MarkerReadyProvider onReady={onContentReady}>{item.children}</MarkerReadyProvider>
+      <MarkerReadyProvider onReady={onContentReady}>
+        {measure ? (
+          <View
+            collapsable={false}
+            onLayout={(e) => {
+              const { width, height: h } = e.nativeEvent.layout;
+              setHeight(h);
+              onContentSize?.({ width, height: h });
+            }}
+          >
+            {item.children}
+          </View>
+        ) : (
+          item.children
+        )}
+      </MarkerReadyProvider>
     </Marker>
   );
 }

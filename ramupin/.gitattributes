@@ -1,0 +1,2 @@
+# patch-package 패치는 줄바꿈이 바뀌면 적용이 깨집니다
+patches/*.patch text eol=lf

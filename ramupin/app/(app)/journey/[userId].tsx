@@ -10,7 +10,7 @@ import { useFriends } from '@/features/friends/queries';
 import { allRouteCoordinates, formatDuration, minutesSince, routePolylines } from '@/features/journey/routeLayers';
 import { useAreaName } from '@/features/location/useAreaName';
 import { AppMapView, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
-import { AvatarMarker } from '@/features/map/AvatarMarker';
+import { personPin } from '@/features/map/PinMarker';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useJourney } from '@/features/settings/queries';
@@ -67,8 +67,10 @@ export default function JourneyScreen() {
 
   const markers = useMemo<MapMarkerItem[]>(() => {
     if (!current || !name) return [];
-    return [{ id: 'person', coordinate: current, zIndex: 5, trackKey: `${friend?.avatarUrl ?? ''}`, children: <AvatarMarker name={name} imageUrl={friend?.avatarUrl} isMe={isMe} /> }];
-  }, [current, name, friend, isMe]);
+    // 핀: 캐릭터가 있으면 캐릭터, 없으면 이름 (PinMarker.tsx)
+    const avatarUrl = isMe ? me?.avatarUrl : friend?.avatarUrl;
+    return [{ id: 'person', coordinate: current, zIndex: 5, ...personPin({ name, avatarUrl, active: isMe }) }];
+  }, [current, name, friend, isMe, me]);
 
   const battery = journey?.batteryLevel ?? friend?.batteryLevel;
 
@@ -132,7 +134,8 @@ export default function JourneyScreen() {
                   </AppText>
                 </Pressable>
               ) : null}
-              {journey ? (
+              {/* 오늘 다녀간 곳이 0곳이면 카드 전체가 첫·마지막 방문지를 전제로 해서 그리지 않습니다 (10-07 오류) */}
+              {journey && journey.stops.length > 0 ? (
                 <Pressable accessibilityRole="button" onPress={() => setView('timeline')} style={styles.card}>
                   <View style={styles.cardHeader}>
                     <AppText variant="title4" style={styles.flex}>

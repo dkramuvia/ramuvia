@@ -63,16 +63,31 @@ export function NamePin({ name, active }: { name: string; active?: boolean }) {
 
   // 글자 단위로 자릅니다 (한글·이모지가 반쪽 나지 않게)
   const 이름 = Array.from(name.trim()).slice(0, NAME_MAX).join('');
+  const fontSize = nameFontSize(이름);
   return (
     <View style={styles.pin} collapsable={false}>
       <View style={styles.tail} />
       <View style={[styles.circle, active && styles.circleActive]}>
-        <AppText style={styles.name} numberOfLines={1} allowFontScaling={false}>
+        <AppText style={[styles.name, { fontSize, lineHeight: Math.ceil(fontSize * 1.25) }]} numberOfLines={1} allowFontScaling={false}>
           {이름}
         </AppText>
       </View>
     </View>
   );
+}
+
+/**
+ * 원 안 글자 크기. **글자 수에 맞춰** 원 안을 채웁니다 (대표님 10-08: 5자까지, 폰트는 맞춰서).
+ * 한글 한 글자 폭을 0.9, 영문·숫자를 0.55 로 쳐서 (피그마: 6.8 크기 5자 = 30dp) 원 안 폭(NAME_WIDTH)에 들어가는 크기를 고릅니다.
+ * 한글 5자면 피그마 값(6.8)과 거의 같고, 짧을수록 커집니다 (최대 NAME_MAX_FONT).
+ */
+const NAME_WIDTH = 31;
+const NAME_MAX_FONT = 14;
+/** 한글(자모·완성형)·한자 — 영문보다 넓은 글자 */
+const WIDE_CHAR = /[ᄀ-ᇿ㄰-㆏가-힯一-鿿]/;
+function nameFontSize(name: string) {
+  const units = Array.from(name).reduce((sum, ch) => sum + (WIDE_CHAR.test(ch) ? 0.9 : 0.55), 0);
+  return Math.min(NAME_MAX_FONT, Math.floor((NAME_WIDTH / Math.max(units, 1)) * 10) / 10);
 }
 
 /** 피그마 값 그대로 (다른 곳에 없는 색이라 여기 둡니다) */
@@ -105,6 +120,6 @@ const useStyles = makeStyles((colors) => ({
     borderRightColor: 'transparent',
     borderTopColor: PIN_LINE,
   },
-  // 피그마 SUIT Medium 6.8 — 5자가 원 안에 들어가는 크기
-  name: { fontFamily: fontFamily.medium, fontSize: 7, lineHeight: 9, color: colors.white, includeFontPadding: false },
+  // 피그마 SUIT Medium. 크기는 글자 수에 따라 (nameFontSize)
+  name: { fontFamily: fontFamily.medium, color: colors.white, includeFontPadding: false, textAlign: 'center' },
 }));

@@ -155,9 +155,13 @@ export default function MapScreen() {
       const 높이 = 활성 ? 30 : p.isMe ? 10 : 1;
       const onPress = () => (활성 ? p.onOpen?.() : setActiveId(p.id));
       const 핀 = personPin({ name: p.name, avatarUrl: p.avatarUrl, active: 활성 });
+      // 활성화된 사람 발밑에 레이더 파동 (피그마 지도 메인 550, 114dp 동심원). 핀 꼬리 끝이 가운데
+      if (활성) {
+        items.push({ id: `${p.id}:radar`, coordinate: p.coordinate, zIndex: 0, children: null, sprite: { sheet: SPRITES.radar.lg, offset: { x: 0, y: 0 } } });
+      }
       items.push({ id: p.id, coordinate: p.coordinate, zIndex: 높이, onPress, ...핀 });
       if (!p.status) return;
-      const 그림 = badgeSprite(p.status.kind);
+      const 그림 = badgeSprite(p.status.kind, p.id);
       // 배지 색: 다크 지도면 모두 검정, 라이트 지도면 활성화된 사람만 흰색 (StatusBadge)
       const 색 = 활성 && !mapIsDark ? 'light' : 'dark';
       items.push({
@@ -169,7 +173,7 @@ export default function MapScreen() {
         lift: BADGE_BOTTOM_GAP,
         // 이 값이 바뀔 때만 배지를 다시 굽습니다 (TrackedMarker 설명 참고)
         trackKey: `${p.status.kind}|${p.status.text}|${p.battery ?? ''}|${색}`,
-        children: <BadgeMarker status={p.status} battery={p.battery} tone={색} />,
+        children: <BadgeMarker status={p.status} battery={p.battery} tone={색} who={p.id} />,
         // 걷기·자전거·자동차는 피그마의 움직이는 그림 (spriteClock.ts)
         badgeSprite: 그림 ? { sheet: 그림 } : undefined,
         onPress,

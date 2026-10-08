@@ -1,6 +1,8 @@
 import { useIsFocused } from 'expo-router';
 import { forwardRef, lazy, Suspense, useEffect, useState, type Ref } from 'react';
 
+import { StyleSheet, View } from 'react-native';
+
 import { GoogleMapImpl } from './GoogleMapImpl';
 import { NaverMapImpl } from './NaverMapImpl';
 import { resolveMapProvider } from './region';
@@ -19,6 +21,9 @@ type AppMapViewProps = Omit<MapImplProps, 'initialDelta' | 'mapType' | 'nightMod
 
 const DEFAULT_DELTA = 0.012; // 약 1.3km 범위
 
+/** 앱이 Mapbox 로 켜질 때 지도 화면이 보인 뒤 이만큼 쉬었다 붙입니다 (아래 mapboxSettled) */
+const MAPBOX_SETTLE_MS = 400;
+
 /**
  * 해외 지도는 필요할 때만 불러옵니다.
  *
@@ -26,7 +31,11 @@ const DEFAULT_DELTA = 0.012; // 약 1.3km 범위
  * 안 쓰는 지도 표면이 떠 있으면 다른 화면을 뚫고 비쳐 보이는 문제가 생깁니다 (09-21 확인).
  */
 // 토큰이 들어간 뒤에 지도를 그립니다 (MapboxImpl 의 mapboxReady 설명)
-const MapboxImpl = lazy(() => import('./MapboxImpl').then(async (m) => (await m.mapboxReady, { default: m.MapboxImpl })));
+const MapboxImpl = lazy(async () => {
+  const m = await import('./MapboxImpl');
+  await m.mapboxReady;
+  return { default: m.MapboxImpl };
+});
 
 /**
  * 지도를 바꾸기 전에 마커를 먼저 걷어 내는 시간(ms).
@@ -75,6 +84,19 @@ export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function
     const timer = setTimeout(() => setShown(provider), MARKER_CLEANUP_MS);
     return () => clearTimeout(timer);
   }, [swapping, focused, provider]);
+
+  /**
+   * **Mapbox 는 지도 화면이 보인 뒤에 붙입니다.** 앱이 Mapbox 로 켜지면 지도가 스타일을 불러오지 않고
+   * 빈 화면으로 남았습니다. 다른 지도에서 바꿔 들어올 때(화면이 보이는 상태에서 잠깐 쉬었다 붙음)는
+   * 늘 됐습니다 — 켤 때도 같은 길로 가게 합니다 (2026-10-08).
+   */
+  const [mapboxSettled, setMapboxSettled] = useState(false);
+  useEffect(() => {
+    if (!focused || mapboxSettled) return;
+    const timer = setTimeout(() => setMapboxSettled(true), MAPBOX_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [focused, mapboxSettled]);
+  if (shown === 'mapbox' && !mapboxSettled) return <View style={props.style ?? StyleSheet.absoluteFill} />;
 
   const Impl = shown === 'naver' ? NaverMapImpl : shown === 'mapbox' ? MapboxImpl : GoogleMapImpl;
   const map = (

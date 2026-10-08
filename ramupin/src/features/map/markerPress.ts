@@ -7,6 +7,9 @@ import type { LatLng } from '@/types/models';
 /** 아무 마커에도 정확히 안 들어갔을 때, 그림 가장자리에서 이만큼(dp) 벗어나도 누른 것으로 봅니다 */
 const PRESS_SLOP = 4;
 
+/** 이만큼(dp) 넘게 움직였으면 누름이 아니라 끌기입니다 */
+const DRAG_DP = 10;
+
 /**
  * **누가 눌렸는지 직접 판정합니다** (2026-10-07). 세 지도(구글·네이버·Mapbox)가 같이 씁니다.
  * 네이버·Mapbox 는 손가락이 RN 뷰로 오지 않아, 지도 탭 이벤트의 자리로 판정합니다 (resolveAt).
@@ -92,7 +95,22 @@ export function useMarkerPress({
     [resolve],
   );
 
-  return { frameRef, onFrameLayout, onTouchStart, setSize, resolve, resolveAt };
+  /**
+   * 손가락을 뗄 때 판정 (Mapbox 마커가 직접 손가락을 받을 때). 끌어서 지도를 옮긴 것이면 누름으로 치지 않습니다
+   */
+  const onTouchEnd = useCallback(
+    (e: GestureResponderEvent) => {
+      const t = touch.current;
+      if (!t) return;
+      const dx = e.nativeEvent.pageX - origin.current.x - t.x;
+      const dy = e.nativeEvent.pageY - origin.current.y - t.y;
+      if (dx * dx + dy * dy > DRAG_DP * DRAG_DP) return;
+      resolve();
+    },
+    [resolve],
+  );
+
+  return { frameRef, onFrameLayout, onTouchStart, onTouchEnd, setSize, resolve, resolveAt };
 }
 
 /** 좌표를 기준으로 마커가 실제로 그려지는 사각형(dp). 크기를 모르면 null */

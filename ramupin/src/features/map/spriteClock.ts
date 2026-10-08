@@ -64,13 +64,28 @@ export function spriteSizeDp(sheet: SpriteSheet) {
   return { width: sheet.w / ratio, height: sheet.h / ratio };
 }
 
+/** 걷기 운동화 두 켤레 (분홍·파랑 / 보라). 대표님 10-08: 사람마다 랜덤 */
+const WALKING = [SPRITES.walking, SPRITES.walking2];
+
+/**
+ * 사람마다 늘 같은 값이 나오는 '랜덤' (id 로 정합니다).
+ * 매번 새로 뽑으면 화면을 그릴 때마다 운동화가 바뀌어 깜빡입니다.
+ */
+function pickFor(who: string | undefined, count: number) {
+  let h = 0;
+  for (const ch of who ?? '') h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return Math.abs(h) % count;
+}
+
 /**
  * 배지 그림 칸에 들어가는 움직이는 그림 (피그마 지도 메인 548·550).
  * 의자(머무는 중)·기차·비행기는 피그마에 움직이는 그림이 없어 글꼴 아이콘 그대로입니다.
+ * `who` = 사람 id. 걷기 운동화를 사람마다 고릅니다.
  */
-export function badgeSprite(kind: MovementKind): SpriteSheet | null {
-  // 배지는 모두 24dp 라 작은 그림(20dp)만 씁니다. 큰 그림(lg)은 지금 쓰는 곳이 없습니다
-  const set = kind === 'car' ? SPRITES.car : kind === 'bicycle' ? SPRITES.bicycle : kind === 'walking' ? SPRITES.walking : null;
+export function badgeSprite(kind: MovementKind, who?: string): SpriteSheet | null {
+  // 배지는 모두 24dp 라 작은 그림(20dp)만 씁니다
+  const set =
+    kind === 'car' ? SPRITES.car : kind === 'bicycle' ? SPRITES.bicycle : kind === 'walking' ? WALKING[pickFor(who, WALKING.length)] : null;
   return set ? set.sm : null;
 }
 

@@ -62,8 +62,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
   const mapRef = useRef<MapView>(null);
   /**
    * 누가 눌렸는지는 앱이 판정합니다 (markerPress.ts — 세 지도 공통).
-   * Mapbox 마커 뷰를 직접 누르게 두었더니 손가락이 마커까지 오지 않고 지도로 갔습니다 (10-07 폰에서 확인).
-   * 지도 누름에는 탭한 자리(픽셀)가 들어 있고, 좌표 → 화면 변환(getPointInView)은 dp 를 줍니다.
+   * 지도 누름의 자리와 좌표 → 화면 변환(getPointInView) 모두 dp 입니다.
    */
   const press = useMarkerPress({
     project: async (c) => {
@@ -135,9 +134,11 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
   );
 
   return (
+    // 손가락 자리를 지도 기준으로 바꾸려고 지도의 화면 위치를 재 둡니다 (press.onFrameLayout)
+    <View ref={press.frameRef} style={style ?? StyleSheet.absoluteFill} onLayout={press.onFrameLayout} collapsable={false}>
     <MapView
       ref={mapRef}
-      style={style ?? StyleSheet.absoluteFill}
+      style={StyleSheet.absoluteFill}
       styleURL={nightMode && mapType === 'road' ? Mapbox.StyleURL.Dark : STYLES[mapType]}
       scaleBarEnabled={false}
       logoEnabled
@@ -147,11 +148,11 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
       zoomEnabled={interactive}
       rotateEnabled={interactive}
       pitchEnabled={interactive}
+      // 빈 곳 누름. 자리는 dp 로 옵니다 (rnmapbox 가 바꿔 줌). 마커 위 누름은 여기로 오지 않습니다 — 아래 마커가 받습니다
       onPress={(feature) => {
         const { screenPointX, screenPointY } = (feature.properties ?? {}) as { screenPointX?: number; screenPointY?: number };
         if (screenPointX == null || screenPointY == null) return onPress?.();
-        const ratio = PixelRatio.get();
-        press.resolveAt({ x: screenPointX / ratio, y: screenPointY / ratio });
+        press.resolveAt({ x: screenPointX, y: screenPointY });
       }}
       onDidFinishLoadingMap={() => {
         ready.current = true;
@@ -244,8 +245,15 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
                 // 겹쳐도 숨기지 않습니다 (기본값은 겹치면 하나만 보여 줌)
                 allowOverlap
               >
-                {/* 마커는 손가락을 받지 않습니다 — 누름은 지도가 받아 판정합니다 (위 press) */}
-                <View pointerEvents="none" style={m.lift != null ? { paddingBottom: m.lift } : undefined}>
+                {/*
+                  Mapbox 는 **마커 위를 누르면 지도 누름을 보내지 않습니다** (rnmapbox isPointOnMarkerView).
+                  그래서 마커가 손가락을 받아, 누른 자리를 공용 판정에 넘깁니다 — 겹친 아래 사람·여백 아래 핀도 판정이 고릅니다
+                */}
+                <View
+                  style={m.lift != null ? { paddingBottom: m.lift } : undefined}
+                  onTouchStart={press.onTouchStart}
+                  onTouchEnd={press.onTouchEnd}
+                >
                   {/* 판정에 쓸 크기는 여백을 뺀 내용만 */}
                   <View onLayout={(e) => press.setSize(m.id, { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
                     {m.children ?? (m.iconImage ? <IconImage source={m.iconImage} /> : null)}
@@ -256,6 +264,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
           })}
       </MarkerRenderContext.Provider>
     </MapView>
+    </View>
   );
 });
 

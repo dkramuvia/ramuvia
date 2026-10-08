@@ -40,8 +40,9 @@ TICK_MS = 125
     'car': {'gifRef': 'cb31e8f94c5bac67a5885399a4f2de41880bacd3', '크기': {'lg': 32, 'sm': 20}},
     # 지도 메인 550·551 '18km로 이동중' 배지
     'bicycle': {'gifRef': '30b5362065e7c5cfbee38a61d2f6696db10edd42', '크기': {'lg': 32, 'sm': 20}},
-    # SOS 구역에 따로 놓인 운동화 (분홍·파랑). 걷기 배지에 씁니다
+    # SOS 구역에 따로 놓인 운동화 두 켤레 (분홍·파랑 / 보라). 걷기 배지에 사람마다 하나씩 (대표님 10-08: 랜덤)
     'walking': {'gifRef': 'f857228707d574455fb1c5b3909f2f83ad932093', '크기': {'lg': 32, 'sm': 20}},
+    'walking2': {'gifRef': 'c9a5726da902187993d3c2736edda38e4261e1d4', '크기': {'lg': 32, 'sm': 20}},
     # 지도 메인 550·551 내 위치 옆 106×106 발자국
     'footprints': {'gifRef': '083655b0579404a490775ec1b09b336586d52a05', '크기': {'lg': 106}, '자르기': False},
 }
@@ -135,7 +136,41 @@ def 만들기():
             목록[이름][크기이름] = {'w': w, 'h': h, '파일': 파일들}
             kb = sum(p.stat().st_size for p in 파일들) // 1024
             print(f'{이름} {크기이름}: {len(파일들)}장 {w}x{h}px {kb}KB')
+    목록['radar'] = 레이더()
     목록쓰기(목록)
+
+
+def 레이더():
+    """
+    핀 아래 레이더 파동 (피그마 지도 메인 550: 지름 19·38·76·114dp 동심원, #7C6D67).
+    피그마는 정지 그림이라, 원이 가운데서 퍼져 나가며 옅어지는 움직임을 여기서 만듭니다.
+    링 두 개가 반 박자씩 어긋나 퍼집니다. 한 바퀴 2초.
+    """
+    from PIL import ImageDraw
+    지름dp, 색 = 114, (0x7C, 0x6D, 0x67)
+    큰 = 지름dp * 배율 * 2  # 2배로 그린 뒤 줄여 가장자리를 매끄럽게
+    장수 = round(2000 / TICK_MS)
+    폴더 = 결과 / 'radar'
+    폴더.mkdir(parents=True, exist_ok=True)
+    파일들 = []
+    for i in range(장수):
+        im = Image.new('RGBA', (큰, 큰), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        for 어긋남 in (0, 0.5):
+            t = (i / 장수 + 어긋남) % 1  # 0 → 1 로 퍼짐
+            r = 큰 / 2 * (0.17 + 0.83 * t)
+            알파 = round(120 * (1 - t))
+            d.ellipse([큰 / 2 - r, 큰 / 2 - r, 큰 / 2 + r, 큰 / 2 + r], fill=색 + (round(알파 * 0.35),), outline=색 + (알파,), width=round(1.5 * 배율 * 2))
+        # 가운데 작은 원 (피그마 19dp) 은 늘 보입니다
+        r0 = 큰 * 19 / 114 / 2
+        d.ellipse([큰 / 2 - r0, 큰 / 2 - r0, 큰 / 2 + r0, 큰 / 2 + r0], fill=색 + (90,))
+        작게 = im.resize((지름dp * 배율, 지름dp * 배율), Image.LANCZOS)
+        파일 = 폴더 / f'lg-{i:02d}.png'
+        작게.save(파일, optimize=True)
+        파일들.append(파일)
+    kb = sum(p.stat().st_size for p in 파일들) // 1024
+    print(f'radar lg: {len(파일들)}장 {지름dp * 배율}px {kb}KB')
+    return {'lg': {'w': 지름dp * 배율, 'h': 지름dp * 배율, '파일': 파일들}}
 
 
 def 목록쓰기(목록):

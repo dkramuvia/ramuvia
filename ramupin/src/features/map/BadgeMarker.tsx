@@ -31,11 +31,14 @@ export function BadgeMarker({
   status,
   battery,
   tone,
+  who,
 }: {
   status: MovementStatus;
+  /** 사람 id (걷기 운동화 고르기) */
+  who?: string;
   battery?: number | null;
   /** 라이트 지도에서 활성화된 사람만 `light` (StatusBadge 설명) */
   tone: 'light' | 'dark';
 }) {
-  return <StatusBadge text={status.text} kind={status.kind} battery={battery} tone={tone} />;
+  return <StatusBadge text={status.text} kind={status.kind} battery={battery} tone={tone} who={who} />;
 }

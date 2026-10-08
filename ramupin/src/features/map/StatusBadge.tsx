@@ -40,18 +40,20 @@ interface StatusBadgeProps {
   /** 내 배지에만. 배터리 잔량(%) */
   battery?: number | null;
   tone?: 'light' | 'dark';
+  /** 사람 id. 걷기 운동화를 사람마다 다르게 고를 때 씁니다 (badgeSprite) */
+  who?: string;
 }
 
 /** 배터리가 이 아래면 빨갛게 (친구 화면의 배터리 경고와 같은 기준) */
 const BATTERY_LOW = 15;
 
-export function StatusBadge({ text, kind, battery, tone = 'dark' }: StatusBadgeProps) {
+export function StatusBadge({ text, kind, battery, tone = 'dark', who }: StatusBadgeProps) {
   const styles = useStyles();
   const colors = useColors();
   const light = tone === 'light';
   const fg = light ? BADGE_TEXT : BADGE_TEXT_ON_DARK;
   const slot = useBadgeSlotMode();
-  const sprite = slot === 'icon' ? null : badgeSprite(kind);
+  const sprite = slot === 'icon' ? null : badgeSprite(kind, who);
 
   return (
     <View style={[styles.badge, light ? styles.light : styles.dark]}>

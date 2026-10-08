@@ -19,6 +19,9 @@ import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
 import { showToast } from '@/utils/toast';
 
 /** 피그마: 채팅방 1:1 (283:34973) / 그룹 생성 직후 (283:39171) / 위치 공유 (283:35894) */
+/** 이만큼 안에 잡힌 위치면 새로 잡지 않고 씁니다 */
+const RECENT_LOCATION_MS = 2 * 60 * 1000;
+
 export default function ChatRoomScreen() {
   const styles = useStyles();
   const colors = useColors();
@@ -48,9 +51,17 @@ export default function ChatRoomScreen() {
       showToast(t('map.locationDenied'));
       return;
     }
-    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    const place = await describePlace({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-    send.mutate({ type: 'location', place });
+    // 실내에서 정확한 위치를 새로 잡으면 5초 넘게 걸립니다. 그동안 아무 표시가 없으면 또 누르게 됩니다 (10-08 폰에서 확인).
+    // 2분 안에 잡힌 위치가 있으면 그것을 바로 씁니다
+    try {
+      const recent = await Location.getLastKnownPositionAsync({ maxAge: RECENT_LOCATION_MS });
+      if (!recent) showToast(t('chat.locatingNow'));
+      const position = recent ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }));
+      const place = await describePlace({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      send.mutate({ type: 'location', place });
+    } catch {
+      showToast(t('chat.locateFailed'));
+    }
   };
 
   const inviteLink = () => {

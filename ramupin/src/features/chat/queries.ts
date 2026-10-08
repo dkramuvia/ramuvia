@@ -85,7 +85,13 @@ export function useSendMessage(roomId: string) {
     },
     onSuccess: (message, _input, context) => {
       messageStore.save([message]);
-      queryClient.setQueryData<ChatMessage[]>(key, (list = []) => list.map((m) => (m.id === context?.tempId ? message : m)));
+      // 실시간(소켓)으로 같은 메시지가 **먼저** 들어와 있을 수 있습니다. 그때 임시 메시지를 바꿔 끼우면
+      // 같은 메시지가 두 번 보입니다 (10-08 폰에서 확인). 이미 있으면 임시 메시지만 지웁니다
+      queryClient.setQueryData<ChatMessage[]>(key, (list = []) =>
+        list.some((m) => m.id === message.id)
+          ? list.filter((m) => m.id !== context?.tempId)
+          : list.map((m) => (m.id === context?.tempId ? message : m)),
+      );
       queryClient.invalidateQueries({ queryKey: chatKeys.rooms, exact: true });
     },
     onError: (_error, _input, context) => {

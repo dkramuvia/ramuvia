@@ -101,6 +101,8 @@
     "attach": "더보기",
     "sharePlace": "장소 지정 공유",
     "shareCurrent": "현재위치 공유",
+    "locatingNow": "현재 위치를 확인하고 있어요",
+    "locateFailed": "현재 위치를 가져오지 못했어요. 잠시 뒤 다시 시도해 주세요.",
     "locationShared": "위치를 공유했어요.",
     "viewOnMap": "지도에서 보기",
     "inviteLink": "초대 링크",

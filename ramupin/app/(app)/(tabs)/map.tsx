@@ -234,7 +234,7 @@ export default function MapScreen() {
         circles={circles}
         // 빈 곳을 누르면 다시 나를 활성화. 누가 눌렸는지는 지도가 판정합니다 (GoogleMapImpl useMarkerPress)
         onPress={() => setActiveId('me')}
-        padding={{ top: 120, right: 0, bottom: SHEET_HEIGHT + AD_HEIGHT + 40, left: 0 }}
+        padding={{ top: 120, right: 0, bottom: SHEET_COLLAPSED + AD_HEIGHT + 40, left: 0 }}
       />
 
       <SafeAreaView edges={['top']} style={styles.overlayTop} pointerEvents="box-none">
@@ -302,6 +302,8 @@ export default function MapScreen() {
 
       <SnapSheet
         snapPoints={[SHEET_COLLAPSED, SHEET_HEIGHT]}
+        // 처음엔 지도만 보이게 친구 목록은 접어 둡니다. 끌어 올리면 펼쳐집니다 (대표님 10-08)
+        initialIndex={0}
         above={
           <>
             {/* 이동 상태·배터리는 핀 위 배지로 갑니다 (BadgeMarker, 피그마 2026-10-07).

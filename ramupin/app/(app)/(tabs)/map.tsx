@@ -240,7 +240,14 @@ export default function MapScreen() {
       <SafeAreaView edges={['top']} style={styles.overlayTop} pointerEvents="box-none">
         <View style={styles.topRow} pointerEvents="box-none">
           <View style={styles.addressBlock}>
-            <AppText variant="display" color={overlay.text} numberOfLines={1}>
+            {/* 피그마는 36(display)인데, 실제 지도 위에서는 도로명과 겹쳐 너무 커 보여 28 로 줄이고
+                바탕 지도 글씨와 섞이지 않게 둘레에 바탕색 테두리를 둡니다 (대표님 10-08) */}
+            <AppText
+              variant="title1"
+              color={overlay.text}
+              numberOfLines={1}
+              style={{ textShadowColor: overlay.pill, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 }}
+            >
               {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
             </AppText>
             <WeatherBadge weather={weather} />

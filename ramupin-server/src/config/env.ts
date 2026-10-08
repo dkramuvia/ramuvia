@@ -76,6 +76,13 @@ const schema = z.object({
   // 네이버 지도 REST (주소 검색·좌표→주소). 앱에는 Client ID 만 들어가고 Secret 은 서버 전용
   NAVER_MAP_CLIENT_ID: z.string().default(''),
   NAVER_MAP_CLIENT_SECRET: z.string().default(''),
+  /**
+   * 장소 이름 검색 (네이버 개발자센터 '검색 > 지역' API, 10-08).
+   * 비워 두면 네이버 로그인 앱 키를 씁니다 — 그 앱의 '사용 API' 에 **검색** 을 추가해야 합니다.
+   * 지도 키(NCP)와는 다른 곳에서 발급되는 키입니다
+   */
+  NAVER_SEARCH_CLIENT_ID: z.string().default(''),
+  NAVER_SEARCH_CLIENT_SECRET: z.string().default(''),
   // 전화번호 암호화·중복 확인 키 (32바이트 base64). 바뀌면 기존 번호를 읽지 못함
   // 사진·동영상 저장소. 개발은 Docker MinIO, 운영은 AWS S3 — 규격이 같아 주소·키만 바뀝니다
   STORAGE_ENDPOINT: z.string().url().default(''),
@@ -89,6 +96,11 @@ const schema = z.object({
    * 이 주소로 열리는 웹 페이지는 아직 없습니다 — 링크 발급과 서버 조회만 먼저 만들어 둡니다
    */
   PUBLIC_WEB_URL: z.string().default('https://ramupin.app'),
+  /**
+   * 초대 링크 주소 앞부분 (그룹방 초대, 10-08). 이 주소의 `/g/<토큰>` 이 앱을 여는 작은 페이지를 내려줍니다.
+   * API 서버가 직접 내려주므로 도메인을 따로 사지 않아도 됩니다
+   */
+  PUBLIC_LINK_URL: z.string().default('https://api.ramuviamanager.com'),
   /**
    * 위치 이력 보관 개월 수 (WBS 4.3: 6개월).
    *

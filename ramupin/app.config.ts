@@ -85,6 +85,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
+      // 갤러리 올리기에서 기기 사진을 앱 안 목록으로 보여 줍니다 (피그마 581, 10-08 대표님 결정).
+      // 안드로이드 사진 전체 읽기 권한이 들어가 플레이 콘솔에 사용 사유를 제출해야 합니다
+      'expo-media-library',
+      {
+        photosPermission: '갤러리에 올릴 사진을 앱 안에서 고르기 위해 사진에 접근합니다.',
+        savePhotosPermission: '사진을 기기에 저장하기 위해 사진에 접근합니다.',
+        isAccessMediaLocationEnabled: false,
+        granularPermissions: ['photo', 'video'],
+      },
+    ],
+    [
       '@react-native-kakao/core',
       {
         // 카카오 디벨로퍼스 > RamuPin(1578376) > 앱 키 > 네이티브 앱 키

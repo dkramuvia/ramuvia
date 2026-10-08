@@ -44,7 +44,8 @@ async function fileInfo(asset: MediaAsset): Promise<{ contentType: string; bytes
 }
 
 export interface UploadPostInput {
-  groupId: string;
+  /** 올릴 그룹방들 (피그마 583: 여러 개 고르기). 그룹마다 게시물이 하나씩 생깁니다 */
+  groupIds: string[];
   media: MediaAsset[];
   place?: SharedPlace;
 }
@@ -88,20 +89,22 @@ export const galleryApi = {
    * 파일을 API 서버로 보내지 않습니다. 서버에서 "올릴 주소"만 받아 저장소로 **직접** 올린 뒤,
    * 다 올라가면 게시물을 만듭니다. 동영상이 서버를 지나가면 몇 명만 동시에 올려도 API 가 막힙니다.
    */
-  async upload(input: UploadPostInput): Promise<GalleryPost> {
+  async upload(input: UploadPostInput): Promise<GalleryPost[]> {
     if (!isLive('gallery')) {
-      const group = mockGroups.find((g) => g.id === input.groupId);
-      const post: GalleryPost = {
-        id: `p${Date.now()}`,
-        groupId: input.groupId,
-        groupName: group?.name ?? '',
-        author: { id: mockMe.id, nickname: mockMe.nickname, isOnline: true },
-        media: input.media,
-        place: input.place,
-        createdAt: new Date().toISOString(),
-      };
-      mockPosts.unshift(post);
-      return mockResponse(post, 800);
+      const posts = input.groupIds.map((groupId, i): GalleryPost => {
+        const group = mockGroups.find((g) => g.id === groupId);
+        return {
+          id: `p${Date.now()}-${i}`,
+          groupId,
+          groupName: group?.name ?? '',
+          author: { id: mockMe.id, nickname: mockMe.nickname, isOnline: true },
+          media: input.media,
+          place: input.place,
+          createdAt: new Date().toISOString(),
+        };
+      });
+      mockPosts.unshift(...posts);
+      return mockResponse(posts, 800);
     }
 
     // 1) 올릴 주소 받기. 등급 용량이 모자라면 여기서 거절당합니다
@@ -122,8 +125,8 @@ export const galleryApi = {
     }
 
     // 3) 게시물 만들기. 서버가 저장소에 실제로 있는지 다시 확인합니다
-    const { data } = await apiClient.post<GalleryPost>('/gallery/posts', {
-      groupId: input.groupId,
+    const { data } = await apiClient.post<{ posts: GalleryPost[] }>('/gallery/posts', {
+      groupIds: input.groupIds,
       assetIds: targets.targets.map((t) => t.assetId),
       place: input.place
         ? {
@@ -134,7 +137,7 @@ export const galleryApi = {
           }
         : null,
     });
-    return data;
+    return data.posts;
   },
 
   /** 내가 쓴 공유 용량 (설정 화면) */

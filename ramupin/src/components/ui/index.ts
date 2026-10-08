@@ -17,7 +17,7 @@ export { SearchField } from './SearchField';
 export { SegmentButtons } from './SegmentButtons';
 export { SegmentedTabs } from './SegmentedTabs';
 export { ShareLevelIcon } from './ShareLevelIcon';
-export { SheetScrollView, SnapSheet } from './SnapSheet';
+export { SheetScrollView, SnapSheet, type SnapSheetHandle } from './SnapSheet';
 export { Switch } from './Switch';
 export { Tag } from './Tag';
 export { TermsAgreement, requiredAgreed, type TermItem } from './TermsAgreement';

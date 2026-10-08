@@ -25,8 +25,17 @@ const targetsBody = z.object({
     .max(MAX_MEDIA_PER_POST),
 });
 
+/** 한 번에 올릴 수 있는 그룹방 수 */
+const MAX_GROUPS_PER_UPLOAD = 10;
+
 const createPostBody = z.object({
-  groupId: z.uuid(),
+  /** 예전 앱 (한 그룹). groupIds 와 같이 오면 groupIds 를 씁니다 */
+  groupId: z.uuid().optional(),
+  /**
+   * 여러 그룹방에 한 번에 올리기 (피그마 갤러리 583, 10-08).
+   * 그룹마다 게시물이 하나씩 생기고 사진 파일은 함께 씁니다 — 한 그룹에서 지워도 다른 그룹에는 남습니다
+   */
+  groupIds: z.array(z.uuid()).min(1).max(MAX_GROUPS_PER_UPLOAD).optional(),
   assetIds: z.array(z.uuid()).min(1).max(MAX_MEDIA_PER_POST),
   place: z
     .object({
@@ -107,7 +116,9 @@ class GalleryController {
   @Post('posts')
   async createPost(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parseInput(createPostBody, body);
-    await this.assertGroupMember(user.id, input.groupId);
+    const groupIds = [...new Set(input.groupIds ?? (input.groupId ? [input.groupId] : []))];
+    if (groupIds.length === 0) throw appError(400, 'GROUP_REQUIRED', '그룹방을 골라 주세요');
+    for (const groupId of groupIds) await this.assertGroupMember(user.id, groupId);
 
     const assets = await this.db
       .selectFrom('media.assets')
@@ -128,27 +139,33 @@ class GalleryController {
         .execute();
     }
 
-    const post = await this.db
-      .insertInto('media.posts')
-      .values({
-        group_id: input.groupId,
-        author_id: user.id,
-        place_name: input.place?.placeName ?? null,
-        place_address: input.place?.address ?? null,
-        latitude: input.place?.latitude ?? null,
-        longitude: input.place?.longitude ?? null,
-        emergency_title: input.emergencyNotice?.title ?? null,
-        emergency_message: input.emergencyNotice?.message ?? null,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
+    const postIds: string[] = [];
+    for (const groupId of groupIds) {
+      const post = await this.db
+        .insertInto('media.posts')
+        .values({
+          group_id: groupId,
+          author_id: user.id,
+          place_name: input.place?.placeName ?? null,
+          place_address: input.place?.address ?? null,
+          latitude: input.place?.latitude ?? null,
+          longitude: input.place?.longitude ?? null,
+          emergency_title: input.emergencyNotice?.title ?? null,
+          emergency_message: input.emergencyNotice?.message ?? null,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
 
-    await this.db
-      .insertInto('media.post_assets')
-      .values(input.assetIds.map((assetId, position) => ({ post_id: post.id, asset_id: assetId, position })))
-      .execute();
+      await this.db
+        .insertInto('media.post_assets')
+        .values(input.assetIds.map((assetId, position) => ({ post_id: post.id, asset_id: assetId, position })))
+        .execute();
+      postIds.push(post.id);
+    }
 
-    return this.postById(post.id, user.id);
+    // 예전 앱은 게시물 하나를 받습니다. groupIds 로 보낸 앱에는 목록을 돌려줍니다
+    const posts = await Promise.all(postIds.map((id) => this.postById(id, user.id)));
+    return input.groupIds ? { posts } : posts[0];
   }
 
   /** 내가 속한 그룹의 게시물. 긴급 공지가 먼저, 그다음 최신순 (WBS 5.9) */

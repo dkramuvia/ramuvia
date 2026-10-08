@@ -19,27 +19,31 @@ function uploadErrorMessage(error: unknown, t: (key: string, vars?: Record<strin
   return t('gallery.uploadFailed');
 }
 
-/** 피그마: 그룹방 지정·위치 추가 (283:20418 / 목록 363:8084 / 선택됨 363:8185 / 위치 363:8485) */
+/**
+ * 피그마: 그룹방 지정·위치 추가 (283:20418 / 목록 363:8084 / 선택됨 363:8185 / 위치 363:8485)
+ * 그룹방은 **여러 개** 고를 수 있습니다 (갤러리 583, 10-08) — 고른 방마다 한 장씩 올라갑니다
+ */
 export default function GalleryUploadDetailScreen() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
   const { width, height } = useWindowDimensions();
-  const { media, groupId, place, setGroupId, reset } = useUploadDraftStore();
+  const { media, groupIds, place, toggleGroup, reset } = useUploadDraftStore();
   const { data: groups = [] } = useMyGroups();
   const upload = useUploadPost();
   const [groupListOpen, setGroupListOpen] = useState(false);
 
-  const selectedGroup = groups.find((g) => g.id === groupId);
+  const choices = groups;
+  const selectedNames = choices.filter((g) => groupIds.includes(g.id)).map((g) => g.name);
 
   const onShare = () => {
-    if (!groupId) {
+    if (groupIds.length === 0) {
       showToast(t('gallery.noGroup'));
       setGroupListOpen(true);
       return;
     }
     upload.mutate(
-      { groupId, media, place: place ?? undefined },
+      { groupIds, media, place: place ?? undefined },
       {
         onSuccess: () => {
           showToast(t('gallery.uploaded'));
@@ -84,26 +88,28 @@ export default function GalleryUploadDetailScreen() {
         </Pressable>
         {groupListOpen ? (
           <View style={styles.groupList}>
-            {groups.map((g) => (
-              <Pressable
-                key={g.id}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: g.id === groupId }}
-                onPress={() => {
-                  setGroupId(g.id);
-                  setGroupListOpen(false);
-                }}
-                style={styles.groupItem}
-              >
-                <AppText variant={g.id === groupId ? 'body1Bold' : 'body1'}>
-                  {g.name}
-                  {g.id === groupId ? ` ${t('gallery.currentSelected')}` : ''}
-                </AppText>
-              </Pressable>
-            ))}
+            {choices.map((g) => {
+              const selected = groupIds.includes(g.id);
+              return (
+                <Pressable
+                  key={g.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => toggleGroup(g.id)}
+                  style={styles.groupItem}
+                >
+                  {/* 피그마 583: 고른 방은 앞에 체크, 뒤에 '(현재 선택됨)' */}
+                  <Ionicons name="checkmark" size={20} color={colors.textStrong} style={{ opacity: selected ? 1 : 0 }} />
+                  <AppText variant="body1">
+                    {g.name}
+                    {selected ? ` ${t('gallery.currentSelected')}` : ''}
+                  </AppText>
+                </Pressable>
+              );
+            })}
           </View>
-        ) : selectedGroup ? (
-          <AppText variant="label1">{selectedGroup.name}</AppText>
+        ) : selectedNames.length ? (
+          <AppText variant="label1">{selectedNames.join(', ')}</AppText>
         ) : null}
 
         {/* 기획: 위치 추가 → 현재 위치에 핀, 드래그·검색으로 변경 */}
@@ -138,5 +144,5 @@ const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
   rowGap: { gap: 8, marginTop: 8 },
   groupList: { gap: 4 },
-  groupItem: { paddingVertical: 8 },
+  groupItem: { paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
 }));

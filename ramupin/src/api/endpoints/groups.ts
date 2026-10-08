@@ -33,6 +33,15 @@ const toGroup = (g: GroupDetailResponse): GroupDetail => ({
   members: g.members.map((m) => ({ ...m, avatarUrl: m.avatarUrl ?? undefined })),
 });
 
+export interface GroupInvitePreview {
+  token: string;
+  group: { id: string; name: string; memberCount: number; memberNames: string[] };
+  inviter: { nickname: string };
+  createdAt: string;
+  expiresAt: string;
+  alreadyMember: boolean;
+}
+
 export const groupsApi = {
   /** 내가 속한 그룹방 목록 */
   async list(): Promise<GroupDetail[]> {
@@ -110,6 +119,24 @@ export const groupsApi = {
       return mockResponse(undefined);
     }
     await apiClient.post(`/groups/${groupId}/members`, { memberIds });
+  },
+
+  /** 초대 링크 (서버 발급, 7일). 같은 방에서 다시 누르면 같은 주소가 옵니다 */
+  async inviteLink(groupId: string): Promise<{ url: string; token: string; expiresAt: string }> {
+    if (!isLive('groups')) return mockResponse({ url: `ramupin://group-invite/mock-${groupId}`, token: `mock-${groupId}`, expiresAt: new Date().toISOString() });
+    const { data } = await apiClient.post<{ url: string; token: string; expiresAt: string }>(`/groups/${groupId}/invite-link`);
+    return data;
+  },
+
+  /** 받은 초대 내용 (피그마 738) */
+  async invitePreview(token: string): Promise<GroupInvitePreview> {
+    const { data } = await apiClient.get<GroupInvitePreview>(`/groups/invites/${token}`);
+    return data;
+  },
+
+  async acceptInvite(token: string): Promise<{ groupId: string; joined: boolean }> {
+    const { data } = await apiClient.post<{ groupId: string; joined: boolean }>(`/groups/invites/${token}/accept`);
+    return data;
   },
 
   /** 그룹방 나가기. 마지막 멤버가 나가면 서버의 대화도 삭제됩니다 (WBS 7.3) */

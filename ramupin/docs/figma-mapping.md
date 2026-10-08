@@ -63,14 +63,18 @@
 
 대응 코드: [gallery.tsx](../app/(app)/(tabs)/gallery.tsx), [gallery/upload.tsx](../app/(app)/gallery/upload.tsx), [gallery/upload-detail.tsx](../app/(app)/gallery/upload-detail.tsx), [gallery/group/[groupId].tsx](../app/(app)/gallery/group/[groupId].tsx)
 
-- **장소 검색해서 사진에 붙이기** — 연관 검색어 목록, "현재 위치 추가하기" (새 화면 2개)
-- **URL 공유** — 그룹 사진첩 링크 공유. 서버 발급 필요 (2단계 항목)
-- 그룹방 지정 UI 변경 (여러 그룹 선택)
+- ~~**장소 검색해서 사진에 붙이기** — 연관 검색어 목록, "현재 위치 추가하기"~~ **10-08 완료** (place-picker, 서버 `GET /places/search`)
+  - 서버는 네이버 개발자센터 '지역 검색' API 를 씁니다. **네이버 로그인 앱에 '검색' API 를 추가해야 동작합니다** (env `NAVER_SEARCH_CLIENT_ID` 설명)
+- **URL 공유** — 그룹 사진첩 링크 공유. 서버 발급 09-29 완료. **링크를 여는 웹 페이지는 아직 없음**
+- ~~그룹방 지정 UI 변경 (여러 그룹 선택)~~ **10-08 완료** — 고른 방마다 게시물 하나 (서버 `groupIds`)
+- ~~앱 안 사진 목록 (581)~~ **10-08 완료** — expo-media-library. 사진 전체 읽기 권한이라 **플레이 콘솔에 사용 사유 제출 필요**
+- ~~끌어 올리는 그룹 시트 (577·579)~~ **10-08 완료** — 고른 그룹방 사진만 보기, 연필 버튼이 시트를 따라 움직임
 
 ### 사람들 — 19개 · 15개 새 내용
 
 대응 코드: [people.tsx](../app/(app)/(tabs)/people.tsx), [groups/*](../app/(app)/groups/), [chat/[roomId].tsx](../app/(app)/chat/[roomId].tsx), [settings/share/[friendId].tsx](../app/(app)/settings/share/[friendId].tsx)
 
+- ~~**그룹 초대 링크** (605 '초대 링크', 738 '그룹방 초대')~~ **10-08 완료** — 서버 발급 7일, `/g/<토큰>` 페이지가 앱을 엶. 만든 사람이 나가면 막힘
 - **그룹 프리미엄 결제 흐름** — 약관 동의 → 결제 정보 → 월간/연간(-20%) → "이 멤버들이 혜택을 받습니다" (새 화면 3개)
 - 프리미엄 소개 카드 4종 (단체메시지·배터리 공유·SOS 그룹·스마트 위치)
 - 친구별 위치 공개 설정에 **적용 시간(기간 선택)** 추가 — 현재 코드에 없음

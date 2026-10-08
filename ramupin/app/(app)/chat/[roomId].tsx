@@ -6,11 +6,11 @@ import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { groupsApi } from '@/api/endpoints/groups';
 import { AppText, Header } from '@/components/ui';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageItem } from '@/features/chat/MessageItem';
 import { useChatMessages, useChatRooms, useSendMessage } from '@/features/chat/queries';
-import { buildFriendQr } from '@/features/friends/qr';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
 import { useIsMe } from '@/stores/authStore';
@@ -64,10 +64,15 @@ export default function ChatRoomScreen() {
     }
   };
 
-  const inviteLink = () => {
+  /** 초대 링크 (서버 발급, 7일 · 피그마 605). 받은 사람은 '그룹방 초대' 화면에서 수락합니다 (group-invite) */
+  const inviteLink = async () => {
     if (!group) return;
-    // TODO(5단계): 서버 발급 그룹 초대 링크
-    Share.share({ message: t('chat.inviteMessage', { name: group.name, link: buildFriendQr(`group-${group.id}`) }) });
+    try {
+      const { url } = await groupsApi.inviteLink(group.id);
+      await Share.share({ message: t('chat.inviteMessage', { name: group.name, link: url }) });
+    } catch {
+      showToast(t('groupInvite.linkFailed'));
+    }
   };
 
   return (

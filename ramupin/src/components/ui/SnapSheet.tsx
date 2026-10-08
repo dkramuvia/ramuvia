@@ -1,5 +1,5 @@
 import BottomSheet, { BottomSheetScrollView, type BottomSheetHandleProps } from '@gorhom/bottom-sheet';
-import { useCallback, useRef, type ReactNode } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
@@ -28,7 +28,15 @@ interface SnapSheetProps {
  * 내용을 맨 위까지 스크롤한 상태에서 더 내리면 시트가 내려갑니다. 손잡이를 누르면 펼침/접힘 전환.
  * 부모 View 전체 영역을 기준으로 바닥에 붙습니다 (부모는 화면 전체 크기여야 함).
  */
-export function SnapSheet({ snapPoints, initialIndex, bottomInset = 0, header, above, onIndexChange, children }: SnapSheetProps) {
+/** 화면에서 시트를 직접 움직일 때 (예: 갤러리에서 그룹을 고르면 접기) */
+export interface SnapSheetHandle {
+  snapToIndex: (index: number) => void;
+}
+
+export const SnapSheet = forwardRef<SnapSheetHandle, SnapSheetProps>(function SnapSheet(
+  { snapPoints, initialIndex, bottomInset = 0, header, above, onIndexChange, children },
+  ref,
+) {
   const styles = useStyles();
   const sheetRef = useRef<BottomSheet>(null);
   const lastIndex = snapPoints.length - 1;
@@ -37,6 +45,8 @@ export function SnapSheet({ snapPoints, initialIndex, bottomInset = 0, header, a
   const position = useSharedValue(0);
 
   const aboveStyle = useAnimatedStyle(() => ({ transform: [{ translateY: position.value }] }));
+
+  useImperativeHandle(ref, () => ({ snapToIndex: (i: number) => sheetRef.current?.snapToIndex(i) }), []);
 
   const Handle = useCallback(
     (_props: BottomSheetHandleProps) => (
@@ -81,7 +91,7 @@ export function SnapSheet({ snapPoints, initialIndex, bottomInset = 0, header, a
       </BottomSheet>
     </>
   );
-}
+});
 
 /** 시트 안의 스크롤 영역 */
 export const SheetScrollView = BottomSheetScrollView;

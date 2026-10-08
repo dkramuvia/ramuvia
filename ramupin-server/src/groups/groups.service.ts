@@ -200,6 +200,31 @@ export class GroupsService {
   }
 
   /**
+   * 초대 링크로 들어오기 (GroupInviteService). 친구가 아니어도 됩니다 — 링크를 받았다는 것이 초대입니다.
+   * 이미 있으면 아무것도 하지 않습니다 (false).
+   */
+  async joinByInvite(me: string, groupId: string): Promise<boolean> {
+    const { count } = await this.db
+      .selectFrom('social.group_members')
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .where('group_id', '=', groupId)
+      .executeTakeFirstOrThrow();
+    return this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .insertInto('social.group_members')
+        .values({ group_id: groupId, user_id: me })
+        .onConflict((oc) => oc.doNothing())
+        .returning('user_id')
+        .executeTakeFirst();
+      if (!row) return false;
+      if (Number(count) + 1 > MAX_MEMBERS) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${MAX_MEMBERS}명입니다`);
+      const user = await trx.selectFrom('member.users').select('nickname').where('id', '=', me).executeTakeFirst();
+      await this.systemMessage(trx, groupId, `${user?.nickname ?? '알 수 없음'}님이 초대 링크로 들어왔습니다.`);
+      return true;
+    });
+  }
+
+  /**
    * 그룹방 나가기.
    * 방장이 나가면 가장 먼저 들어온 멤버가 방장이 되고, 아무도 없으면 방과 대화가 지워집니다 (WBS 7.3).
    * 기기에 남은 대화는 지우지 않습니다 (WBS 7.6).

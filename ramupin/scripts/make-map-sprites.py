@@ -130,7 +130,8 @@ def 만들기():
                 작게 = f.resize((w, h), Image.LANCZOS)
                 # 색 수를 줄여 용량을 1/3 쯤으로. 3D 그림이라 256색이면 차이가 안 보입니다
                 작게 = 작게.quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
-                파일 = 폴더 / f'{크기이름}-{i:02d}.png'
+                # @3x = 3배 화면용 그림. 없으면 배포용 앱에서 안드로이드가 3배로 또 키웁니다 (10-08)
+                파일 = 폴더 / f'{크기이름}-{i:02d}@3x.png'
                 작게.save(파일, optimize=True)
                 파일들.append(파일)
             목록[이름][크기이름] = {'w': w, 'h': h, '파일': 파일들}
@@ -165,7 +166,7 @@ def 레이더():
         r0 = 큰 * 19 / 114 / 2
         d.ellipse([큰 / 2 - r0, 큰 / 2 - r0, 큰 / 2 + r0, 큰 / 2 + r0], fill=색 + (90,))
         작게 = im.resize((지름dp * 배율, 지름dp * 배율), Image.LANCZOS)
-        파일 = 폴더 / f'lg-{i:02d}.png'
+        파일 = 폴더 / f'lg-{i:02d}@3x.png'
         작게.save(파일, optimize=True)
         파일들.append(파일)
     kb = sum(p.stat().st_size for p in 파일들) // 1024
@@ -192,7 +193,8 @@ def 목록쓰기(목록):
         for 크기이름, s in 크기들.items():
             줄.append(f"    {크기이름}: {{ w: {s['w']}, h: {s['h']}, frames: [")
             for p in s['파일']:
-                rel = os.path.relpath(p, 목록파일.parent).replace('\\', '/')
+                # require 는 @3x 없이 씁니다 (번들러가 배율에 맞는 파일을 고릅니다)
+                rel = os.path.relpath(p, 목록파일.parent).replace('\\', '/').replace('@3x.png', '.png')
                 줄.append(f"      require('{rel}'),")
             줄.append('    ] },')
         줄.append('  },')

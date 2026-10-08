@@ -10,7 +10,7 @@
 // **모양** (피그마 `Component 20` · 속성 1=사진/아바타, 2026-10-07)
 //   40dp 원 + 아래로 뾰족한 꼬리(12×16dp). 전체 40×52dp, **꼬리 끝이 위치 좌표**입니다.
 //
-// 결과: assets/avatars/marker/<이름>.png (회색 테두리), <이름>-me.png (강조색 테두리)
+// 결과: assets/avatars/marker/<이름>@3x.png (회색 테두리), <이름>-me@3x.png (강조색 테두리)
 import { readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -93,7 +93,9 @@ for (const 파일 of 파일들) {
   for (const [붙임, 색, 두께] of [['', 회색, 1], ['-me', 강조, 2]]) {
     const 원본 = await Jimp.read(join(원본폴더, 파일));
     원본.cover({ w: 지름, h: 지름 });
-    writeFileSync(join(결과폴더, `${이름}${붙임}.png`), await 핀(원본, 색, 두께).getBuffer('image/png'));
+    // 파일 이름의 @3x 가 '3배 화면용 그림' 이라는 표시입니다. 없으면 배포용 앱에서 안드로이드가 1배 그림으로 보고
+    // 화면 배율만큼 또 키워서 핀이 3배로 커졌습니다 (10-08). require 는 @3x 없이 씁니다
+    writeFileSync(join(결과폴더, `${이름}${붙임}@3x.png`), await 핀(원본, 색, 두께).getBuffer('image/png'));
     만든수 += 1;
   }
 }

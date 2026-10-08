@@ -1,8 +1,7 @@
 import { memo } from 'react';
-import { PixelRatio } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import { useSpriteFrame } from './spriteClock';
+import { spriteSizeDp, useSpriteFrame } from './spriteClock';
 import type { SpriteSheet } from './spriteTypes';
 import type { LatLng } from '@/types/models';
 
@@ -30,9 +29,9 @@ export const SpriteMarker = memo(function SpriteMarker({
   onPress?: () => void;
 }) {
   const frame = useSpriteFrame(sheet.frames.length);
-  // 마커 아이콘은 그림 픽셀을 그대로 쓰므로 dp → px 로 바꿔 비율을 냅니다
-  const ratio = PixelRatio.get();
-  const anchor = { x: 0.5 - (offset.x * ratio) / sheet.w, y: 0.5 - (offset.y * ratio) / sheet.h };
+  // anchor 는 그림 크기에 대한 비율입니다 (dp 끼리 나눔)
+  const size = spriteSizeDp(sheet);
+  const anchor = { x: 0.5 - offset.x / size.width, y: 0.5 - offset.y / size.height };
   return (
     <Marker
       coordinate={coordinate}

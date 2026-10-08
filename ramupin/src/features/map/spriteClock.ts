@@ -1,6 +1,6 @@
 import { useIsFocused } from 'expo-router';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, PixelRatio } from 'react-native';
+import { AppState } from 'react-native';
 
 import { SPRITES } from './sprites';
 import type { SpriteSheet } from './spriteTypes';
@@ -58,10 +58,16 @@ export function useSpriteFrame(count: number): number {
   return count > 0 ? now % count : 0;
 }
 
-/** 그림이 화면에 실제로 놓이는 크기(dp). 마커 아이콘은 그림 픽셀을 그대로 씁니다 */
+/**
+ * 그림을 만든 배율. 그림은 3배 화면용으로 만들고 파일 이름에 @3x 를 붙여 둡니다 —
+ * 안드로이드가 기기 배율에 맞춰 줄이거나 키우므로, 화면 크기(dp)는 언제나 픽셀 ÷ 3 입니다.
+ * (예전에는 기기 배율로 나눴는데, 배포용 앱에서 안드로이드가 한 번 더 키워 3배가 됐습니다 — 10-08)
+ */
+export const ASSET_SCALE = 3;
+
+/** 그림이 화면에 실제로 놓이는 크기(dp) */
 export function spriteSizeDp(sheet: SpriteSheet) {
-  const ratio = PixelRatio.get();
-  return { width: sheet.w / ratio, height: sheet.h / ratio };
+  return { width: sheet.w / ASSET_SCALE, height: sheet.h / ASSET_SCALE };
 }
 
 /** 걷기 운동화 두 켤레 (분홍·파랑 / 보라). 대표님 10-08: 사람마다 랜덤 */

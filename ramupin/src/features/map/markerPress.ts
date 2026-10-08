@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { Image, PixelRatio, View, type GestureResponderEvent } from 'react-native';
+import { Image, View, type GestureResponderEvent } from 'react-native';
 
 import type { MapMarkerItem } from './types';
 import type { LatLng } from '@/types/models';
@@ -123,11 +123,13 @@ export function visibleRect(m: MapMarkerItem, measured?: { width: number; height
   return { left, top, right: left + size.width, bottom: top + size.height };
 }
 
-/** 그림 파일 마커의 화면 크기(dp). 마커 아이콘은 그림 픽셀을 그대로 쓰므로 화면 배율로 나눕니다 */
+/**
+ * 그림 파일 마커의 화면 크기(dp). 그림은 @3x 파일이라 번들러가 알려 주는 크기가 이미 dp 입니다
+ * (픽셀 ÷ 3). 기기 배율로 나누면 안 됩니다 — spriteClock 의 ASSET_SCALE 설명
+ */
 export function iconSizeDp(source: MapMarkerItem['iconImage']) {
   const src = Image.resolveAssetSource(source as number);
-  const ratio = PixelRatio.get();
-  return src ? { width: src.width / ratio, height: src.height / ratio } : null;
+  return src ? { width: src.width, height: src.height } : null;
 }
 
 /**

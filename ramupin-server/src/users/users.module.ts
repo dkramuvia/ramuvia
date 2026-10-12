@@ -16,12 +16,19 @@ const singleHouseholdBody = z.object({ enabled: z.boolean() });
 const lookupQuery = z.object({ publicId: z.string().regex(/^\d{8}$/) });
 const nicknameQuery = z.object({ nickname: z.string().min(1).max(NICKNAME_MAX) });
 const profileBody = z.object({
-  nickname: z.string().min(1).max(NICKNAME_MAX).optional(),
-  avatarUrl: z.string().max(500).nullish(),
+  // 공백만 있는 이름, 아무 주소(javascript: 등)가 그대로 저장돼 친구에게 보였습니다 (10-12 자동 시험)
+  nickname: z.string().trim().min(1).max(NICKNAME_MAX).optional(),
+  // 올린 사진은 http(s) 주소, 기본 캐릭터는 앱이 그림으로 바꾸는 키("avatar:boy-01", 앱 avatars.ts).
+  // file:// 은 앱 프로필 편집이 아직 사진을 서버에 올리지 않고 폰 안 주소를 저장해서 잠시 받아 둡니다
+  // (앱 profile-edit 의 TODO — 사진 업로드가 붙으면 빼야 합니다)
+  avatarUrl: z
+    .union([z.url({ protocol: /^(https?|file)$/ }).max(500), z.string().regex(/^avatar:[a-z0-9-]{1,40}$/)])
+    .nullish(),
   gender: z.enum(['male', 'female']).nullish(),
   statusMessage: z.string().max(100).nullish(),
 });
-const hideModeBody = z.object({ hideAll: z.boolean(), until: z.iso.datetime().nullish() });
+// 앱이 보내는 +09:00 같은 시간대 표기도 받습니다 (/locations, 채팅과 같게, 10-12 자동 시험)
+const hideModeBody = z.object({ hideAll: z.boolean(), until: z.iso.datetime({ offset: true }).nullish() });
 // 탈퇴 사유는 비워 둘 수 있습니다. 이유를 꼭 적게 하면 그냥 아무 글자나 넣습니다
 const withdrawBody = z.object({ reason: z.string().max(500).default('') });
 

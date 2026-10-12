@@ -1,6 +1,7 @@
+import { HttpStatus } from '@nestjs/common';
 import { z } from 'zod';
 
-import { parseInput } from '../common/app-error.js';
+import { appError, parseInput } from '../common/app-error.js';
 
 /**
  * 관리자 화면에서 바꿀 수 있는 정책 항목.
@@ -109,7 +110,7 @@ export const POLICY_FIELDS: PolicyField[] = [
 const FIELD_BY_KEY = new Map(POLICY_FIELDS.map((f) => [f.key, f]));
 
 /**
- * 화면에서 온 값 검사. 정의에 없는 키는 조용히 버립니다.
+ * 화면에서 온 값 검사. 정의에 없는 키는 버리고, 남는 것이 없으면 400 입니다.
  * 범위를 벗어난 값은 400 으로 돌려보냅니다 (수집 주기를 0 이나 하루로 넣는 사고 방지).
  */
 export function parsePolicyPatch(input: unknown): Record<string, unknown> {
@@ -120,6 +121,8 @@ export function parsePolicyPatch(input: unknown): Record<string, unknown> {
     if (!field) continue;
     patch[key] = parseInput(schemaFor(field), value);
   }
+  // 아는 항목이 하나도 없으면 거절합니다. 그냥 두면 빈 예외와 빈 변경 이력이 쌓였습니다 (10-12 자동 시험)
+  if (Object.keys(patch).length === 0) throw appError(HttpStatus.BAD_REQUEST, 'NO_POLICY_FIELDS', '바꿀 항목이 없습니다');
   return patch;
 }
 

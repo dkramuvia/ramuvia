@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { sql } from 'kysely';
 import { z } from 'zod';
 
 import { appError } from '../common/app-error.js';
@@ -115,17 +116,35 @@ export class ChatService {
     }));
   }
 
-  /** 지난 대화 (오래된 것 → 최신 순). before 를 주면 그보다 이전 메시지 */
+  /**
+   * 지난 대화 (오래된 것 → 최신 순). before 를 주면 그보다 이전 메시지.
+   *
+   * DB 시각은 마이크로초인데 응답(createdAt)은 밀리초라, 앱이 받은 가장 오래된 시각을 before 로 보내면
+   * 같은 밀리초에 있던 더 오래된 메시지가 빠졌습니다 (10-12 자동 시험).
+   * 그래서 한 페이지는 50개를 채운 뒤 **마지막 밀리초를 끝까지** 담습니다 (몇 개 넘을 수 있음).
+   * 그러면 다음 페이지는 그 밀리초보다 이전만 보면 되므로 before 그대로 빠짐·중복 없이 이어집니다.
+   */
   async messages(me: string, roomId: string, before?: string): Promise<ChatMessageResponse[]> {
     await this.groups.assertMember(roomId, me);
-    let query = this.db
+    const beforeAt = before ? new Date(before) : undefined;
+    const page = this.db
+      .selectFrom('chat.messages')
+      .select('created_at')
+      .where('room_id', '=', roomId)
+      .$if(!!beforeAt, (qb) => qb.where('created_at', '<', beforeAt!))
+      .orderBy('created_at', 'desc')
+      .limit(PAGE_SIZE)
+      .as('page');
+    const rows = await this.db
       .selectFrom('chat.messages')
       .select(['id', 'room_id', 'sender_id', 'type', 'text', 'place', 'created_at'])
       .where('room_id', '=', roomId)
+      .$if(!!beforeAt, (qb) => qb.where('created_at', '<', beforeAt!))
+      // 페이지에서 가장 오래된 메시지의 밀리초 시작부터 (같은 밀리초 메시지를 다 담기 위해)
+      .where('created_at', '>=', (eb) => eb.selectFrom(page).select(sql<Date>`date_trunc('milliseconds', min(page.created_at))`.as('floor')))
       .orderBy('created_at', 'desc')
-      .limit(PAGE_SIZE);
-    if (before) query = query.where('created_at', '<', new Date(before));
-    const rows = await query.execute();
+      .orderBy('id', 'desc')
+      .execute();
     return rows.reverse().map((row) => toMessage(row));
   }
 

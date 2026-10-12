@@ -5,12 +5,14 @@ import { AuthGuard } from '../auth/auth.guard.js';
 import { appError, parseInput } from '../common/app-error.js';
 import { env } from '../config/env.js';
 
-const reverseQuery = z.object({ latitude: z.coerce.number().min(-90).max(90), longitude: z.coerce.number().min(-180).max(180) });
+/** 빈 값(?latitude=)은 거절합니다. z.coerce.number 는 "" 를 0 으로 바꿉니다 (10-12 자동 시험, 날씨와 같은 문제) */
+const coordinate = (limit: number) => z.string().trim().min(1).transform(Number).pipe(z.number().min(-limit).max(limit));
+const reverseQuery = z.object({ latitude: coordinate(90), longitude: coordinate(180) });
 const searchQuery = z.object({
   keyword: z.string().trim().min(1).max(50),
   /** 지금 보고 있는 자리. 주면 가까운 곳부터 보여 줍니다 */
-  latitude: z.coerce.number().min(-90).max(90).optional(),
-  longitude: z.coerce.number().min(-180).max(180).optional(),
+  latitude: coordinate(90).optional(),
+  longitude: coordinate(180).optional(),
 });
 
 const NAVER_SEARCH_API = 'https://openapi.naver.com/v1/search/local.json';

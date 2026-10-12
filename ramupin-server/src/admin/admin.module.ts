@@ -10,11 +10,14 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
+import type { Redis } from 'ioredis';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
@@ -22,7 +25,19 @@ import { appError, parseInput } from '../common/app-error.js';
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { AnomalyModule } from '../anomaly/anomaly.module.js';
-import { ADMIN_AUDIENCE, ADMIN_COOKIE, AdminGuard, CurrentAdmin, assertCanEdit, type AdminUser } from './admin.guard.js';
+import { REDIS } from '../redis/redis.module.js';
+import {
+  ADMIN_AUDIENCE,
+  ADMIN_COOKIE,
+  ADMIN_SESSION_SEC,
+  AdminGuard,
+  CurrentAdmin,
+  adminSessionKey,
+  assertCanEdit,
+  readCookie,
+  type AdminTokenPayload,
+  type AdminUser,
+} from './admin.guard.js';
 import { MonitoringController } from './monitoring.controller.js';
 import { OverviewController } from './overview.controller.js';
 import { hashPassword, verifyPassword } from './admin-password.js';
@@ -30,8 +45,12 @@ import { POLICY_FIELDS, applyPatch, parsePolicyPatch } from './policy-fields.js'
 
 const ADMIN_PAGE = new URL('./admin-page.html', import.meta.url);
 
-/** 관리자 로그인 유지 시간. 자리를 비웠을 때 오래 열려 있지 않게 짧게 둡니다 */
-const ADMIN_SESSION = '8h';
+/**
+ * 로그인 실패 제한. 같은 곳(IP)에서 같은 아이디로 15분에 5번 틀리면 15분 동안 막습니다.
+ * 막혀 있는 동안은 맞는 비밀번호도 받지 않습니다 — 받으면 막아도 계속 맞혀 볼 수 있습니다 (10-12 자동 시험)
+ */
+const LOGIN_FAIL_LIMIT = 5;
+const LOGIN_FAIL_WINDOW_SEC = 15 * 60;
 
 const loginBody = z.object({ loginId: z.string().min(1).max(64), password: z.string().min(1).max(200) });
 const publicIdParam = z.string().regex(/^\d{8}$/, '8자리 사용자 ID');
@@ -50,12 +69,21 @@ class AdminPageController {
 class AdminAuthController {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
+    @Inject(REDIS) private readonly redis: Redis,
     private readonly jwt: JwtService,
   ) {}
 
   @Post('login')
-  async login(@Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+  async login(@Req() request: Request, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
     const { loginId, password } = parseInput(loginBody, body);
+    const failKey = `admin:login-fail:${request.ip ?? ''}:${loginId}`;
+    if (Number(await this.redis.get(failKey)) >= LOGIN_FAIL_LIMIT) {
+      const retryAfterSec = Math.max(await this.redis.ttl(failKey), 1);
+      throw appError(429, 'ADMIN_LOGIN_LOCKED', `로그인 실패가 많아 잠시 막았습니다. ${Math.ceil(retryAfterSec / 60)}분 뒤에 다시 시도하세요`, {
+        retryAfterSec,
+      });
+    }
+
     const row = await this.db
       .selectFrom('config.admin_users')
       .select(['id', 'login_id', 'password_hash', 'name', 'role', 'disabled'])
@@ -65,11 +93,19 @@ class AdminAuthController {
     // 아이디가 없을 때도 같은 시간이 걸리도록 해시 검사를 항상 돌립니다 (아이디가 있는지 새어 나가지 않게)
     const stored = row?.password_hash ?? (await DUMMY_HASH);
     const ok = await verifyPassword(password, stored);
-    if (!row || !ok || row.disabled) throw appError(401, 'ADMIN_LOGIN_FAILED', '아이디 또는 비밀번호가 다릅니다');
+    if (!row || !ok || row.disabled) {
+      const fails = await this.redis.incr(failKey);
+      if (fails === 1) await this.redis.expire(failKey, LOGIN_FAIL_WINDOW_SEC);
+      throw appError(401, 'ADMIN_LOGIN_FAILED', '아이디 또는 비밀번호가 다릅니다');
+    }
+    await this.redis.del(failKey);
 
+    // 로그아웃하면 이 세션을 지워, 쿠키를 복사해 둔 사람도 더는 못 쓰게 합니다 (AdminGuard)
+    const sid = randomUUID();
+    await this.redis.set(adminSessionKey(sid), row.id, 'EX', ADMIN_SESSION_SEC);
     const token = await this.jwt.signAsync(
-      { sub: row.id, loginId: row.login_id, name: row.name, role: row.role },
-      { audience: ADMIN_AUDIENCE, expiresIn: ADMIN_SESSION },
+      { sub: row.id, loginId: row.login_id, name: row.name, role: row.role, sid },
+      { audience: ADMIN_AUDIENCE, expiresIn: ADMIN_SESSION_SEC },
     );
     response.cookie(ADMIN_COOKIE, token, {
       httpOnly: true,
@@ -82,7 +118,15 @@ class AdminAuthController {
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) response: Response) {
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    // 브라우저 쿠키만 지우면 토큰 자체는 8시간 동안 살아 있었습니다. 서버 세션도 지웁니다 (10-12 자동 시험)
+    const token = readCookie(request.headers.cookie, ADMIN_COOKIE);
+    if (token) {
+      const payload = await this.jwt
+        .verifyAsync<AdminTokenPayload>(token, { audience: ADMIN_AUDIENCE, ignoreExpiration: true })
+        .catch(() => null);
+      if (payload?.sid) await this.redis.del(adminSessionKey(payload.sid));
+    }
     response.clearCookie(ADMIN_COOKIE, { path: '/admin' });
     return { ok: true };
   }

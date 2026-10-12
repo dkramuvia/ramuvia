@@ -42,8 +42,9 @@ const createPostBody = z.object({
       /** 장소명(예: 삼성 코엑스). 특정되지 않으면 주소만 씁니다 */
       placeName: z.string().max(200).nullish(),
       address: z.string().max(300),
-      latitude: z.number(),
-      longitude: z.number(),
+      // 지구 밖 좌표가 그대로 저장돼 그룹 사람들에게 보였습니다 (10-12 자동 시험)
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
     })
     .nullish(),
   /** 긴급 공지로 올릴 때만 (WBS 5.9). 제목이 있으면 목록 맨 위에 큰 글씨로 나옵니다 */
@@ -122,19 +123,25 @@ class GalleryController {
 
     const assets = await this.db
       .selectFrom('media.assets')
-      .select(['id', 'object_key', 'bytes'])
+      .select(['id', 'object_key', 'bytes', 'kind', 'uploaded_at'])
       .where('id', 'in', input.assetIds)
       .where('owner_id', '=', user.id)
       .execute();
     if (assets.length !== input.assetIds.length) throw appError(400, 'ASSET_MISSING', '올라가지 않은 파일이 있습니다');
 
+    const realBytes = new Map<string, number>();
     for (const asset of assets) {
       const real = await this.storage.verifyUpload(asset.object_key);
       if (!real) throw appError(400, 'ASSET_MISSING', '올라가지 않은 파일이 있습니다');
+      realBytes.set(asset.id, real.bytes);
+    }
+    await this.assertQuotaForRealSize(user.id, assets, realBytes);
+
+    for (const asset of assets) {
       await this.db
         .updateTable('media.assets')
         // 신고한 크기 대신 실제 크기로 고쳐 둡니다 (용량 제한을 우회하지 못하게)
-        .set({ uploaded_at: new Date(), bytes: real.bytes })
+        .set({ uploaded_at: new Date(), bytes: realBytes.get(asset.id)! })
         .where('id', '=', asset.id)
         .execute();
     }
@@ -170,7 +177,7 @@ class GalleryController {
 
   /** 내가 속한 그룹의 게시물. 긴급 공지가 먼저, 그다음 최신순 (WBS 5.9) */
   @Get('posts')
-  async feed(@CurrentUser() user: AuthUser, @Query('groupId') groupId?: string) {
+  async feed(@CurrentUser() user: AuthUser, @Query('groupId', new ParseUUIDPipe({ optional: true })) groupId?: string) {
     let query = this.db
       .selectFrom('media.posts as p')
       .innerJoin('social.group_members as gm', 'gm.group_id', 'p.group_id')
@@ -367,6 +374,33 @@ class GalleryController {
       .where('kind', '!=', 'audio')
       .executeTakeFirst();
     return Number(row?.total ?? 0);
+  }
+
+  /**
+   * 실제로 올라온 크기로 용량을 다시 확인합니다.
+   * 올릴 주소를 줄 때는 앱이 신고한 크기(bytes)만 볼 수 있어, 1바이트라 하고 큰 파일을 올리면 통과했습니다.
+   * 넘치면 방금 올린 파일(아직 게시물이 없는 것)을 지우고 거절합니다 (10-12 자동 시험)
+   */
+  private async assertQuotaForRealSize(
+    userId: string,
+    assets: { id: string; object_key: string; kind: string; uploaded_at: Date | null }[],
+    realBytes: Map<string, number>,
+  ) {
+    // 이미 올라와 있던 파일은 usedBytes 에 들어 있고, SOS 녹음은 용량에 넣지 않습니다
+    const fresh = assets.filter((a) => a.uploaded_at === null && a.kind !== 'audio');
+    if (fresh.length === 0) return;
+
+    const limitMb = await this.storageLimitMb(userId);
+    const used = await this.usedBytes(userId);
+    const adding = fresh.reduce((sum, a) => sum + (realBytes.get(a.id) ?? 0), 0);
+    if (used + adding <= limitMb * 1024 * 1024) return;
+
+    await this.db.deleteFrom('media.assets').where('id', 'in', fresh.map((a) => a.id)).execute();
+    for (const a of fresh) await this.storage.remove(a.object_key).catch(() => undefined);
+    throw appError(403, 'STORAGE_FULL', '공유 용량이 가득 찼습니다', {
+      usedMb: Math.round((used / 1024 / 1024) * 10) / 10,
+      limitMb,
+    });
   }
 
   /** 등급 정책 + 사용자별 예외 (관리자 화면에서 바꿉니다) */

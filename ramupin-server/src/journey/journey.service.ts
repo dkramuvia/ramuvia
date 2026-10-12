@@ -124,5 +124,9 @@ export function dayRange(date?: string): { from: Date; to: Date; dateText: strin
   const text = date ?? new Date(Date.now() + KST_OFFSET_MS).toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw appError(HttpStatus.BAD_REQUEST, 'BAD_DATE', '날짜 형식이 올바르지 않습니다');
   const from = new Date(`${text}T00:00:00+09:00`);
+  // 형식만 맞고 없는 날(2026-13-45)이면 Invalid Date 가 쿼리까지 가서 500 이었습니다. 되돌려 같은 날인지 봅니다 (10-12 자동 시험)
+  if (Number.isNaN(from.getTime()) || new Date(from.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10) !== text) {
+    throw appError(HttpStatus.BAD_REQUEST, 'BAD_DATE', '날짜 형식이 올바르지 않습니다');
+  }
   return { from, to: new Date(from.getTime() + 24 * 60 * 60_000), dateText: text };
 }

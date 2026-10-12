@@ -18,9 +18,13 @@ import { REDIS } from '../redis/redis.module.js';
  *   교체할 때 고칠 곳은 이 파일의 `fetchWeather` 하나뿐입니다.
  */
 
+/**
+ * 빈 값(?latitude=)은 거절합니다. z.coerce.number 는 "" 를 0 으로 바꿔 0,0(대서양) 날씨를 줬습니다 (10-12 자동 시험)
+ */
+const coordinate = (limit: number) => z.string().trim().min(1).transform(Number).pipe(z.number().min(-limit).max(limit));
 const query = z.object({
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
+  latitude: coordinate(90),
+  longitude: coordinate(180),
 });
 
 export interface Weather {

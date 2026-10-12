@@ -18,7 +18,7 @@ import {
 import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
-import { parseInput } from '../common/app-error.js';
+import { appError, parseInput } from '../common/app-error.js';
 import { FriendRequestsService } from './friend-requests.service.js';
 import { ContactsService, MAX_NUMBERS } from './contacts.service.js';
 import { NearbyService } from './nearby.service.js';
@@ -247,6 +247,15 @@ class FriendsController {
    */
   @Get(':friendId/alerts')
   async getAlerts(@CurrentUser() user: AuthUser, @Param('friendId', ParseUUIDPipe) friendId: string) {
+    // 친구가 아니면 공유 설정처럼 404. 확인 없이 저장하면 없는 사람은 500(FK), 남은 아무에게나 저장됐습니다 (10-12 자동 시험)
+    const friend = await this.db
+      .selectFrom('social.friendships')
+      .select('friend_id')
+      .where('user_id', '=', user.id)
+      .where('friend_id', '=', friendId)
+      .executeTakeFirst();
+    if (!friend) throw appError(HttpStatus.NOT_FOUND, 'NOT_FRIEND', '친구가 아닙니다');
+
     const row = await this.db
       .selectFrom('social.friend_alert_settings')
       .select(['battery', 'safe_zone', 'speeding', 'nearby'])

@@ -1,8 +1,11 @@
-import { Injectable, createParamDecorator, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import { Inject, Injectable, createParamDecorator, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import type { Redis } from 'ioredis';
 
 import { appError } from '../common/app-error.js';
+import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import { REDIS } from '../redis/redis.module.js';
 
 export type AdminRole = 'viewer' | 'editor' | 'owner';
 
@@ -18,13 +21,19 @@ export const ADMIN_COOKIE = 'ramupin_admin';
 /** 관리자 토큰은 앱 토큰과 섞이면 안 되므로 용도(aud)를 따로 둡니다 */
 export const ADMIN_AUDIENCE = 'ramupin-admin';
 
-interface AdminTokenPayload {
+export interface AdminTokenPayload {
   sub: string;
   loginId: string;
   name: string;
   role: AdminRole;
   aud: string;
+  /** 서버 쪽 세션 id. 로그아웃하면 Redis 에서 지워져 같은 쿠키를 다시 써도 막힙니다 */
+  sid?: string;
 }
+
+/** 관리자 로그인 유지 시간(초). 토큰 만료(8h)와 같게 둡니다 */
+export const ADMIN_SESSION_SEC = 8 * 60 * 60;
+export const adminSessionKey = (sid: string) => `admin:session:${sid}`;
 
 /**
  * 관리자 화면 인증.
@@ -34,7 +43,11 @@ interface AdminTokenPayload {
  */
 @Injectable()
 export class AdminGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    @Inject(MAIN_DB) private readonly db: MainDb,
+    @Inject(REDIS) private readonly redis: Redis,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request & { admin?: AdminUser }>();
@@ -47,7 +60,23 @@ export class AdminGuard implements CanActivate {
     } catch {
       throw appError(401, 'ADMIN_UNAUTHORIZED', '로그인이 만료되었습니다');
     }
-    request.admin = { id: payload.sub, loginId: payload.loginId, name: payload.name, role: payload.role };
+
+    // 토큰만 보면 로그아웃·계정 정지 뒤에도 8시간 동안 그대로 들어왔습니다 (10-12 자동 시험).
+    // 세션이 살아 있는지, 계정이 아직 쓸 수 있는지를 매번 확인합니다 (관리자 요청은 적어서 부담이 없습니다)
+    if (!payload.sid || !(await this.redis.exists(adminSessionKey(payload.sid)))) {
+      throw appError(401, 'ADMIN_UNAUTHORIZED', '로그인이 만료되었습니다');
+    }
+    const row = await this.db
+      .selectFrom('config.admin_users')
+      .select(['login_id', 'name', 'role', 'disabled'])
+      .where('id', '=', payload.sub)
+      .executeTakeFirst();
+    if (!row || row.disabled) {
+      await this.redis.del(adminSessionKey(payload.sid));
+      throw appError(401, 'ADMIN_UNAUTHORIZED', '사용할 수 없는 계정입니다');
+    }
+    // 권한도 DB 값으로 (로그인 뒤에 바뀌었을 수 있습니다)
+    request.admin = { id: payload.sub, loginId: row.login_id, name: row.name, role: row.role };
     return true;
   }
 }

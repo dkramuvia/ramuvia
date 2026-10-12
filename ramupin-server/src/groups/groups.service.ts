@@ -97,6 +97,8 @@ export class GroupsService {
 
   /** 그룹 만들기: 친구만 초대할 수 있습니다 */
   async create(me: string, name: string, memberIds: string[]): Promise<GroupDetailResponse> {
+    // 같은 사람이 두 번 오면 하나로. 그대로 세면 친구 수와 달라져 엉뚱하게 NOT_FRIEND 가 났습니다 (10-12 자동 시험)
+    memberIds = [...new Set(memberIds)];
     const friends = await this.friendIdsOf(me, memberIds);
     if (friends.length !== memberIds.length) throw appError(HttpStatus.BAD_REQUEST, 'NOT_FRIEND', '친구만 초대할 수 있습니다');
     if (friends.length + 1 > MAX_MEMBERS) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${MAX_MEMBERS}명입니다`);
@@ -113,7 +115,11 @@ export class GroupsService {
     return this.get(me, groupId);
   }
 
-  /** 친구와의 1:1 방 (없으면 만들고, 있으면 그대로) */
+  /**
+   * 친구와의 1:1 방 (없으면 만들고, 있으면 그대로).
+   * 한쪽이 나갔던 방이면 그 사람을 다시 넣습니다. 방을 새로 만들면 지난 대화가 끊기고,
+   * 그대로 두면 나간 사람은 404, 남은 사람은 혼자인 방에서 말하게 됩니다 (10-12 자동 시험)
+   */
   async directRoom(me: string, friendId: string): Promise<GroupDetailResponse> {
     if (me === friendId) throw appError(HttpStatus.BAD_REQUEST, 'CANNOT_CHAT_SELF', '자신과는 대화할 수 없습니다');
     const friends = await this.friendIdsOf(me, [friendId]);
@@ -126,7 +132,10 @@ export class GroupsService {
       .where('user_a', '=', userA)
       .where('user_b', '=', userB)
       .executeTakeFirst();
-    if (existing) return this.get(me, existing.group_id);
+    if (existing) {
+      await this.rejoinDirect(existing.group_id, [me, friendId]);
+      return this.get(me, existing.group_id);
+    }
 
     const groupId = await this.db.transaction().execute(async (trx) => {
       const group = await trx
@@ -163,6 +172,21 @@ export class GroupsService {
     return this.get(me, groupId);
   }
 
+  /** 1:1 방에서 빠진 사람을 다시 넣습니다. 둘 다 나가면 방이 지워지므로(direct_rooms 도 함께) 방장은 항상 남아 있습니다 */
+  private async rejoinDirect(groupId: string, userIds: string[]) {
+    await this.db.transaction().execute(async (trx) => {
+      const rows = await trx
+        .insertInto('social.group_members')
+        .values(userIds.map((id) => ({ group_id: groupId, user_id: id })))
+        .onConflict((oc) => oc.doNothing())
+        .returning('user_id')
+        .execute();
+      if (rows.length === 0) return;
+      const names = await trx.selectFrom('member.users').select('nickname').where('id', 'in', rows.map((r) => r.user_id)).execute();
+      await this.systemMessage(trx, groupId, `${names.map((n) => n.nickname).join(', ')}님이 다시 들어왔습니다.`);
+    });
+  }
+
   async rename(me: string, groupId: string, name: string) {
     const group = await this.assertMember(groupId, me);
     if (group.is_direct) throw appError(HttpStatus.BAD_REQUEST, 'DIRECT_ROOM', '1:1 대화방은 이름을 바꿀 수 없습니다');
@@ -174,6 +198,7 @@ export class GroupsService {
   async invite(me: string, groupId: string, memberIds: string[]) {
     const group = await this.assertMember(groupId, me);
     if (group.is_direct) throw appError(HttpStatus.BAD_REQUEST, 'DIRECT_ROOM', '1:1 대화방에는 초대할 수 없습니다');
+    memberIds = [...new Set(memberIds)];
     const friends = await this.friendIdsOf(me, memberIds);
     if (friends.length !== memberIds.length) throw appError(HttpStatus.BAD_REQUEST, 'NOT_FRIEND', '친구만 초대할 수 있습니다');
 

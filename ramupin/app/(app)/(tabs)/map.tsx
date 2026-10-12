@@ -29,7 +29,7 @@ import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
-import { layout, makeMapStyles, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, type Palette } from '@/theme';
+import { layout, makeMapStyles, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, useThemeName, type Palette } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
@@ -67,6 +67,7 @@ export default function MapScreen() {
   const overlay = useMapOverlay();
   // 화면 대부분이 지도라, 맨 위 시계·배터리 색도 앱 화면 색이 아니라 지도 밝기를 따라갑니다
   const mapIsDark = useMapIsDark();
+  const appIsDark = useThemeName() === 'dark';
   const focused = useIsFocused();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
@@ -164,8 +165,9 @@ export default function MapScreen() {
       items.push({ id: p.id, coordinate: p.coordinate, zIndex: 높이, onPress, ...핀 });
       if (!p.status) return;
       const 그림 = badgeSprite(p.status.kind, p.id);
-      // 배지 색: 다크 지도면 모두 검정, 라이트 지도면 활성화된 사람만 흰색 (StatusBadge)
-      const 색 = 활성 && !mapIsDark ? 'light' : 'dark';
+      // 배지 색: 다크(지도든 앱이든)면 모두 검정, 둘 다 라이트일 때만 활성화된 사람이 흰색 (StatusBadge).
+      // 앱만 다크이고 지도는 밝을 때 내 배지만 흰색으로 떠 있었습니다 (대표님 10-12)
+      const 색 = 활성 && !mapIsDark && !appIsDark ? 'light' : 'dark';
       items.push({
         id: `${p.id}:badge`,
         coordinate: p.coordinate,
@@ -216,7 +218,7 @@ export default function MapScreen() {
       }
     }
     return items;
-  }, [friends, location, me, myStatus, myBattery, activeId, mapIsDark]);
+  }, [friends, location, me, myStatus, myBattery, activeId, mapIsDark, appIsDark]);
 
   // GPS 감도 원 (WBS 2.6): 오차 반경이 클수록 원이 커짐
   const circles = useMemo<MapCircleItem[]>(() => {

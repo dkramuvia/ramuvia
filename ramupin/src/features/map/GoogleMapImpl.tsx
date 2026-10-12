@@ -27,7 +27,7 @@ const MAP_TYPES: Record<Preferences['mapType'], 'standard' | 'satellite' | 'terr
 
 /** OS 기본 지도 (Android = Google, iOS = Apple). 무료 등급 기본값 */
 export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function GoogleMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, traffic, style },
   ref,
 ) {
   const mapRef = useRef<MapView>(null);
@@ -69,6 +69,8 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
       mapType={MAP_TYPES[mapType]}
       // 위성·지형에서는 어두운 스타일이 적용되지 않습니다
       customMapStyle={nightMode && mapType === 'road' ? DARK_MAP_STYLE : undefined}
+      // 구글 지도에 들어 있는 실시간 교통 (설정 > 지도 > 실시간 도로 상황)
+      showsTraffic={!!traffic}
       toolbarEnabled={false}
       showsMyLocationButton={false}
       showsCompass={false}

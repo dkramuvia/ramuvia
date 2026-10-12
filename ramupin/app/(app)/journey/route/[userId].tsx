@@ -15,7 +15,7 @@ import { personPin } from '@/features/map/PinMarker';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
-import { layout, makeStyles, useColors, useMapIsDark, useMapOverlay } from '@/theme';
+import { layout, makeStyles, useColors, useMapIsDark, useMapOverlay, useThemeName } from '@/theme';
 
 const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
 
@@ -29,6 +29,8 @@ export default function RouteScreen() {
   // 제목·뒤로가기가 지도 위에 바로 얹혀 있어, 앱 화면 색이 아니라 지도 밝기를 따라갑니다
   const overlay = useMapOverlay();
   const mapIsDark = useMapIsDark();
+  const appIsDark = useThemeName() === 'dark';
+  const pinTone = mapIsDark || appIsDark ? 'dark' : 'light';
   const { t } = useTranslation();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const me = useAuthStore((s) => s.user);
@@ -53,9 +55,9 @@ export default function RouteScreen() {
     return [
       { id: 'start', coordinate: first, children: <View style={styles.startDot} /> },
       // 핀: 캐릭터가 있으면 캐릭터, 없으면 이름 (PinMarker.tsx)
-      { id: 'end', coordinate: last, zIndex: 5, ...personPin({ name, avatarUrl: isMe ? me?.avatarUrl : friend?.avatarUrl, active: isMe }) },
+      { id: 'end', coordinate: last, zIndex: 5, ...personPin({ name, avatarUrl: isMe ? me?.avatarUrl : friend?.avatarUrl, active: isMe, tone: pinTone }) },
     ];
-  }, [first, last, name, friend, isMe, me]);
+  }, [first, last, name, friend, isMe, me, pinTone]);
 
   return (
     <View style={styles.container}>

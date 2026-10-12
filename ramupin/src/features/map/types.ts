@@ -90,5 +90,7 @@ export interface MapImplProps {
   mapType: Preferences['mapType'];
   /** 어두운 지도 (설정 > 지도 스타일) */
   nightMode: boolean;
+  /** 실시간 도로 상황 (설정 > 지도). 각 지도에 들어 있는 교통 정보를 그대로 씁니다 */
+  traffic?: boolean;
   style?: StyleProp<ViewStyle>;
 }

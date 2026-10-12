@@ -29,6 +29,7 @@ import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { layout, makeMapStyles, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, useThemeName, type Palette } from '@/theme';
 import type { FeedItemType, LatLng } from '@/types/models';
 import { formatMonthDayTime } from '@/utils/time';
@@ -68,6 +69,7 @@ export default function MapScreen() {
   // 화면 대부분이 지도라, 맨 위 시계·배터리 색도 앱 화면 색이 아니라 지도 밝기를 따라갑니다
   const mapIsDark = useMapIsDark();
   const appIsDark = useThemeName() === 'dark';
+  const showTraffic = usePreferencesStore((s) => s.showTraffic);
   const focused = useIsFocused();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
@@ -157,7 +159,10 @@ export default function MapScreen() {
       // 겹칠 때 위에 오는 순서: 활성화된 사람 > 나 > 친구. 핀 < 배지 < 배지 속 그림 (GoogleMapImpl 이 +1)
       const 높이 = 활성 ? 30 : p.isMe ? 10 : 1;
       const onPress = () => (활성 ? p.onOpen?.() : setActiveId(p.id));
-      const 핀 = personPin({ name: p.name, avatarUrl: p.avatarUrl, active: 활성 });
+      // 배지·이름 핀 색: 다크(지도든 앱이든)면 모두 검정, 라이트면 모두 흰색 (대표님 10-12).
+      // 예전에는 라이트에서도 활성화된 사람만 흰색이고 나머지는 검정이었습니다
+      const 색 = mapIsDark || appIsDark ? 'dark' : 'light';
+      const 핀 = personPin({ name: p.name, avatarUrl: p.avatarUrl, active: 활성, tone: 색 });
       // 활성화된 사람 발밑에 레이더 파동 (피그마 지도 메인 550, 114dp 동심원). 핀 꼬리 끝이 가운데
       if (활성) {
         items.push({ id: `${p.id}:radar`, coordinate: p.coordinate, zIndex: 0, children: null, sprite: { sheet: SPRITES.radar.lg, offset: { x: 0, y: 0 } } });
@@ -165,9 +170,6 @@ export default function MapScreen() {
       items.push({ id: p.id, coordinate: p.coordinate, zIndex: 높이, onPress, ...핀 });
       if (!p.status) return;
       const 그림 = badgeSprite(p.status.kind, p.id);
-      // 배지 색: 다크(지도든 앱이든)면 모두 검정, 둘 다 라이트일 때만 활성화된 사람이 흰색 (StatusBadge).
-      // 앱만 다크이고 지도는 밝을 때 내 배지만 흰색으로 떠 있었습니다 (대표님 10-12)
-      const 색 = 활성 && !mapIsDark && !appIsDark ? 'light' : 'dark';
       items.push({
         id: `${p.id}:badge`,
         coordinate: p.coordinate,
@@ -239,6 +241,7 @@ export default function MapScreen() {
         // 빈 곳을 누르면 다시 나를 활성화. 누가 눌렸는지는 지도가 판정합니다 (GoogleMapImpl useMarkerPress)
         onPress={() => setActiveId('me')}
         padding={{ top: 120, right: 0, bottom: SHEET_COLLAPSED + AD_HEIGHT + 40, left: 0 }}
+        traffic={showTraffic}
       />
 
       <SafeAreaView edges={['top']} style={styles.overlayTop} pointerEvents="box-none">

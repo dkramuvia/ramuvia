@@ -31,7 +31,7 @@ type Size = { width: number; height: number };
  * 그려진 크기를 재서 넘깁니다. 구글과 다른 점: 띄우기는 여백으로, 움직이는 그림은 뷰 안에서 (아래 설명).
  */
 export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function NaverMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, traffic, style },
   ref,
 ) {
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -77,6 +77,8 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
         // 바텀시트·광고 등에 가려지는 만큼 지도 안쪽 여백
         mapPadding={padding}
         isNightModeEnabled={nightMode}
+        // 네이버 지도의 실시간 교통정보 레이어. 건물 레이어는 기본값(켜짐)을 지킵니다
+        layerGroups={{ BUILDING: true, TRAFFIC: !!traffic, TRANSIT: false, BICYCLE: false, MOUNTAIN: false, CADASTRAL: false }}
         isShowScaleBar={false}
         isShowZoomControls={false}
         isShowLocationButton={false}

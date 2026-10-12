@@ -17,7 +17,7 @@ import { usePlan } from '@/features/policy/usePlan';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
-import { layout, makeStyles, radius, useColors, useMapIsDark, useMapOverlay } from '@/theme';
+import { layout, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, useThemeName } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
@@ -40,6 +40,8 @@ export default function JourneyScreen() {
   // 앱이 다크면 밝은 지도 위에 흰 글씨가 되어 안 보였습니다 (10-12 실서버 시험)
   const overlay = useMapOverlay();
   const mapIsDark = useMapIsDark();
+  const appIsDark = useThemeName() === 'dark';
+  const pinTone = mapIsDark || appIsDark ? 'dark' : 'light';
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ userId: string; view?: 'timeline' }>();
   const { userId } = params;
@@ -76,8 +78,8 @@ export default function JourneyScreen() {
     if (!current || !name) return [];
     // 핀: 캐릭터가 있으면 캐릭터, 없으면 이름 (PinMarker.tsx)
     const avatarUrl = isMe ? me?.avatarUrl : friend?.avatarUrl;
-    return [{ id: 'person', coordinate: current, zIndex: 5, ...personPin({ name, avatarUrl, active: isMe }) }];
-  }, [current, name, friend, isMe, me]);
+    return [{ id: 'person', coordinate: current, zIndex: 5, ...personPin({ name, avatarUrl, active: isMe, tone: pinTone }) }];
+  }, [current, name, friend, isMe, me, pinTone]);
 
   const battery = journey?.batteryLevel ?? friend?.batteryLevel;
 

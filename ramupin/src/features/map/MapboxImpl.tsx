@@ -1,4 +1,4 @@
-import Mapbox, { Camera, CircleLayer, MapView, MarkerView, ShapeSource, LineLayer } from '@rnmapbox/maps';
+import Mapbox, { Camera, CircleLayer, MapView, MarkerView, ShapeSource, LineLayer, VectorSource } from '@rnmapbox/maps';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
@@ -54,6 +54,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
     initialDelta,
     mapType,
     nightMode,
+    traffic,
     style,
   },
   ref,
@@ -182,6 +183,22 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
             : undefined
         }
       />
+
+      {/* 실시간 도로 상황 (설정 > 지도). Mapbox 가 제공하는 교통 타일을 길 위에 색으로 겹칩니다.
+          지금 쓰는 토큰으로 바로 됩니다 — 따로 계약할 API 가 없습니다 */}
+      {traffic ? (
+        <VectorSource id="ramupin-traffic" url="mapbox://mapbox.mapbox-traffic-v1">
+          <LineLayer
+            id="ramupin-traffic-line"
+            sourceLayerID="traffic"
+            style={{
+              lineColor: ['match', ['get', 'congestion'], 'low', '#3BB54A', 'moderate', '#F5B800', 'heavy', '#F07A1A', 'severe', '#D93025', '#3BB54A'],
+              lineWidth: 2.5,
+              lineOpacity: 0.85,
+            }}
+          />
+        </VectorSource>
+      ) : null}
 
       {circles.length > 0 && (
         <ShapeSource id="ramupin-circles" shape={circleShape}>

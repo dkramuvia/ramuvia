@@ -37,23 +37,26 @@ export function personPin({
   name,
   avatarUrl,
   active,
+  tone = 'dark',
 }: {
   name: string;
   avatarUrl?: string | null;
   /** 활성화된 사람: 파란 테두리 (지도 메인에서 누른 사람, 동선 화면의 주인공) */
   active?: boolean;
+  /** 이름 핀 바탕. 라이트 모드면 흰색, 다크 모드면 검정 (배지와 같은 규칙, 대표님 10-12) */
+  tone?: 'light' | 'dark';
 }): Pick<MapMarkerItem, 'iconImage' | 'children' | 'anchor' | 'trackKey'> {
   const 캐릭터 = markerAvatarSource(avatarUrl ?? undefined, !!active);
   return {
     iconImage: 캐릭터,
     anchor: PIN_ANCHOR,
-    trackKey: `${avatarUrl ?? ''}|${name}|${active ? 'active' : ''}`,
-    children: 캐릭터 ? null : <NamePin name={name} active={active} />,
+    trackKey: `${avatarUrl ?? ''}|${name}|${active ? 'active' : ''}|${tone}`,
+    children: 캐릭터 ? null : <NamePin name={name} active={active} tone={tone} />,
   };
 }
 
 /** 캐릭터 없는 사람: 검은 원 + 이름 (속성 1=5글자) */
-export function NamePin({ name, active }: { name: string; active?: boolean }) {
+export function NamePin({ name, active, tone = 'dark' }: { name: string; active?: boolean; tone?: 'light' | 'dark' }) {
   const styles = useStyles();
   const markerReady = useMarkerReady();
   // 그림이 없어 기다릴 것이 없습니다. 알리지 않으면 4초 동안 계속 다시 굽습니다 (TrackedMarker)
@@ -67,8 +70,8 @@ export function NamePin({ name, active }: { name: string; active?: boolean }) {
   return (
     <View style={styles.pin} collapsable={false}>
       <View style={styles.tail} />
-      <View style={[styles.circle, active && styles.circleActive]}>
-        <AppText style={[styles.name, { fontSize, lineHeight: Math.ceil(fontSize * 1.25) }]} numberOfLines={1} allowFontScaling={false}>
+      <View style={[styles.circle, tone === 'light' && styles.circleLight, active && styles.circleActive]}>
+        <AppText style={[styles.name, tone === 'light' && styles.nameLight, { fontSize, lineHeight: Math.ceil(fontSize * 1.25) }]} numberOfLines={1} allowFontScaling={false}>
           {이름}
         </AppText>
       </View>
@@ -106,6 +109,7 @@ const useStyles = makeStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  circleLight: { backgroundColor: colors.white },
   circleActive: { borderWidth: 2, borderColor: colors.primary },
   // 위가 넓고 아래가 뾰족한 삼각형 (12×16dp, 원 아래쪽 4dp 와 겹침)
   tail: {
@@ -122,4 +126,6 @@ const useStyles = makeStyles((colors) => ({
   },
   // 피그마 SUIT Medium. 크기는 글자 수에 따라 (nameFontSize)
   name: { fontFamily: fontFamily.medium, color: colors.white, includeFontPadding: false, textAlign: 'center' },
+  // 배지 글자색과 같습니다 (StatusBadge BADGE_TEXT)
+  nameLight: { color: '#2E3438' },
 }));

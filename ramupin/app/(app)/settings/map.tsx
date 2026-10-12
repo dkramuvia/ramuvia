@@ -22,7 +22,7 @@ export default function MapSettingsScreen() {
   const { can, minPlanFor } = usePlan();
 
   const premiumMap = can('premiumMap');
-  const trafficWeather = can('trafficWeather');
+
   const locked = (feature: 'premiumMap' | 'trafficWeather') =>
     showToast(t('mapSettings.premiumOnly', { plan: PLAN_NAMES[minPlanFor(feature)] }));
 
@@ -106,17 +106,13 @@ export default function MapSettingsScreen() {
         ) : null}
       </View>
 
+      {/* 교통은 각 지도에 들어 있는 교통 정보라 따로 드는 비용이 없어 우선 누구나 켤 수 있게 둡니다.
+          날씨는 지도에 늘 보여서 스위치를 뺐습니다. 기상청 키를 받으면 유료로 묶을지 다시 정합니다 (대표님 10-12) */}
       <ToggleRow
         title={t('mapSettings.traffic')}
         description={t('mapSettings.trafficDesc')}
-        value={trafficWeather && prefs.showTraffic}
-        onValueChange={(v) => (trafficWeather ? prefs.set({ showTraffic: v }) : locked('trafficWeather'))}
-      />
-      <ToggleRow
-        title={t('mapSettings.weather')}
-        description={t('mapSettings.weatherDesc')}
-        value={trafficWeather && prefs.showWeather}
-        onValueChange={(v) => (trafficWeather ? prefs.set({ showWeather: v }) : locked('trafficWeather'))}
+        value={prefs.showTraffic}
+        onValueChange={(showTraffic) => prefs.set({ showTraffic })}
       />
       <ToggleRow
         title={t('mapSettings.fitAll')}

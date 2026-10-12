@@ -44,6 +44,8 @@ const ALLOWED: Record<string, { kind: 'image' | 'video' | 'audio'; ext: string }
 const AVATAR_PREFIX = 'avatars/';
 /** 프로필 사진 크기 한도. 정사각형으로 잘라 올리므로 이 정도면 충분합니다 */
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+/** 프로필 사진 형식. 지도 핀 그림을 만들 수 있는 것만 (avatar-pin.ts 의 jimp 가 읽는 형식) */
+const AVATAR_TYPES = new Set(['image/jpeg', 'image/png']);
 
 export interface UploadTarget {
   objectKey: string;
@@ -140,7 +142,8 @@ export class StorageService implements OnModuleInit {
   /** 프로필 사진 올릴 주소. 사진 형식만 받습니다 */
   async createAvatarUploadTarget(userId: string, contentType: string): Promise<{ uploadUrl: string; avatarUrl: string } | null> {
     const allowed = ALLOWED[contentType];
-    if (!allowed || allowed.kind !== 'image' || !this.client) return null;
+    // 지도 핀 그림(avatar-pin.ts)을 만들 수 있는 형식만. 앱이 정사각형으로 잘라 올리는 사진은 jpg 입니다
+    if (!allowed || !AVATAR_TYPES.has(contentType) || !this.client) return null;
     const fileName = `${randomUUID()}.${allowed.ext}`;
     const uploadUrl = await getSignedUrl(
       this.signer!,
@@ -155,7 +158,18 @@ export class StorageService implements OnModuleInit {
     const base = this.avatarBaseUrl(userId);
     if (!avatarUrl.startsWith(base)) return null;
     const fileName = avatarUrl.slice(base.length);
-    return /^[0-9a-f-]{36}\.(jpg|png|webp|heic)$/.test(fileName) ? `${AVATAR_PREFIX}${userId}/${fileName}` : null;
+    return /^[0-9a-f-]{36}\.(jpg|png)$/.test(fileName) ? `${AVATAR_PREFIX}${userId}/${fileName}` : null;
+  }
+
+  /** 서버가 파일 내용을 직접 읽습니다 (프로필 사진 → 핀 그림 만들기). 작은 사진에만 씁니다 */
+  async readObject(objectKey: string): Promise<Buffer> {
+    const res = await this.client!.send(new GetObjectCommand({ Bucket: env.STORAGE_BUCKET, Key: objectKey }));
+    return Buffer.from(await res.Body!.transformToByteArray());
+  }
+
+  /** 서버가 만든 파일을 직접 올립니다 (핀 그림) */
+  async putObject(objectKey: string, body: Buffer, contentType: string): Promise<void> {
+    await this.client!.send(new PutObjectCommand({ Bucket: env.STORAGE_BUCKET, Key: objectKey, Body: body, ContentType: contentType }));
   }
 
   /**

@@ -12,6 +12,7 @@ import { resolvePolicy } from '../config/policy.js';
 import { LocationModule } from '../location/location.module.js';
 import { NICKNAME_MAX, ProfileService } from './profile.service.js';
 import { MediaModule } from '../media/media.module.js';
+import { makeAvatarPins, pinObjectKeys } from '../media/avatar-pin.js';
 import { AVATAR_MAX_BYTES, StorageService } from '../media/storage.service.js';
 
 const singleHouseholdBody = z.object({ enabled: z.boolean() });
@@ -78,17 +79,18 @@ class MeController {
     const before = await this.db.selectFrom('member.users').select('avatar_url').where('id', '=', user.id).executeTakeFirst();
     if (input.avatarUrl && !input.avatarUrl.startsWith('avatar:')) await this.assertOwnAvatar(user.id, input.avatarUrl);
     const result = await this.profile.update(user.id, input);
-    // 사진을 바꿨으면 예전 사진은 지웁니다. 지우지 못해도 프로필 저장은 끝난 뒤라 그대로 둡니다
+    // 사진을 바꿨으면 예전 사진과 그 핀 그림은 지웁니다. 지우지 못해도 프로필 저장은 끝난 뒤라 그대로 둡니다
     const oldKey = before?.avatar_url ? this.storage.avatarObjectKey(user.id, before.avatar_url) : null;
     if (oldKey && input.avatarUrl !== undefined && input.avatarUrl !== before?.avatar_url) {
-      await this.storage.remove(oldKey).catch(() => undefined);
+      const pins = pinObjectKeys(oldKey);
+      await Promise.all([oldKey, pins.normal, pins.active].map((key) => this.storage.remove(key).catch(() => undefined)));
     }
     return result;
   }
 
   /**
    * 프로필 사진 올릴 주소 (WBS 3.9). 앱은 여기로 직접 올린 뒤 받은 avatarUrl 을 PATCH /me 로 저장합니다.
-   * 사진 형식(jpg·png·webp·heic)과 5MB 까지만 받습니다
+   * 사진 형식(jpg·png)과 5MB 까지만 받습니다 — 지도 핀 그림을 만들 수 있는 형식만
    */
   @Post('avatar/upload-target')
   async avatarUploadTarget(@CurrentUser() user: AuthUser, @Body() body: unknown) {
@@ -102,8 +104,19 @@ class MeController {
   private async assertOwnAvatar(userId: string, avatarUrl: string) {
     const key = this.storage.avatarObjectKey(userId, avatarUrl);
     const uploaded = key ? await this.storage.verifyUpload(key) : null;
-    if (!uploaded || !uploaded.contentType.startsWith('image/') || uploaded.bytes > AVATAR_MAX_BYTES) {
+    if (!key || !uploaded || !uploaded.contentType.startsWith('image/') || uploaded.bytes > AVATAR_MAX_BYTES) {
       throw appError(HttpStatus.BAD_REQUEST, 'INVALID_AVATAR', '프로필 사진을 다시 올려 주세요');
+    }
+    // 지도 핀 그림 두 장을 사진 옆에 만들어 둡니다 (avatar-pin.ts). 앱은 주소 규칙으로 찾아 씁니다.
+    // 읽을 수 없는 사진이면 핀이 없어 지도에 빈칸이 생기므로 저장 자체를 거절합니다
+    try {
+      const pins = await makeAvatarPins(await this.storage.readObject(key));
+      const keys = pinObjectKeys(key);
+      await this.storage.putObject(keys.normal, pins.normal, 'image/png');
+      await this.storage.putObject(keys.active, pins.active, 'image/png');
+    } catch {
+      await this.storage.remove(key).catch(() => undefined);
+      throw appError(HttpStatus.BAD_REQUEST, 'INVALID_AVATAR', '이 사진은 쓸 수 없어요. 다른 사진을 골라 주세요');
     }
   }
 

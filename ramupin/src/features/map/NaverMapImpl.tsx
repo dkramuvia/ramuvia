@@ -142,7 +142,9 @@ function NaverItem({ item, onSize }: { item: MapMarkerItem; onSize?: (size: Size
 
   if (item.iconImage) {
     const size = iconSizeDp(item.iconImage);
-    return <NaverMapMarkerOverlay {...common} image={item.iconImage as number} width={size?.width} height={size?.height} anchor={anchorFor(item, size)} />;
+    // 사진 프로필 핀은 인터넷 주소라 네이버 지도 형식({ httpUri })으로 넘깁니다
+    const image = typeof item.iconImage === 'object' && item.iconImage.uri ? { httpUri: item.iconImage.uri } : (item.iconImage as number);
+    return <NaverMapMarkerOverlay {...common} image={image} width={size?.width} height={size?.height} anchor={anchorFor(item, size)} />;
   }
 
   const lift = item.lift ?? 0;

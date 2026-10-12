@@ -2,7 +2,7 @@ import Mapbox, { Camera, CircleLayer, MapView, MarkerView, ShapeSource, LineLaye
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
-import { useMarkerPress } from './markerPress';
+import { iconSizeDp, useMarkerPress } from './markerPress';
 import { MarkerRenderContext } from './spriteClock';
 import { LiveSprite } from './StatusBadge';
 import type { MapImplHandle, MapImplProps } from './types';
@@ -290,7 +290,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
  * 그림은 3배 화면 기준 픽셀로 만들어 두었습니다 (make-marker-avatars.mjs).
  */
 function IconImage({ source }: { source: NonNullable<MapImplProps['markers']>[number]['iconImage'] }) {
-  // @3x 그림이라 번들러가 주는 크기가 이미 dp 입니다 (markerPress.iconSizeDp 설명)
-  const size = Image.resolveAssetSource(source as number);
-  return <Image source={source} style={{ width: size.width, height: size.height }} fadeDuration={0} />;
+  // @3x 그림이라 번들러가 주는 크기가 이미 dp 입니다. 사진 프로필 핀(인터넷 주소)은 핀 크기 (markerPress.iconSizeDp 설명)
+  const size = iconSizeDp(source);
+  return <Image source={source} style={{ width: size?.width, height: size?.height }} fadeDuration={0} />;
 }

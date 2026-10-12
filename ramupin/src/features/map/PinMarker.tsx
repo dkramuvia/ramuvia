@@ -46,7 +46,7 @@ export function personPin({
   /** 이름 핀 바탕. 라이트 모드면 흰색, 다크 모드면 검정 (배지와 같은 규칙, 대표님 10-12) */
   tone?: 'light' | 'dark';
 }): Pick<MapMarkerItem, 'iconImage' | 'children' | 'anchor' | 'trackKey'> {
-  const 캐릭터 = markerAvatarSource(avatarUrl ?? undefined, !!active);
+  const 캐릭터 = markerAvatarSource(avatarUrl ?? undefined, !!active) ?? photoPin(avatarUrl, !!active);
   return {
     iconImage: 캐릭터,
     anchor: PIN_ANCHOR,
@@ -56,6 +56,16 @@ export function personPin({
 }
 
 /** 캐릭터 없는 사람: 검은 원 + 이름 (속성 1=5글자) */
+/**
+ * 사진 프로필이면 서버가 만들어 둔 핀 그림 주소 (서버 avatar-pin.ts). 사진 자체를 마커 뷰에 넣으면
+ * 안드로이드 지도가 구울 때 빠져서 이름 핀만 보였습니다 (10-12). 주소 규칙은 서버와 같습니다:
+ * …/<id>.jpg → …/<id>-pin.png, 활성화 …/<id>-pin-active.png
+ */
+function photoPin(avatarUrl: string | null | undefined, active: boolean) {
+  if (!avatarUrl || !/^https?:\/\//.test(avatarUrl)) return undefined;
+  return { uri: avatarUrl.replace(/\.[a-z]+$/, active ? '-pin-active.png' : '-pin.png') };
+}
+
 export function NamePin({ name, active, tone = 'dark' }: { name: string; active?: boolean; tone?: 'light' | 'dark' }) {
   const styles = useStyles();
   const markerReady = useMarkerReady();

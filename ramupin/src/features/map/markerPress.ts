@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Image, View, type GestureResponderEvent } from 'react-native';
 
+import { PIN } from './PinMarker';
 import type { MapMarkerItem } from './types';
 import type { LatLng } from '@/types/models';
 
@@ -128,6 +129,8 @@ export function visibleRect(m: MapMarkerItem, measured?: { width: number; height
  * (픽셀 ÷ 3). 기기 배율로 나누면 안 됩니다 — spriteClock 의 ASSET_SCALE 설명
  */
 export function iconSizeDp(source: MapMarkerItem['iconImage']) {
+  // 사진 프로필 핀(인터넷 주소)은 크기를 미리 알 수 없어 핀 크기로 둡니다 (서버 avatar-pin.ts 가 같은 크기로 만듭니다)
+  if (source && typeof source === 'object' && 'uri' in source) return { width: PIN.width, height: PIN.height };
   const src = Image.resolveAssetSource(source as number);
   return src ? { width: src.width, height: src.height } : null;
 }

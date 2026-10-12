@@ -250,7 +250,8 @@ export default function MapScreen() {
               variant="title1"
               color={overlay.text}
               numberOfLines={1}
-              style={{ textShadowColor: overlay.pill, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 }}
+              // 테두리는 글자와 반대 밝기여야 합니다. 버튼색(pill)은 앱 다크 모드를 따라가서 쓰면 안 됩니다
+              style={{ textShadowColor: mapIsDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 }}
             >
               {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
             </AppText>
@@ -419,7 +420,8 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: 16,
     marginBottom: 12,
     borderRadius: radius.full,
-    backgroundColor: colors.white,
+    // 다크 모드에서도 흰색으로 남지 않게 카드색을 씁니다 (라이트에서는 흰색)
+    backgroundColor: colors.card,
     elevation: 2,
   },
   signal: { marginLeft: 2 },
@@ -429,7 +431,7 @@ const useStyles = makeStyles((colors) => ({
     marginHorizontal: 30,
     marginBottom: 20,
     borderRadius: 4,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },

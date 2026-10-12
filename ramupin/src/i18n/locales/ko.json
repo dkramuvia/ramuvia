@@ -367,6 +367,7 @@
     "recent": "최근 여정",
     "viewRoute": "지도에서 이동경로 보기",
     "hidden": "이동 경로를 공개하지 않은 친구예요.",
+    "noStopsYet": "오늘은 아직 머문 곳이 없어요.",
     "legendMove": "이동",
     "legendStay": "머무름"
   },

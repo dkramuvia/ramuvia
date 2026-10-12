@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { usePreferencesStore } from '@/stores/preferencesStore';
+import { useThemeName } from './useTheme';
 
 /**
  * 지도 위에 얹는 것들의 색.
@@ -15,6 +16,11 @@ import { usePreferencesStore } from '@/stores/preferencesStore';
  * 실제로 폰에서 지역명·날씨·내 위치 버튼·로드뷰 버튼이 안 보였습니다.
  *
  * 그래서 지도 위 요소는 이 색을 씁니다. 위성 사진도 어둡게 보므로 같이 묶습니다.
+ *
+ * **글자와 버튼은 따로 정합니다** (대표님 10-12).
+ *   - 글자(`text`·`textSecondary`)는 지도 위에 바로 놓이므로 **지도 밝기**를 따릅니다
+ *   - 버튼·알약(`pill…`)은 자기 바탕이 있으므로 **앱이 다크이거나 지도가 어두우면 검정**입니다.
+ *     예전에는 지도 밝기만 봐서, 앱이 다크인데 SOS·내 위치 버튼만 흰색으로 떠 있었습니다
  */
 export interface MapOverlayColors {
   /** 지도 위 큰 글자 (지역명) */
@@ -55,21 +61,52 @@ export function useMapIsDark(): boolean {
   return mapTheme === 'dark' || mapType === 'satellite';
 }
 
-export function useMapOverlay(): MapOverlayColors {
-  return useMapIsDark() ? overlayDark : overlayLight;
+/** 버튼·알약을 검게 칠할지 — 지도가 어둡거나 앱이 다크 모드 */
+export function useMapChromeIsDark(): boolean {
+  const mapIsDark = useMapIsDark();
+  const appIsDark = useThemeName() === 'dark';
+  return mapIsDark || appIsDark;
 }
 
-/** `makeStyles` 와 같은데, 앱 화면 색이 아니라 지도 밝기를 따라갑니다 */
+/** 글자는 지도 밝기, 버튼은 (지도 또는 앱) 다크 여부로 섞습니다 */
+function mix(textDark: boolean, chromeDark: boolean): MapOverlayColors {
+  const text = textDark ? overlayDark : overlayLight;
+  const chrome = chromeDark ? overlayDark : overlayLight;
+  return {
+    text: text.text,
+    textSecondary: text.textSecondary,
+    pill: chrome.pill,
+    pillText: chrome.pillText,
+    pillSelected: chrome.pillSelected,
+    pillSelectedText: chrome.pillSelectedText,
+  };
+}
+
+const mixes = new Map<string, MapOverlayColors>();
+function overlayFor(textDark: boolean, chromeDark: boolean): MapOverlayColors {
+  const key = `${textDark}:${chromeDark}`;
+  let found = mixes.get(key);
+  if (!found) mixes.set(key, (found = mix(textDark, chromeDark)));
+  return found;
+}
+
+export function useMapOverlay(): MapOverlayColors {
+  return overlayFor(useMapIsDark(), useMapChromeIsDark());
+}
+
+/** `makeStyles` 와 같은데, 앱 화면 색이 아니라 지도 위 색(useMapOverlay)을 따라갑니다 */
 export function makeMapStyles<T extends StyleSheet.NamedStyles<T>>(build: (overlay: MapOverlayColors) => T): () => T {
-  const cache = new Map<boolean, T>();
+  const cache = new Map<string, T>();
   return function useMapStyles(): T {
-    const isDark = useMapIsDark();
+    const textDark = useMapIsDark();
+    const chromeDark = useMapChromeIsDark();
     return useMemo(() => {
-      const cached = cache.get(isDark);
+      const key = `${textDark}:${chromeDark}`;
+      const cached = cache.get(key);
       if (cached) return cached;
-      const created = StyleSheet.create(build(isDark ? overlayDark : overlayLight));
-      cache.set(isDark, created);
+      const created = StyleSheet.create(build(overlayFor(textDark, chromeDark)));
+      cache.set(key, created);
       return created;
-    }, [isDark]);
+    }, [textDark, chromeDark]);
   };
 }

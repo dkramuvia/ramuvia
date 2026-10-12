@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -16,7 +17,7 @@ import { usePlan } from '@/features/policy/usePlan';
 import { useJourney } from '@/features/settings/queries';
 import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
-import { layout, makeStyles, radius, useColors } from '@/theme';
+import { layout, makeStyles, radius, useColors, useMapIsDark, useMapOverlay } from '@/theme';
 import { showToast } from '@/utils/toast';
 
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
@@ -35,6 +36,10 @@ const timeText = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { ho
 export default function JourneyScreen() {
   const styles = useStyles();
   const colors = useColors();
+  // 제목은 지도 위에 바로 놓여서 앱 글자색이 아니라 지도 밝기를 따릅니다.
+  // 앱이 다크면 밝은 지도 위에 흰 글씨가 되어 안 보였습니다 (10-12 실서버 시험)
+  const overlay = useMapOverlay();
+  const mapIsDark = useMapIsDark();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ userId: string; view?: 'timeline' }>();
   const { userId } = params;
@@ -87,12 +92,13 @@ export default function JourneyScreen() {
         padding={{ top: 100, right: 20, bottom: sheetHeight + navHeight, left: 20 }}
       />
 
+      <StatusBar style={mapIsDark ? 'light' : 'dark'} />
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
         <View style={styles.titleRow}>
           <Pressable accessibilityRole="button" onPress={() => (view === 'timeline' && !isMe && params.view !== 'timeline' ? setView('summary') : router.back())} hitSlop={8}>
-            <Ionicons name="chevron-back" size={26} color={colors.textStrong} />
+            <Ionicons name="chevron-back" size={26} color={overlay.text} />
           </Pressable>
-          <AppText variant="title1" color={colors.textStrong} numberOfLines={1} style={styles.flex}>
+          <AppText variant="title1" color={overlay.text} numberOfLines={1} style={styles.flex}>
             {areaName ?? ''}
           </AppText>
         </View>
@@ -169,8 +175,10 @@ export default function JourneyScreen() {
                   </View>
                 </Pressable>
               ) : (
+                // 경로를 숨긴 친구(journey 없음)와 오늘 아직 머문 곳이 없는 친구(0곳)는 다른 말입니다.
+                // 계속 이동만 한 친구에게 "공개하지 않은 친구" 가 떠서 지도 경로와 어긋났습니다 (10-12 실서버 시험)
                 <AppText variant="label1" color={colors.textMuted}>
-                  {t('journey.hidden')}
+                  {journey ? t('journey.noStopsYet') : t('journey.hidden')}
                 </AppText>
               )}
             </>

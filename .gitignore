@@ -32,3 +32,10 @@ naver-review/
 *serviceAccount*.json
 # 뿌리에 떨어진 안드로이드 설정 사본 (실제로 쓰는 것은 ramupin/google-services.json)
 /google-services.json
+
+# AI 도구 설정 — 이 PC 에만 둡니다 (2026-10-12)
+ramupin/.claude/
+ramupin/CLAUDE.md
+ramupin/AGENTS.md
+.claude/
+CLAUDE.md

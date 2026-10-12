@@ -16,7 +16,11 @@
 
 services:
   db:
-    ports: !override []
+    # 서버 자신(127.0.0.1)에만 엽니다 — 인터넷에서는 여전히 닫혀 있습니다.
+    # 대표님이 DBeaver 등으로 **SSH 터널**을 거쳐 DB 를 보려면 필요합니다 (2026-10-12).
+    # 보안 그룹에 5432 를 추가하지 마세요. SSH(22) 로 들어온 사람만 닿습니다
+    ports: !override
+      - '127.0.0.1:5432:5432'
     logging: &logging
       driver: json-file
       options:

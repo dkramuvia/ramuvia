@@ -118,8 +118,15 @@ export class FeedService {
     const friends = await this.db
       .selectFrom('social.friendships as f')
       .innerJoin('member.users as u', 'u.id', 'f.friend_id')
+      // 그 친구가 나에게 상태를 보여 주기로 한 경우만. "머무는 중" 자체가 상태입니다.
+      // 예전에는 숨김 모드만 봐서, 나에게 위치를 숨긴 친구도 피드에 떴습니다 (10-12 자동 시험)
+      .innerJoin('social.friend_share_settings as theirs', (join) =>
+        join.onRef('theirs.owner_id', '=', 'f.friend_id').onRef('theirs.friend_id', '=', 'f.user_id'),
+      )
       .select(['u.id', 'u.nickname'])
       .where('f.user_id', '=', userId)
+      .where('theirs.location_level', '!=', 'hidden')
+      .where('theirs.show_status', '=', true)
       // 숨김 모드인 친구는 빼야 합니다 — 숨는 동안 "어디에 오래 있다" 가 보이면 숨긴 뜻이 없습니다
       .where('u.hide_all', '=', false)
       .where((eb) => eb.or([eb('u.hide_until', 'is', null), eb('u.hide_until', '<=', now)]))

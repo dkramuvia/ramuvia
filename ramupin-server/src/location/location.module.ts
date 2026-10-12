@@ -18,7 +18,9 @@ import { SpeedingService } from './speeding.service.js';
 const pointSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
-  measuredAt: z.iso.datetime({ offset: true }),
+  // 시각은 받자마자 UTC(…Z) 한 가지 모양으로 바꿉니다. 서버는 이 값을 **글자로 비교**하는데,
+  // +09:00 과 Z 가 섞이면 순서가 뒤집혀 옛 위치가 현재 위치가 됐습니다 (10-12 자동 시험)
+  measuredAt: z.iso.datetime({ offset: true }).transform((s) => new Date(s).toISOString()),
   altitude: z.number().nullish(),
   accuracy: z.number().nonnegative().nullish(),
   altitudeAccuracy: z.number().nonnegative().nullish(),
@@ -36,6 +38,26 @@ const pointSchema = z.object({
 // 오프라인 동안 쌓인 점을 한 번에 보낼 수 있게 최대 500개
 const uploadBody = z.object({ points: z.array(pointSchema).min(1).max(500) });
 
+/** 폰 시계가 조금 빠른 것은 봐줍니다 */
+const FUTURE_SLACK_MS = 5 * 60_000;
+/** 앱이 오프라인 점을 들고 있는 기간과 같습니다 (앱 uploader.ts 의 MAX_AGE_MS) */
+const MAX_AGE_MS = 7 * 24 * 60 * 60_000;
+
+/**
+ * 받을 수 있는 시각의 점만 남깁니다.
+ *
+ * 폰 시계가 크게 틀어져 먼 미래(예: 2031년) 점이 하나 섞이면, 그 달의 저장 칸(파티션)이 없어
+ * **같은 묶음의 정상 점까지 저장되지 않고** 워커가 같은 묶음을 계속 다시 시도했습니다.
+ * 현재 위치도 2031년으로 남아 이후의 진짜 위치가 무시됐습니다 (10-12 자동 시험).
+ * 묶음 전체를 거절하면 앱이 같은 묶음을 계속 다시 보내므로, 이상한 점만 버립니다.
+ */
+function acceptable<T extends { measuredAt: string }>(points: T[], now = Date.now()): T[] {
+  return points.filter((p) => {
+    const at = Date.parse(p.measuredAt);
+    return at <= now + FUTURE_SLACK_MS && at >= now - MAX_AGE_MS;
+  });
+}
+
 @Controller('locations')
 @UseGuards(AuthGuard)
 class LocationController {
@@ -50,13 +72,16 @@ class LocationController {
   async upload(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const parsed = uploadBody.safeParse(body);
     if (!parsed.success) throw new BadRequestException(z.prettifyError(parsed.error));
-    const points = parsed.data.points;
+    const points = acceptable(parsed.data.points);
+    const dropped = parsed.data.points.length - points.length;
+    // 전부 버려졌어도 200 으로 답합니다. 앱은 이 점들을 다시 보내지 않아야 합니다
+    if (points.length === 0) return { received: 0, dropped, queued: false };
 
     // 현재 위치와 실시간 전달은 지금(메모리 작업), 이력 저장은 큐로 (GPS 보고서 4장).
     // DB 를 기다리지 않으므로 순간적으로 몰려도 앱 응답이 느려지지 않습니다
     await this.location.updateCurrent(user.id, points);
     await this.queue.enqueue(user.id, points);
-    return { received: points.length, queued: true };
+    return { received: points.length, dropped, queued: true };
   }
 
   /**

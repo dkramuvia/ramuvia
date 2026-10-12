@@ -142,14 +142,15 @@ export class LocationService {
       measuredAt: latest.measuredAt,
     };
     // 늦게 도착한 옛날 점이 최신 위치를 덮어쓰지 않게 비교
+    // 시각으로 비교합니다. 예전에 저장된 값에는 +09:00 모양이 남아 있을 수 있어 글자로 비교하면 틀립니다
     const prev = await this.redis.get(currentKey(userId));
-    if (!prev || (JSON.parse(prev) as CurrentLocation).measuredAt <= current.measuredAt) {
+    if (!prev || Date.parse((JSON.parse(prev) as CurrentLocation).measuredAt) <= Date.parse(current.measuredAt)) {
       await this.redis.set(currentKey(userId), JSON.stringify(current));
     }
 
     // 지금 이 사람 지도를 보고 있는 친구에게만 즉시 전달.
     // 아무도 안 보면 Redis 갱신까지만 하고 끝냅니다 — 쓸데없는 네트워크를 만들지 않습니다
-    if (await this.gateway.hasWatchers(userId)) await this.gateway.emitLocation(userId, current);
+    if (await this.gateway.hasWatchers(userId)) await this.gateway.emitLocation(userId);
   }
 
   /**

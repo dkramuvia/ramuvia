@@ -147,27 +147,46 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
     this.server?.to(`user:${targetId}`).emit('watch-mode', { on });
   }
 
-  /** 친구인 사람만 볼 수 있습니다. 모르는 사람 ID 를 넣어 위치를 받아 가지 못하게 */
+  /**
+   * 볼 수 있는 친구만 남깁니다 — 친구이고, **그 친구가 나에게 위치를 숨기지 않은** 경우.
+   * 예전에는 친구인지만 봐서, 나에게 "숨김" 으로 둔 친구도 지켜볼 수 있었습니다 (10-12 자동 시험).
+   */
   private async friendsAmong(me: string, ids: string[]): Promise<string[]> {
     if (ids.length === 0) return [];
     const rows = await this.db
-      .selectFrom('social.friendships')
-      .select('friend_id')
-      .where('user_id', '=', me)
-      .where('friend_id', 'in', ids)
+      .selectFrom('social.friendships as f')
+      .innerJoin('social.friend_share_settings as theirs', (join) =>
+        join.onRef('theirs.owner_id', '=', 'f.friend_id').onRef('theirs.friend_id', '=', 'f.user_id'),
+      )
+      .select('f.friend_id')
+      .where('f.user_id', '=', me)
+      .where('f.friend_id', 'in', ids)
+      .where('theirs.location_level', '!=', 'hidden')
       .execute();
     return rows.map((r) => r.friend_id);
   }
 
   /**
-   * 보고 있는 사람에게만 위치를 즉시 전달. 아무도 안 보면 Redis 갱신만 하고 끝냅니다.
+   * 보고 있는 사람에게 "이 친구 위치가 바뀌었다" 고만 알립니다. 아무도 안 보면 Redis 갱신만 하고 끝냅니다.
    *
-   * 숨김 모드(WBS 9.5)인 사람의 위치는 보내지 않습니다. 보는 사람이 있을 때만 확인하므로
+   * **좌표는 보내지 않습니다.** 보는 사람마다 볼 수 있는 정도(정확·흐림)가 달라 한 방에 같은 좌표를
+   * 뿌리면 흐림으로 둔 친구의 정확한 위치가 새어 나갔습니다 (10-12 자동 시험). 앱은 이 신호를 받으면
+   * 친구 목록을 다시 불러오고, 목록 API 가 사람마다 공유 설정대로 좌표를 맞춰 줍니다.
+   *
+   * 숨김 모드(WBS 9.5)인 사람은 신호도 보내지 않습니다. 보는 사람이 있을 때만 확인하므로
    * 평소에는 DB 를 읽지 않고, 확인한 결과는 잠깐 기억해 둡니다.
    */
-  async emitLocation(userId: string, location: unknown) {
+  async emitLocation(userId: string) {
     if (await this.isHidden(userId)) return;
-    this.server?.to(watchRoom(userId)).emit('friend-location', { userId, location });
+    this.server?.to(watchRoom(userId)).emit('friend-location', { userId });
+  }
+
+  /** 그룹에서 나간 사람을 실시간 방에서도 뺍니다. 안 빼면 나간 뒤에도 새 메시지가 계속 갑니다 */
+  async leaveRoom(userIds: string[], roomId: string) {
+    for (const userId of userIds) {
+      const sockets = await this.server?.in(`user:${userId}`).fetchSockets();
+      for (const socket of sockets ?? []) socket.leave(`room:${roomId}`);
+    }
   }
 
   /**

@@ -78,6 +78,7 @@ class GroupsController {
   async leave(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string) {
     const before = await this.groups.memberIds(groupId);
     await this.groups.leave(user.id, groupId);
+    await this.gateway.leaveRoom([user.id], groupId);
     this.gateway.emitRoomsChanged(before);
   }
 

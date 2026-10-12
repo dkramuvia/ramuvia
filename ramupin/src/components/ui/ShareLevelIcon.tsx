@@ -22,7 +22,7 @@ export function ShareLevelIcon({ level, size = 16, color }: ShareLevelIconProps)
   return (
     <Image
       source={ICONS[level]}
-      style={{ width: size, height: size, tintColor: color }}
+      style={{ width: size, height: size, tintColor: fg }}
       resizeMode="contain"
     />
   );

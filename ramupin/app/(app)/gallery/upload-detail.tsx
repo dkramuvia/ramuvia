@@ -67,7 +67,8 @@ export default function GalleryUploadDetailScreen() {
         미리보기가 화면을 다 차지하면 그룹을 고른 뒤 '위치 추가'가 공유 버튼 아래로 밀려 안 보였습니다 (10-08 폰에서 확인).
         아래 칸(그룹방 지정·위치 추가)이 늘 보이도록 화면 높이의 45% 를 넘지 않게 합니다
       */}
-      <View style={[styles.preview, { height: Math.min(width * 1.08, height * 0.45) }]}>
+      {/* 그룹 목록을 펼치면 그만큼 미리보기를 줄입니다. 펼친 채로는 '위치 추가' 가 다시 잘렸습니다 (10-12 실서버 시험) */}
+      <View style={[styles.preview, { height: Math.min(width * 1.08, height * (groupListOpen ? 0.28 : 0.45)) }]}>
         {media[0] ? <Image source={{ uri: media[0].uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
         {media.length > 1 ? (
           <View style={styles.count}>

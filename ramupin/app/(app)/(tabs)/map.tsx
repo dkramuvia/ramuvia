@@ -358,7 +358,8 @@ export default function MapScreen() {
         }
       >
         <SheetScrollView contentContainerStyle={styles.sheetContent}>
-          {sheet === 'feed'
+          {/* 최근 활동이 없으면 친구 목록을 바로 보여 줍니다. 비어 있는 칸만 보여서 헷갈렸습니다 (10-12 실서버 시험) */}
+          {sheet === 'feed' && feed.length > 0
             ? feed.map((item) => (
                 <View key={item.id} style={styles.feedItem}>
                   {FEED_ICONS[item.type] ? (

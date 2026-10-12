@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Battery from 'expo-battery';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -12,7 +13,11 @@ export function ProfileCard({ onPress }: { onPress?: () => void }) {
   const colors = useColors();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
+  // 내 배터리는 폰에서 바로 읽습니다 (지도 화면과 같게). 서버 값은 마지막으로 올린 때의 것이라
+  // 충전 중인데도 68% 처럼 옛날 값이 보였습니다 (10-12 실서버 시험)
+  const deviceBattery = Battery.useBatteryLevel();
   if (!me) return null;
+  const battery = deviceBattery >= 0 ? Math.round(deviceBattery * 100) : me.batteryLevel;
 
   return (
     <Card onPress={onPress} style={styles.card}>
@@ -22,8 +27,8 @@ export function ProfileCard({ onPress }: { onPress?: () => void }) {
         <AppText variant="caption" color="#878787">
           {t('settingsMenu.id', { id: me.publicId })}
         </AppText>
-        {me.batteryLevel != null ? (
-          <BatteryBadge level={me.batteryLevel} iconSize={12} textVariant="caption" textColor={colors.textSecondary} />
+        {battery != null ? (
+          <BatteryBadge level={battery} iconSize={12} textVariant="caption" textColor={colors.textSecondary} />
         ) : null}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={t('friendAdd.myQr')} onPress={() => router.push('/friends/my-qr')} style={styles.qr}>

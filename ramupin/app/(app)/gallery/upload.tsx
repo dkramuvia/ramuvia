@@ -83,7 +83,9 @@ export default function GalleryUploadScreen() {
     try {
       const page = await new Query()
         .within(AssetField.MEDIA_TYPE, [MediaType.IMAGE, MediaType.VIDEO])
-        .orderBy({ key: AssetField.CREATION_TIME, ascending: false })
+        // '찍은 시각' 이 아니라 '저장된 시각' 순서입니다. 카카오톡·다운로드 사진은 찍은 시각 정보가 없어
+        // 맨 뒤로 밀려, 방금 받은 사진을 찾을 수 없었습니다 (10-12 실서버 시험). 카메라 사진은 두 시각이 거의 같습니다
+        .orderBy({ key: AssetField.MODIFICATION_TIME, ascending: false })
         .offset(loaded.current)
         .limit(PAGE)
         .exeForMetadata();

@@ -8,7 +8,7 @@ export function CheckCircle({ checked, size = 22, color }: { checked: boolean; s
   const styles = useStyles();
   const colors = useColors();
   const fg = color ?? colors.check;
-  if (checked) return <Ionicons name="checkmark-circle" size={size + 2} color={color} />;
+  if (checked) return <Ionicons name="checkmark-circle" size={size + 2} color={fg} />;
   return <View style={[styles.empty, { width: size - 2, height: size - 2, borderRadius: size }]} />;
 }
 

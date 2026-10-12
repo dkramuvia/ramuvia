@@ -9,7 +9,7 @@ import { AppText, BatteryBadge, BottomNav, QueryState, SheetScrollView, SnapShee
 import { useFriends } from '@/features/friends/queries';
 import { allRouteCoordinates, formatDuration, minutesSince, routePolylines } from '@/features/journey/routeLayers';
 import { useAreaName } from '@/features/location/useAreaName';
-import { AppMapView, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
+import { AppMapView, useMapProvider, type AppMapViewHandle, type MapMarkerItem } from '@/features/map/AppMapView';
 import { personPin } from '@/features/map/PinMarker';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
@@ -52,6 +52,8 @@ export default function JourneyScreen() {
 
   const lastStop = journey?.stops[journey.stops.length - 1];
   const current = lastStop ?? friend?.location ?? null;
+  // 거리뷰(로드뷰)는 네이버 지도일 때만 (대표님 10-12)
+  const streetView = useMapProvider(current ?? FALLBACK) === 'naver';
   const areaName = useAreaName(current);
 
   const { height: screenHeight } = useWindowDimensions();
@@ -118,7 +120,7 @@ export default function JourneyScreen() {
               <NowRow />
               {friend?.location?.address ? <AppText variant="label1">{friend.location.address}</AppText> : null}
               {/* 로드뷰(거리뷰)로 그 자리를 눈으로 확인 (WBS 10.5 유료 지도) */}
-              {current ? (
+              {current && streetView ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() =>

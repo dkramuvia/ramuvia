@@ -5,7 +5,8 @@ import MapView, { Circle, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { DARK_MAP_STYLE } from './darkMapStyle';
 import { useMarkerPress } from './markerPress';
 import { MarkerRenderContext, SpriteOverlayContext, spriteSizeDp } from './spriteClock';
-import { SpriteMarker } from './SpriteMarker';
+import { SpriteMarker, SpriteWarmup } from './SpriteMarker';
+import type { SpriteSheet } from './spriteTypes';
 import { BADGE_GEOMETRY } from './StatusBadge';
 import { TrackedMarker } from './TrackedMarker';
 import type { MapImplHandle, MapImplProps, MapMarkerItem } from './types';
@@ -93,6 +94,7 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
       {polylines.map((p) => (
         <Polyline key={p.id} coordinates={p.coordinates} strokeColor={p.color} strokeWidth={p.width ?? 6} lineCap="round" lineJoin="round" />
       ))}
+      {BAKES ? <Warmups markers={markers} /> : null}
       <MarkerRenderContext.Provider value={BAKES ? 'baked' : 'live'}>
         {markers.map((m) => {
           if (m.sprite) {
@@ -112,6 +114,22 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
     </View>
   );
 });
+
+/** 지금 쓰는 움직이는 그림마다 모든 장면을 미리 올려 둡니다 (SpriteWarmup 설명) */
+function Warmups({ markers }: { markers: MapMarkerItem[] }) {
+  const sheets = new Map<SpriteSheet, MapMarkerItem['coordinate']>();
+  for (const m of markers) {
+    const sheet = m.sprite?.sheet ?? m.badgeSprite?.sheet;
+    if (sheet && !sheets.has(sheet)) sheets.set(sheet, m.coordinate);
+  }
+  return (
+    <>
+      {[...sheets].map(([sheet, coordinate]) => (
+        <SpriteWarmup key={sheet.frames.join(',')} coordinate={coordinate} sheet={sheet} />
+      ))}
+    </>
+  );
+}
 
 /**
  * 배지 + 그림 칸에 겹치는 움직이는 그림.

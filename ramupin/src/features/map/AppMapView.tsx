@@ -56,18 +56,26 @@ const MARKER_CLEANUP_MS = 60;
  * 화면은 이것만 사용하고, 지도 SDK 는 GoogleMapImpl / NaverMapImpl 안에서만 다룹니다.
  * 어떤 지도를 쓸지는 지금 위치·설정·등급이 함께 정합니다 (규칙은 region.ts).
  */
-export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function AppMapView(props, ref: Ref<AppMapViewHandle>) {
-  const { mapProvider, mapType, mapTheme } = usePreferencesStore();
+/**
+ * 이 자리에서 실제로 쓰는 지도. 설정·등급·위치가 함께 정합니다 (규칙은 region.ts).
+ * 지도 화면 밖에서도 씁니다 — 거리뷰 버튼은 네이버 지도일 때만 보입니다.
+ */
+export function useMapProvider(center: AppMapViewProps['initialCenter']) {
+  const mapProvider = usePreferencesStore((s) => s.mapProvider);
   const { can } = usePlan();
-
   // 프리미엄 지도는 유료 등급에서만. 등급이 바뀌면 자동으로 기본 지도로 돌아갑니다
-  const provider = resolveMapProvider({
-    center: props.initialCenter,
+  return resolveMapProvider({
+    center,
     preferred: mapProvider === 'os' ? 'google' : mapProvider,
     premium: can('premiumMap'),
     overseas: can('overseasMap'),
     unlocked: DEMO_UNLOCK_MAPS,
   });
+}
+
+export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function AppMapView(props, ref: Ref<AppMapViewHandle>) {
+  const { mapType, mapTheme } = usePreferencesStore();
+  const provider = useMapProvider(props.initialCenter);
   /**
    * 지금 화면에 떠 있는 지도. 설정에서 바꿔도 곧바로 갈아 끼우지 않습니다.
    *

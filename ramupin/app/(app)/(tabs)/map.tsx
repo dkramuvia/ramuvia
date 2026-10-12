@@ -18,7 +18,7 @@ import { stayedSince } from '@/features/location/backgroundTask';
 import { useAreaName } from '@/features/location/useAreaName';
 import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
-import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
+import { AppMapView, useMapProvider, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { BADGE_BOTTOM_GAP, BadgeMarker, badgeAnchor } from '@/features/map/BadgeMarker';
 import { personPin } from '@/features/map/PinMarker';
 import { badgeSprite } from '@/features/map/spriteClock';
@@ -103,6 +103,8 @@ export default function MapScreen() {
   }, [location]);
 
   const signal = gpsSignal(location?.accuracy ?? null);
+  // 거리뷰(로드뷰)는 네이버에만 있습니다. 구글·Mapbox 지도일 때는 버튼을 숨깁니다 (대표님 10-12)
+  const streetView = useMapProvider(location ?? FALLBACK_CENTER) === 'naver';
 
   // 내가 지금 자리에 언제부터 있었는지. 수집이 기기에 적어 둔 값이라 서버를 거치지 않습니다
   const [myStayedSince, setMyStayedSince] = useState<string | null>(null);
@@ -271,6 +273,7 @@ export default function MapScreen() {
               <Ionicons name="locate" size={20} color={overlay.pillText} />
             </Pressable>
             {/* 로드뷰(거리뷰)는 네이버 지도 기능이라 유료 플랜에서만 (WBS 10.5) */}
+            {streetView ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('map.streetView')}
@@ -285,6 +288,7 @@ export default function MapScreen() {
             >
               <Ionicons name="man-outline" size={20} color={overlay.pillText} />
             </Pressable>
+            ) : null}
           </View>
         </View>
 

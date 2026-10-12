@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -10,8 +10,15 @@ import type { LatLng } from '@/types/models';
 /**
  * 네이버 로드뷰(거리뷰).
  * 네이버 모바일 SDK 에는 파노라마가 없어서, 지도 JS API 의 panorama 모듈을 WebView 로 띄웁니다.
- * 네이버 클라우드 콘솔 > Application > Web 서비스 URL 에 http://localhost 가 등록되어 있어야 합니다.
+ * 네이버 클라우드 콘솔 > Application > Web 서비스 URL 에 localhost 가 등록되어 있어야 합니다.
+ *
+ * **페이지 주소는 https** 여야 합니다. 네이버 지도 JS 는 페이지가 http 면 지도·로드뷰 데이터도
+ * http 로 받는데, 배포용 앱은 http 통신을 막아서 "불러오는 중"에서 멈췄습니다
+ * (개발용 앱만 http 를 허용해서 그때는 됐습니다 — 10-12).
  */
+
+/** 이 시간 안에 로드뷰가 안 뜨면 실패로 봅니다 */
+const LOAD_TIMEOUT_MS = 15000;
 
 type Status = 'loading' | 'ready' | 'no-coverage' | 'error';
 
@@ -24,6 +31,9 @@ const panoramaHtml = (clientId: string, { latitude, longitude }: LatLng) => `<!d
 <script>
   var KEY = ${JSON.stringify(clientId)};
   var POS = { lat: ${latitude}, lng: ${longitude} };
+  // 키가 이 주소에 등록되어 있지 않으면 네이버가 이 함수를 부릅니다
+  window.navermap_authFailure = function () { send('error', 'auth'); };
+  window.onerror = function (m) { send('error', String(m)); };
   var send = function (type, message) {
     window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, message: message }));
   };
@@ -61,6 +71,14 @@ export function StreetViewWeb({ coordinate, onStatusChange }: { coordinate: LatL
   const clientId = env.map.naverClientId;
   const html = useMemo(() => panoramaHtml(clientId, coordinate), [clientId, coordinate]);
 
+  // 네이버가 아무 소식도 주지 않으면 계속 "불러오는 중"으로 남지 않게 합니다
+  useEffect(() => {
+    if (status !== 'loading') return;
+    const timer = setTimeout(() => update('error'), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   const update = (next: Status) => {
     setStatus(next);
     onStatusChange?.(next);
@@ -71,8 +89,8 @@ export function StreetViewWeb({ coordinate, onStatusChange }: { coordinate: LatL
   return (
     <View style={styles.container}>
       <WebView
-        // baseUrl 을 localhost 로 두어야 네이버 콘솔에 등록한 Web 서비스 URL 과 맞습니다
-        source={{ html, baseUrl: 'http://localhost' }}
+        // baseUrl 을 localhost 로 두어야 네이버 콘솔에 등록한 Web 서비스 URL 과 맞습니다. https 인 이유는 맨 위 설명
+        source={{ html, baseUrl: 'https://localhost' }}
         originWhitelist={['*']}
         javaScriptEnabled
         domStorageEnabled

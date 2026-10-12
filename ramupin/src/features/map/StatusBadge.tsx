@@ -85,7 +85,16 @@ export function StatusBadge({ text, kind, battery, tone = 'dark', who }: StatusB
 /** 실제 뷰로 그리는 지도(Mapbox·iOS)에서는 배지 안에서 바로 프레임을 돌립니다 (Mapbox 발자국도 이것) */
 export function LiveSprite({ sheet }: { sheet: SpriteSheet }) {
   const frame = useSpriteFrame(sheet.frames.length);
-  return <Image source={sheet.frames[frame]} style={spriteSizeDp(sheet)} fadeDuration={0} />;
+  const size = spriteSizeDp(sheet);
+  // 그림을 바꿔 끼우면 처음 한 바퀴는 장면마다 불러오는 동안 비어 깜빡입니다 (배포용 앱, 10-12).
+  // 모든 장면을 겹쳐 두고 지금 장면만 보이게 합니다
+  return (
+    <View style={size}>
+      {sheet.frames.map((f, i) => (
+        <Image key={i} source={f} style={[size, { position: 'absolute', opacity: i === frame ? 1 : 0 }]} fadeDuration={0} />
+      ))}
+    </View>
+  );
 }
 
 /**

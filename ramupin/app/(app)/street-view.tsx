@@ -42,11 +42,11 @@ export default function StreetViewScreen() {
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
         <View style={styles.topRow} pointerEvents="box-none">
           <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => router.back()} style={styles.roundButton}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
+            <Ionicons name="chevron-back" size={22} color={colors.black} />
           </Pressable>
           {name ? (
             <View style={styles.titlePill}>
-              <AppText variant="headline" color={colors.text} numberOfLines={1}>
+              <AppText variant="headline" color={colors.black} numberOfLines={1}>
                 {name}
               </AppText>
             </View>
@@ -56,8 +56,8 @@ export default function StreetViewScreen() {
 
       <SafeAreaView edges={['bottom']} style={styles.bottom} pointerEvents="box-none">
         <Pressable accessibilityRole="button" onPress={openNaverApp} style={styles.openButton}>
-          <Ionicons name="open-outline" size={18} color={colors.text} />
-          <AppText variant="headline" color={colors.text}>
+          <Ionicons name="open-outline" size={18} color={colors.black} />
+          <AppText variant="headline" color={colors.black}>
             {t('streetView.openInNaver')}
           </AppText>
         </Pressable>

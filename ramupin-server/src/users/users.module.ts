@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpStatus, Inject, Module, NotFoundException, Patch, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpStatus, Inject, Module, NotFoundException, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
 
@@ -11,6 +11,8 @@ import { USER_SUMMARY_COLUMNS, toUserSummary } from './user-summary.js';
 import { resolvePolicy } from '../config/policy.js';
 import { LocationModule } from '../location/location.module.js';
 import { NICKNAME_MAX, ProfileService } from './profile.service.js';
+import { MediaModule } from '../media/media.module.js';
+import { AVATAR_MAX_BYTES, StorageService } from '../media/storage.service.js';
 
 const singleHouseholdBody = z.object({ enabled: z.boolean() });
 const lookupQuery = z.object({ publicId: z.string().regex(/^\d{8}$/) });
@@ -18,15 +20,13 @@ const nicknameQuery = z.object({ nickname: z.string().min(1).max(NICKNAME_MAX) }
 const profileBody = z.object({
   // 공백만 있는 이름, 아무 주소(javascript: 등)가 그대로 저장돼 친구에게 보였습니다 (10-12 자동 시험)
   nickname: z.string().trim().min(1).max(NICKNAME_MAX).optional(),
-  // 올린 사진은 http(s) 주소, 기본 캐릭터는 앱이 그림으로 바꾸는 키("avatar:boy-01", 앱 avatars.ts).
-  // file:// 은 앱 프로필 편집이 아직 사진을 서버에 올리지 않고 폰 안 주소를 저장해서 잠시 받아 둡니다
-  // (앱 profile-edit 의 TODO — 사진 업로드가 붙으면 빼야 합니다)
-  avatarUrl: z
-    .union([z.url({ protocol: /^(https?|file)$/ }).max(500), z.string().regex(/^avatar:[a-z0-9-]{1,40}$/)])
-    .nullish(),
+  // 기본 캐릭터는 앱이 그림으로 바꾸는 키("avatar:boy-01", 앱 avatars.ts), 사진은 /me/avatar/upload-target 으로
+  // 올린 내 프로필 사진 주소만 받습니다 (update 에서 확인). 예전에는 폰 안 주소(file://)가 저장돼 친구에게 안 보였습니다
+  avatarUrl: z.union([z.url({ protocol: /^https?$/ }).max(500), z.string().regex(/^avatar:[a-z0-9-]{1,40}$/)]).nullish(),
   gender: z.enum(['male', 'female']).nullish(),
   statusMessage: z.string().max(100).nullish(),
 });
+const avatarTargetBody = z.object({ contentType: z.string().min(3).max(100), bytes: z.number().int().positive().max(AVATAR_MAX_BYTES) });
 // 앱이 보내는 +09:00 같은 시간대 표기도 받습니다 (/locations, 채팅과 같게, 10-12 자동 시험)
 const hideModeBody = z.object({ hideAll: z.boolean(), until: z.iso.datetime({ offset: true }).nullish() });
 // 탈퇴 사유는 비워 둘 수 있습니다. 이유를 꼭 적게 하면 그냥 아무 글자나 넣습니다
@@ -41,6 +41,7 @@ class MeController {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly profile: ProfileService,
+    private readonly storage: StorageService,
   ) {}
 
   @Get()
@@ -72,9 +73,38 @@ class MeController {
 
   /** 프로필 수정 (WBS 3.9) */
   @Patch()
-  update(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+  async update(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parseInput(profileBody, body);
-    return this.profile.update(user.id, input);
+    const before = await this.db.selectFrom('member.users').select('avatar_url').where('id', '=', user.id).executeTakeFirst();
+    if (input.avatarUrl && !input.avatarUrl.startsWith('avatar:')) await this.assertOwnAvatar(user.id, input.avatarUrl);
+    const result = await this.profile.update(user.id, input);
+    // 사진을 바꿨으면 예전 사진은 지웁니다. 지우지 못해도 프로필 저장은 끝난 뒤라 그대로 둡니다
+    const oldKey = before?.avatar_url ? this.storage.avatarObjectKey(user.id, before.avatar_url) : null;
+    if (oldKey && input.avatarUrl !== undefined && input.avatarUrl !== before?.avatar_url) {
+      await this.storage.remove(oldKey).catch(() => undefined);
+    }
+    return result;
+  }
+
+  /**
+   * 프로필 사진 올릴 주소 (WBS 3.9). 앱은 여기로 직접 올린 뒤 받은 avatarUrl 을 PATCH /me 로 저장합니다.
+   * 사진 형식(jpg·png·webp·heic)과 5MB 까지만 받습니다
+   */
+  @Post('avatar/upload-target')
+  async avatarUploadTarget(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    const { contentType } = parseInput(avatarTargetBody, body);
+    const target = await this.storage.createAvatarUploadTarget(user.id, contentType);
+    if (!target) throw appError(HttpStatus.BAD_REQUEST, 'UNSUPPORTED_TYPE', '사진 파일만 올릴 수 있습니다');
+    return target;
+  }
+
+  /** 내 프로필 사진 폴더에 실제로 올라온 사진인지. 남의 주소·외부 주소·안 올린 주소는 거절합니다 */
+  private async assertOwnAvatar(userId: string, avatarUrl: string) {
+    const key = this.storage.avatarObjectKey(userId, avatarUrl);
+    const uploaded = key ? await this.storage.verifyUpload(key) : null;
+    if (!uploaded || !uploaded.contentType.startsWith('image/') || uploaded.bytes > AVATAR_MAX_BYTES) {
+      throw appError(HttpStatus.BAD_REQUEST, 'INVALID_AVATAR', '프로필 사진을 다시 올려 주세요');
+    }
   }
 
   /** 회원 탈퇴 (WBS 11.2: 전체 삭제, 복구 불가) */
@@ -149,7 +179,8 @@ class UsersController {
 
 @Module({
   // 탈퇴할 때 위치 DB 의 자료도 지워야 합니다 (다른 데이터베이스라 따라 지워지지 않습니다)
-  imports: [LocationModule],
+  // 프로필 사진은 사진 저장소에 올립니다 (MediaModule 의 StorageService)
+  imports: [LocationModule, MediaModule],
   controllers: [MeController, UsersController],
   providers: [ProfileService],
   exports: [ProfileService],

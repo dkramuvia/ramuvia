@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { getCalendars } from 'expo-localization';
 
 import { apiClient, mockResponse } from '../client';
@@ -27,6 +28,9 @@ import type {
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
+/** 프로필 사진 형식. 서버 storage.service 의 허용 목록과 같습니다 */
+const AVATAR_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' };
+
 export const profileApi = {
   /** 닉네임 중복 확인 (WBS 3.9) */
   async isNicknameAvailable(nickname: string): Promise<boolean> {
@@ -45,6 +49,31 @@ export const profileApi = {
     }
     const { data } = await apiClient.patch<User>('/me', patch);
     return data;
+  },
+
+  /**
+   * 프로필 사진 올리기 (WBS 3.9). 올린 사진의 주소를 돌려줍니다 — 이 주소를 update 로 저장합니다.
+   *
+   * 예전에는 폰 안 주소(file://)를 그대로 저장해서 내 폰에서만 보이고 친구 화면에는 안 보였습니다.
+   * 갤러리 올리기와 같게, 서버가 준 주소로 저장소에 직접 올립니다 (파일이 API 서버를 거치지 않습니다)
+   */
+  async uploadAvatar(uri: string): Promise<string> {
+    if (!isLive('me')) return mockResponse(uri, 600);
+    const info = await FileSystem.getInfoAsync(uri);
+    if (!info.exists) throw new Error('사진을 찾을 수 없습니다');
+    const extension = uri.split('?')[0].split('.').pop()?.toLowerCase() ?? '';
+    const contentType = AVATAR_TYPES[extension] ?? 'image/jpeg';
+    const { data: target } = await apiClient.post<{ uploadUrl: string; avatarUrl: string }>('/me/avatar/upload-target', {
+      contentType,
+      bytes: info.size,
+    });
+    const result = await FileSystem.uploadAsync(target.uploadUrl, uri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { 'Content-Type': contentType },
+    });
+    if (result.status < 200 || result.status >= 300) throw new Error(`사진 올리기 실패 (${result.status})`);
+    return target.avatarUrl;
   },
 
   /** 회원 탈퇴 (WBS 11.2: 전체 삭제, 복구 불가) */

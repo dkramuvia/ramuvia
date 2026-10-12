@@ -31,6 +31,7 @@ export default function ProfileEditScreen() {
   const [gender, setGender] = useState<Gender>(me?.gender ?? 'male');
   const [avatarKey, setAvatarKey] = useState<string | undefined>(me?.avatarUrl);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [nickname, setNickname] = useState(me?.nickname ?? '');
   const [checkState, setCheckState] = useState<'unchecked' | 'available' | 'taken'>('available');
 
@@ -50,10 +51,23 @@ export default function ProfileEditScreen() {
     }
   };
 
-  const save = () => {
-    // TODO(5단계): 갤러리 사진은 S3 업로드 후 URL 저장
+  const save = async () => {
+    // 갤러리에서 고른 사진은 먼저 서버에 올리고, 받은 주소를 저장합니다.
+    // 폰 안 주소(file://)를 그대로 저장하면 친구 화면에서는 사진이 안 보였습니다 (10-12)
+    let avatarUrl = avatarKey;
+    if (photoUri) {
+      setUploading(true);
+      try {
+        avatarUrl = await profileApi.uploadAvatar(photoUri);
+      } catch {
+        showToast(t('profileEdit.uploadFailed'));
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
     update.mutate(
-      { gender, nickname, avatarUrl: photoUri ?? avatarKey },
+      { gender, nickname, avatarUrl },
       {
         onSuccess: () => {
           showToast(t('profileEdit.saved'));
@@ -128,8 +142,8 @@ export default function ProfileEditScreen() {
       <Button
         label={t('profileEdit.save')}
         size="lg"
-        disabled={!nicknameValid || checkState !== 'available' || update.isPending}
-        onPress={save}
+        disabled={!nicknameValid || checkState !== 'available' || update.isPending || uploading}
+        onPress={() => void save()}
       />
     </Screen>
   );

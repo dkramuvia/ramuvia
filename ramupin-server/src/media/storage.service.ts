@@ -1,5 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { CreateBucketCommand, DeleteObjectCommand, HeadBucketCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, DeleteObjectCommand, HeadBucketCommand, HeadObjectCommand, PutBucketPolicyCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
@@ -33,6 +33,17 @@ const ALLOWED: Record<string, { kind: 'image' | 'video' | 'audio'; ext: string }
   'audio/m4a': { kind: 'audio', ext: 'm4a' },
   'audio/mp4': { kind: 'audio', ext: 'm4a' },
 };
+
+/**
+ * 프로필 사진 폴더. **서명 없이 누구나 볼 수 있습니다** (아래 openAvatars).
+ *
+ * 프로필 사진은 친구 목록·채팅·그룹·지도 어디에나 나와서, 볼 때마다 서명 주소를 새로 만들면
+ * 화면마다 손이 가고 1시간마다 주소가 바뀌어 사진을 매번 다시 받습니다. 카카오톡처럼 고정 주소로 둡니다.
+ * 파일 이름은 추측할 수 없는 무작위 값이라 주소를 아는 사람만 열 수 있습니다.
+ */
+const AVATAR_PREFIX = 'avatars/';
+/** 프로필 사진 크기 한도. 정사각형으로 잘라 올리므로 이 정도면 충분합니다 */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 export interface UploadTarget {
   objectKey: string;
@@ -91,7 +102,60 @@ export class StorageService implements OnModuleInit {
       await this.client.send(new CreateBucketCommand({ Bucket: env.STORAGE_BUCKET }));
       this.logger.log(`저장소 버킷 생성: ${env.STORAGE_BUCKET}`);
     }
+    await this.openAvatars();
     this.logger.log('저장소 준비 완료');
+  }
+
+  /**
+   * 프로필 사진 폴더만 공개로 엽니다. 나머지(갤러리·SOS 녹음)는 계속 서명 주소로만 열립니다.
+   * TODO(2단계 S3): S3 는 기본으로 공개 정책을 막습니다(Block Public Access). 옮길 때는 이 폴더를
+   *   CloudFront 로 내보내거나 버킷의 공개 차단을 이 경로만 풀어야 합니다.
+   */
+  private async openAvatars() {
+    const policy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${env.STORAGE_BUCKET}/${AVATAR_PREFIX}*`],
+        },
+      ],
+    };
+    try {
+      await this.client!.send(new PutBucketPolicyCommand({ Bucket: env.STORAGE_BUCKET, Policy: JSON.stringify(policy) }));
+    } catch (error) {
+      // 정책을 못 걸어도 서버는 뜹니다. 프로필 사진만 친구 화면에 안 보입니다
+      this.logger.error(`프로필 사진 폴더 공개 설정 실패: ${String(error)}`);
+    }
+  }
+
+  /** 프로필 사진 주소의 앞부분. 이 아래 주소만 프로필로 받습니다 (엉뚱한 외부 주소 차단) */
+  avatarBaseUrl(userId: string): string {
+    const host = (env.STORAGE_PUBLIC_URL || env.STORAGE_ENDPOINT).replace(/\/+$/, '');
+    return `${host}/${env.STORAGE_BUCKET}/${AVATAR_PREFIX}${userId}/`;
+  }
+
+  /** 프로필 사진 올릴 주소. 사진 형식만 받습니다 */
+  async createAvatarUploadTarget(userId: string, contentType: string): Promise<{ uploadUrl: string; avatarUrl: string } | null> {
+    const allowed = ALLOWED[contentType];
+    if (!allowed || allowed.kind !== 'image' || !this.client) return null;
+    const fileName = `${randomUUID()}.${allowed.ext}`;
+    const uploadUrl = await getSignedUrl(
+      this.signer!,
+      new PutObjectCommand({ Bucket: env.STORAGE_BUCKET, Key: `${AVATAR_PREFIX}${userId}/${fileName}`, ContentType: contentType }),
+      { expiresIn: UPLOAD_URL_TTL_SEC },
+    );
+    return { uploadUrl, avatarUrl: this.avatarBaseUrl(userId) + fileName };
+  }
+
+  /** 프로필 주소 → 저장소 안 경로. 내 프로필 사진 폴더의 주소가 아니면 null */
+  avatarObjectKey(userId: string, avatarUrl: string): string | null {
+    const base = this.avatarBaseUrl(userId);
+    if (!avatarUrl.startsWith(base)) return null;
+    const fileName = avatarUrl.slice(base.length);
+    return /^[0-9a-f-]{36}\.(jpg|png|webp|heic)$/.test(fileName) ? `${AVATAR_PREFIX}${userId}/${fileName}` : null;
   }
 
   /**

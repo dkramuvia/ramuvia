@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Battery from 'expo-battery';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -23,10 +24,13 @@ export default function MyQrScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.user);
+  // 저장된 값은 마지막으로 서버에 보낸 때의 배터리라 늦습니다. 이 폰의 지금 값을 씁니다 (ProfileCard 와 같게)
+  const deviceBattery = Battery.useBatteryLevel();
   // QR 에는 8자리 ID 가 아니라 3분짜리 일회용 토큰이 들어갑니다 (qr.ts 설명 참고).
   // 화면을 보고 있는 동안 서버가 새 토큰을 계속 내려 줍니다
   const { data: qr } = useFriendQrToken();
   if (!me) return null;
+  const battery = deviceBattery >= 0 ? Math.round(deviceBattery * 100) : me.batteryLevel;
 
   const qrValue = qr ? buildFriendQr(qr.token) : null;
 
@@ -64,7 +68,7 @@ export default function MyQrScreen() {
                 <AppText variant="caption" color={colors.textTertiary}>
                   ID:{me.publicId}
                 </AppText>
-                {me.batteryLevel != null ? <BatteryBadge level={me.batteryLevel} iconSize={12} textVariant="microBold" /> : null}
+                {battery != null ? <BatteryBadge level={battery} iconSize={12} textVariant="microBold" /> : null}
               </View>
             </View>
           </View>

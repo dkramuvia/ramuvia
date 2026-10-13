@@ -135,7 +135,13 @@ export default function GeofenceEditScreen() {
           <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.back}>
             <Ionicons name="chevron-back" size={26} color={overlay.text} />
           </Pressable>
-          <AppText variant="title1" color={overlay.text} numberOfLines={1} style={styles.flex}>
+          {/* 지도 글자 위에 겹치므로 지도 탭 지역명처럼 테두리 빛을 둡니다 */}
+          <AppText
+            variant="title1"
+            color={overlay.text}
+            numberOfLines={1}
+            style={[styles.flex, { textShadowColor: mapIsDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 }]}
+          >
             {areaName ?? ''}
           </AppText>
         </View>

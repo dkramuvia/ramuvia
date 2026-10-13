@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Button, Switch, TimeWheels } from '@/components/ui';
 import { makeStyles, radius, typography, useColors } from '@/theme';
@@ -26,6 +28,7 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [date, setDate] = useState(new Date());
@@ -51,7 +54,8 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel} statusBarTranslucent>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
         <View style={styles.sheet}>
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          {/* 내용이 길면 이 부분만 스크롤하고 저장·취소 버튼은 늘 보이게 */}
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
             <Field label={t('scheduled.title')}>
               <TextInput value={title} onChangeText={setTitle} maxLength={20} style={styles.input} placeholderTextColor={colors.textPlaceholder} />
             </Field>
@@ -96,7 +100,8 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
             </View>
           </ScrollView>
 
-          <View style={styles.buttons}>
+          {/* 화면 끝까지 그리는 안드로이드(edge-to-edge)에서 버튼이 하단 탐색 막대에 가려졌습니다 */}
+          <View style={[styles.buttons, { paddingBottom: 16 + insets.bottom }]}>
             <Button label={t('scheduled.cancel')} variant="white" onPress={onCancel} style={[styles.flex, styles.cancel]} />
             <Button
               label={t('scheduled.save')}
@@ -163,27 +168,30 @@ function Calendar({ value, onChange }: { value: Date; onChange: (date: Date) => 
           </AppText>
         ))}
       </View>
-      <View style={styles.grid}>
-        {cells.map((d) => {
-          const inMonth = d.getMonth() === month.getMonth();
-          const past = d < today;
-          const selected = d.toDateString() === value.toDateString();
-          return (
-            <Pressable
-              key={d.toISOString()}
-              accessibilityRole="button"
-              accessibilityState={{ selected, disabled: past }}
-              disabled={past}
-              onPress={() => onChange(d)}
-              style={[styles.cell, styles.day, selected && styles.daySelected]}
-            >
-              <AppText variant="label1" color={selected ? colors.white : past || !inMonth ? colors.textMuted : colors.textStrong}>
-                {d.getDate()}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* 한 주씩 줄로 그립니다. 칸 너비를 100/7% 로 감싸 늘어놓으면 반올림으로 한 줄에 6칸만 들어가 요일이 밀렸습니다 */}
+      {Array.from({ length: 6 }, (_, row) => (
+        <View key={row} style={styles.week}>
+          {cells.slice(row * 7, row * 7 + 7).map((d) => {
+            const inMonth = d.getMonth() === month.getMonth();
+            const past = d < today;
+            const selected = d.toDateString() === value.toDateString();
+            return (
+              <Pressable
+                key={d.toISOString()}
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled: past }}
+                disabled={past}
+                onPress={() => onChange(d)}
+                style={[styles.cell, styles.day, selected && styles.daySelected]}
+              >
+                <AppText variant="label1" color={selected ? colors.white : past || !inMonth ? colors.textMuted : colors.textStrong}>
+                  {d.getDate()}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -191,6 +199,7 @@ function Calendar({ value, onChange }: { value: Date; onChange: (date: Date) => 
 const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { maxHeight: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: colors.popup },
+  scroll: { flexShrink: 1 },
   body: { padding: 20, gap: 16 },
   flex: { flex: 1 },
   field: { gap: 8 },
@@ -209,12 +218,11 @@ const useStyles = makeStyles((colors) => ({
   calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthButton: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   week: { flexDirection: 'row' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: `${100 / 7}%` },
+  cell: { flex: 1 },
   day: { height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.xs },
   daySelected: { backgroundColor: colors.primaryLight },
   ttsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   preview: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  buttons: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28 },
+  buttons: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingTop: 8 },
   cancel: { borderWidth: 1, borderColor: colors.border },
 }));

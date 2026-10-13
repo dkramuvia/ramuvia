@@ -19,6 +19,8 @@ const MAP_TYPES: Record<Preferences['mapType'], 'Basic' | 'Satellite' | 'Terrain
 
 /** 위도 범위(delta) → 줌 레벨. delta 가 작을수록 확대 */
 const zoomOf = (delta: number) => Math.min(21, Math.max(4, Math.log2(360 / delta) - 1));
+/** 마커 내용을 재는 판의 너비 (dp). 이름표·배지가 이보다 넓을 일은 없습니다 */
+const MEASURE_WIDTH = 400;
 
 type Size = { width: number; height: number };
 
@@ -155,19 +157,25 @@ function NaverItem({ item, onSize }: { item: MapMarkerItem; onSize?: (size: Size
       height={box?.height ?? 1}
       anchor={item.lift != null ? { x: item.anchor?.x ?? 0.5, y: 1 } : (item.anchor ?? { x: 0.5, y: 0.5 })}
     >
-      {/* 위치를 고정해 두면 내용 크기만큼만 잡힙니다 (마커 크기에 늘어나지 않게). 이 크기로 굽습니다 */}
-      <View
-        collapsable={false}
-        style={[styles.measure, lift ? { paddingBottom: lift } : null]}
-        onLayout={(e) => {
-          const { width, height } = e.nativeEvent.layout;
-          if (box?.width === width && box?.height === height) return;
-          setBox({ width, height });
-        }}
-      >
-        {/* 누름 판정용 크기는 여백을 뺀 내용만 (useMarkerPress 가 lift 를 따로 더합니다) */}
-        <View collapsable={false} onLayout={(e) => onSize?.({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
-          {item.children}
+      {/*
+        위치를 고정해 두면 내용 크기만큼만 잡힙니다 (마커 크기에 늘어나지 않게). 이 크기로 굽습니다.
+        **넓은 판 위에서 잽니다.** 마커는 처음에 1x1 이라, 그 안에서 재면 글자가 든 마커(안심존 이름표)가
+        1 너비에 맞춰 줄어든 채로 굳어 이름이 빈 검은 상자로 보였습니다 (10-13 폰에서 확인)
+      */}
+      <View style={styles.measure} pointerEvents="none">
+        <View
+          collapsable={false}
+          style={lift ? { paddingBottom: lift } : null}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (box?.width === width && box?.height === height) return;
+            setBox({ width, height });
+          }}
+        >
+          {/* 누름 판정용 크기는 여백을 뺀 내용만 (useMarkerPress 가 lift 를 따로 더합니다) */}
+          <View collapsable={false} onLayout={(e) => onSize?.({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
+            {item.children}
+          </View>
         </View>
       </View>
     </NaverMapMarkerOverlay>
@@ -203,5 +211,5 @@ function NaverSprite({ coordinate, sheet, offset, zIndex }: { coordinate: LatLng
 }
 
 const styles = StyleSheet.create({
-  measure: { position: 'absolute', left: 0, top: 0 },
+  measure: { position: 'absolute', left: 0, top: 0, width: MEASURE_WIDTH, alignItems: 'flex-start' },
 });

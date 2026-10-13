@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 
 import { authApi } from '@/api/endpoints/auth';
 import { AppText, Button, SegmentButtons, TextField } from '@/components/ui';
@@ -79,8 +79,31 @@ export default function ProfileSetupScreen() {
     router.push('/phone-verify');
   };
 
+  /**
+   * 뒤로 가기. 앞 화면이 없으면 가입을 그만두고 로그인 화면으로 돌아갑니다.
+   * 가입 중인 상태가 저장돼 있어 앱을 다시 켜면 곧바로 이 화면이 열리는데, 그때는 앞 화면이 없어
+   * 뒤로 버튼도 안 보이고 기기 뒤로 가기는 앱을 닫아, 다른 계정으로 로그인할 길이 없었습니다 (10-13 폰에서 확인)
+   */
+  const back = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    useSignUpStore.getState().reset();
+    router.replace('/welcome');
+  }, []);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      back();
+      return true;
+    });
+    return () => sub.remove();
+  }, [back]);
+
   return (
     <OnboardingLayout
+      onBack={back}
       title={t('onboarding.welcomeTitle')}
       footer={<Button label={t('onboarding.next')} size="lg" shape="rounded" variant={canNext ? 'dark' : 'neutral'} disabled={!canNext} onPress={next} />}
     >

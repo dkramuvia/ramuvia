@@ -10,16 +10,18 @@ interface OnboardingLayoutProps {
   children: ReactNode;
   footer?: ReactNode;
   showBack?: boolean;
+  /** 뒤로 가기를 직접 처리할 때. 주면 이전 화면이 없어도 뒤로 버튼을 보입니다 */
+  onBack?: () => void;
 }
 
 /** 피그마 가입 화면 공통: 따뜻한 흰 배경, 큰 제목(24 bold), 하단 고정 CTA */
-export function OnboardingLayout({ title, children, footer, showBack = true }: OnboardingLayoutProps) {
+export function OnboardingLayout({ title, children, footer, showBack = true, onBack }: OnboardingLayoutProps) {
   const styles = useStyles();
   const colors = useColors();
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {showBack ? <Header /> : <View style={styles.spacer} />}
+        {showBack ? <Header onBack={onBack} showBack={onBack ? true : undefined} /> : <View style={styles.spacer} />}
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {title ? (
             <AppText variant="title2" color={colors.textTitle}>

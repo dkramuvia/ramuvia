@@ -1,5 +1,31 @@
+diff --git a/node_modules/expo-location/android/src/main/AndroidManifest.xml b/node_modules/expo-location/android/src/main/AndroidManifest.xml
+index 2b64552..1139cd1 100644
+--- a/node_modules/expo-location/android/src/main/AndroidManifest.xml
++++ b/node_modules/expo-location/android/src/main/AndroidManifest.xml
+@@ -1,11 +1,21 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
++  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ 
+   <application>
+     <service
+       android:name=".services.LocationTaskService"
+       android:exported="false"
+       android:foregroundServiceType="location" />
++    <!-- ramupin 패치: 재부팅 뒤 위치 수집 다시 켜기 (RamupinBootReceiver) -->
++    <receiver
++      android:name=".RamupinBootReceiver"
++      android:exported="false">
++      <intent-filter>
++        <action android:name="android.intent.action.BOOT_COMPLETED" />
++        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
++      </intent-filter>
++    </receiver>
+   </application>
+ </manifest>
 diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
-index b286ea2..3eb75b4 100644
+index b286ea2..84d5fb9 100644
 --- a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
 +++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
 @@ -133,6 +133,14 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
@@ -30,7 +56,25 @@ index b286ea2..3eb75b4 100644
          throw ForegroundServiceStartNotAllowedException()
        }
  
-@@ -372,6 +384,8 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
+@@ -331,12 +343,16 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
+         throw ForegroundServicePermissionsException()
+       }
+ 
+-      mTaskManager.registerTask(taskName, LocationTaskConsumer::class.java, options.toMutableMap())
++      val taskOptions = options.toMutableMap()
++      mTaskManager.registerTask(taskName, LocationTaskConsumer::class.java, taskOptions)
++      // ramupin 패치: 재부팅 뒤 다시 켜기 위해 설정을 저장합니다 (RamupinBootReceiver)
++      RamupinBootReceiver.save(mContext, taskName, taskOptions)
+       return@AsyncFunction
+     }
+ 
+     AsyncFunction("stopLocationUpdatesAsync") { taskName: String ->
+       mTaskManager.unregisterTask(taskName, LocationTaskConsumer::class.java)
++      RamupinBootReceiver.clear(mContext)
+       return@AsyncFunction
+     }
+ 
+@@ -372,6 +388,8 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
  
      OnActivityEntersForeground {
        AppForegroundedSingleton.isForegrounded = true
@@ -39,6 +83,92 @@ index b286ea2..3eb75b4 100644
        resumeGeocoder()
        resumeLocationUpdates()
        resumeHeadingWatch()
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/RamupinBootReceiver.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/RamupinBootReceiver.kt
+new file mode 100644
+index 0000000..d6d1ac7
+--- /dev/null
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/RamupinBootReceiver.kt
+@@ -0,0 +1,80 @@
++package expo.modules.location
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.util.Log
++import expo.modules.interfaces.taskManager.TaskServiceInterface
++import expo.modules.location.taskConsumers.LocationTaskConsumer
++import org.json.JSONArray
++import org.json.JSONObject
++
++/**
++ * ramupin 패치: 폰을 켜면 위치 수집을 다시 켭니다.
++ *
++ * expo-task-manager 가 부팅 때 저장된 작업을 되살려야 하는데, 실기기(갤럭시 노트20, 안드로이드 13)에서
++ * 되살리지 않아 재부팅 뒤 앱을 열기 전까지 위치가 하나도 올라가지 않았습니다 (10-13).
++ * 그래서 수집을 켤 때 설정을 따로 저장해 두고(LocationModule.saveForBoot), 부팅 신호를 받으면
++ * 그 설정으로 직접 다시 등록합니다. 안드로이드는 부팅 직후 잠깐 백그라운드에서도 위치 서비스를
++ * 띄우도록 허용하므로 여기서 바로 시작해야 합니다 (LocationTaskConsumer.maybeStartForegroundService).
++ */
++class RamupinBootReceiver : BroadcastReceiver() {
++  override fun onReceive(context: Context, intent: Intent) {
++    if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
++    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++    val taskName = prefs.getString(KEY_TASK, null) ?: return
++    val optionsJson = prefs.getString(KEY_OPTIONS, null) ?: return
++    val scope = prefs.getString(KEY_SCOPE, null) ?: context.packageName
++    val url = prefs.getString(KEY_URL, null) ?: context.packageName
++    try {
++      val service = Class.forName("expo.modules.taskManager.TaskService")
++        .getConstructor(Context::class.java)
++        .newInstance(context.applicationContext) as TaskServiceInterface
++      if (service.taskHasConsumerOfClass(taskName, scope, LocationTaskConsumer::class.java)) {
++        Log.i(TAG, "location task already registered on ${intent.action}")
++        return
++      }
++      service.registerTask(taskName, scope, url, LocationTaskConsumer::class.java, toMap(JSONObject(optionsJson)))
++      Log.i(TAG, "location task restored on ${intent.action}")
++    } catch (e: Exception) {
++      Log.w(TAG, "could not restore location task: ${e.message}")
++    }
++  }
++
++  companion object {
++    private const val TAG = "RamupinBootReceiver"
++    private const val PREFS = "ramupin-location-boot"
++    private const val KEY_TASK = "taskName"
++    private const val KEY_OPTIONS = "options"
++    private const val KEY_SCOPE = "appScopeKey"
++    private const val KEY_URL = "appUrl"
++
++    /** 수집을 켤 때 부릅니다. 부팅 때 같은 설정으로 다시 켜기 위해 */
++    fun save(context: Context, taskName: String, options: Map<String, Any?>) {
++      context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
++        .putString(KEY_TASK, taskName)
++        .putString(KEY_OPTIONS, JSONObject(options).toString())
++        .putString(KEY_SCOPE, context.packageName)
++        .putString(KEY_URL, context.packageName)
++        .apply()
++    }
++
++    /** 수집을 끌 때 부릅니다. 끈 사람의 폰이 재부팅 뒤 다시 켜지면 안 됩니다 */
++    fun clear(context: Context) {
++      context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
++    }
++
++    private fun toMap(json: JSONObject): MutableMap<String, Any?> {
++      val map = HashMap<String, Any?>()
++      for (key in json.keys()) map[key] = unwrap(json.get(key))
++      return map
++    }
++
++    private fun unwrap(value: Any?): Any? = when (value) {
++      is JSONObject -> toMap(value)
++      is JSONArray -> (0 until value.length()).map { unwrap(value.get(it)) }
++      JSONObject.NULL -> null
++      else -> value
++    }
++  }
++}
 diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 index b4f6c06..7da2514 100644
 --- a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt

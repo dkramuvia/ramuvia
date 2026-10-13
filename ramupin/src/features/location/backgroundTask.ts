@@ -28,7 +28,7 @@ import type { MyLocation } from './useMyLocation';
  * 화면이 떠 있을 때와 같은 대기열을 쓰기 때문에, 꺼져 있는 동안 쌓인 점도 다음 전송에 함께 올라갑니다.
  *
  * 주의: 이 파일은 앱이 켜질 때(화면을 그리기 전에) 반드시 한 번 import 되어야 합니다.
- *       안드로이드가 앱을 백그라운드에서 되살릴 때 defineTask 가 등록되어 있어야 하기 때문입니다 (app/_layout.tsx 에서 import).
+ *       안드로이드가 앱을 백그라운드에서 되살릴 때 defineTask 가 등록되어 있어야 하기 때문입니다 (index.js 에서 먼저 import).
  */
 
 export const LOCATION_TASK = 'ramupin-background-location';

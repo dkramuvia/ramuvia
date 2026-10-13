@@ -18,7 +18,7 @@ import { NotificationSettingsService, type NotificationCategory } from './notifi
  */
 
 /** 알림 채널 (앱의 CHANNELS 와 같아야 합니다) */
-export type PushChannel = 'sos' | 'danger' | 'anomaly' | 'general';
+export type PushChannel = 'sos' | 'danger' | 'anomaly' | 'general' | 'chat';
 
 export interface PushMessage {
   title: string;
@@ -42,6 +42,8 @@ const CATEGORY_OF_CHANNEL: Record<PushChannel, NotificationCategory> = {
   danger: 'sos',
   anomaly: 'sos',
   general: 'notice',
+  // 설정 > 알림 의 "그룹 활동 알림" 으로 끕니다
+  chat: 'groupActivity',
 };
 
 @Injectable()

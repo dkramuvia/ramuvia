@@ -18,14 +18,17 @@ export const CHANNELS = {
   danger: { id: 'danger', name: '위험 지역·과속', importance: Notifications.AndroidImportance.HIGH },
   anomaly: { id: 'anomaly', name: '이상징후', importance: Notifications.AndroidImportance.HIGH },
   general: { id: 'general', name: '일반 알림', importance: Notifications.AndroidImportance.DEFAULT },
+  // 채팅은 따로 둡니다. 사용자가 휴대폰 설정에서 채팅만 끌 수 있게 (서버 PushChannel 'chat')
+  chat: { id: 'chat', name: '채팅', importance: Notifications.AndroidImportance.HIGH },
 } as const;
 
 /** 앱이 켜져 있을 때 알림이 오면 어떻게 보여줄지 */
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
+  // 앱을 보고 있을 때 온 채팅 알림은 띄우지 않습니다 — 화면에 이미 실시간으로 들어옵니다
+  handleNotification: async (notification) => ({
+    shouldShowBanner: notification.request.content.data?.kind !== 'chat',
+    shouldShowList: notification.request.content.data?.kind !== 'chat',
+    shouldPlaySound: notification.request.content.data?.kind !== 'chat',
     shouldSetBadge: false,
   }),
 });

@@ -37,7 +37,7 @@ export const DEFAULT_SNAPSHOT: PolicySnapshot = {
   uploadIntervalSec: 60,
   lowBatteryPercent: 20,
   moveDistanceM: 75,
-  policyRefreshSec: 300,
+  policyRefreshSec: 120,
 };
 
 export async function savePolicySnapshot(policy: PlanPolicy): Promise<void> {
@@ -65,7 +65,7 @@ let lastRefreshAt = 0;
  * 예전 주기로 돌았습니다 (10-13 대표님). 실패해도 지난 사본으로 계속 수집합니다.
  */
 export async function refreshPolicySnapshotIfDue(): Promise<void> {
-  // 간격도 서버 정책값입니다 (관리자 > 설정 확인 주기, 기본 5분)
+  // 간격도 서버 정책값입니다 (관리자 > 설정 확인 주기, 기본 2분)
   const { policyRefreshSec } = await loadPolicySnapshot();
   if (Date.now() - lastRefreshAt < policyRefreshSec * 1000) return;
   lastRefreshAt = Date.now();

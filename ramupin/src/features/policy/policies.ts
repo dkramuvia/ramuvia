@@ -76,7 +76,7 @@ const base = {
   uploadIntervalSec: 60,
   lowBatteryPercent: 20,
   moveDistanceM: 75,
-  policyRefreshSec: 300,
+  policyRefreshSec: 120,
   safeZoneLimit: 4,
   placeLimit: 10,
   geofenceAlertLimit: 0,

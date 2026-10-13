@@ -362,6 +362,16 @@ export async function stopBackgroundTracking(): Promise<void> {
   await Storage.setItem(WANT_TRACKING_KEY, 'off');
 }
 
+/**
+ * 로그인 뒤 지도에서 위치 수집을 켜자고 물어볼지 (TrackingPrompt).
+ * 사용자가 설정에서 직접 끈 경우('off')에는 묻지 않습니다. 한 번도 고르지 않았거나 켜 두었는데
+ * 꺼져 있으면(권한을 뺐다든지) 묻습니다.
+ */
+export async function shouldPromptTracking(): Promise<boolean> {
+  if ((await Storage.getItem(WANT_TRACKING_KEY)) === 'off') return false;
+  return !(await isBackgroundTrackingOn());
+}
+
 /** 지금 걸려 있는 수집 주기(초). 설정 화면에서 보여 줍니다 */
 export const currentIntervalSec = () => appliedIntervalSec;
 

@@ -1,0 +1,17 @@
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
+index b286ea2..f76cf1b 100644
+--- a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
+@@ -323,7 +323,11 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
+       if (!shouldUseForegroundService && isMissingBackgroundPermissions()) {
+         throw LocationBackgroundUnauthorizedException()
+       }
+-      if (!AppForegroundedSingleton.isForegrounded && options.foregroundService != null) {
++      // ramupin 패치: 이미 돌고 있는 수집의 주기·정확도만 바꿀 때는 포그라운드 서비스를 새로 띄우지 않으므로
++      // (TaskService.registerTask → consumer.setOptions) 백그라운드에서도 허용합니다.
++      // 원래는 이것까지 막아서 앱을 닫은 동안 이동·SOS·관리자 주기 변경이 하나도 적용되지 않았습니다 (10-13)
++      val alreadyRunning = mTaskManager.taskHasConsumerOfClass(taskName, LocationTaskConsumer::class.java)
++      if (!AppForegroundedSingleton.isForegrounded && options.foregroundService != null && !alreadyRunning) {
+         throw ForegroundServiceStartNotAllowedException()
+       }
+ 

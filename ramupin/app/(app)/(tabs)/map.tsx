@@ -24,6 +24,7 @@ import { personPin } from '@/features/map/PinMarker';
 import { badgeSprite } from '@/features/map/spriteClock';
 import { SPRITES } from '@/features/map/sprites';
 import { statusText } from '@/features/map/statusText';
+import { TrackingPrompt } from '@/features/location/TrackingPrompt';
 import { WeatherBadge } from '@/features/weather/WeatherBadge';
 import { useWeather } from '@/features/weather/useWeather';
 import { PLAN_NAMES } from '@/features/policy/policies';
@@ -309,6 +310,9 @@ export default function MapScreen() {
           </Pressable>
         ) : null}
       </SafeAreaView>
+
+      {/* 위치 수집이 꺼져 있으면 켜자고 묻습니다 (TrackingPrompt 설명) */}
+      <TrackingPrompt />
 
       <SnapSheet
         snapPoints={[SHEET_COLLAPSED, SHEET_HEIGHT]}

@@ -109,6 +109,39 @@ export class SosService {
     return { ok: true };
   }
 
+  /**
+   * 보낸 뒤 "상황 종료 (안전함)". 받은 사람들에게 안전하다고 알립니다.
+   * 예전에는 이 버튼이 화면만 닫아서, 받은 사람은 계속 SOS 상태로 남고 보낸 사람 폰도
+   * 30분 동안 가장 촘촘한 위치 수집(SOS 모드)을 이어 갔습니다 (10-13 실기기 시험)
+   */
+  async resolve(userId: string, sosId: string) {
+    const updated = await this.db
+      .updateTable('member.sos_events')
+      .set({ status: 'resolved', resolved_at: new Date() })
+      .where('id', '=', sosId)
+      .where('user_id', '=', userId)
+      .where('status', '=', 'sent')
+      .returning('id')
+      .executeTakeFirst();
+    if (!updated) throw appError(404, 'SOS_NOT_FOUND', '종료할 SOS 가 없습니다');
+
+    const recipients = await this.deliveredTo(sosId);
+    if (recipients.length > 0) {
+      const me = await this.db.selectFrom('member.users').select('nickname').where('id', '=', userId).executeTakeFirst();
+      this.gateway.emitSos(recipients, { sosId, status: 'resolved' });
+      await this.push
+        .sendToUsers(recipients, {
+          title: '라무핀',
+          body: `${me?.nickname ?? '친구'}님이 안전하다고 알렸습니다.`,
+          channel: 'sos',
+          route: '/settings/history',
+          data: { sosId, status: 'resolved' },
+        })
+        .catch((error: unknown) => this.logger.error(`상황 종료 알림 실패: ${String(error)}`));
+    }
+    return { ok: true };
+  }
+
   /** 내가 받은 SOS 목록 (앱 알림 보관함) */
   async received(userId: string, limit = 50) {
     return this.db

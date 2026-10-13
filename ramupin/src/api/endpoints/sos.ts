@@ -61,6 +61,12 @@ export const sosApi = {
   },
 
   /** 내가 받은 SOS (알림 보관함) */
+  /** 보낸 뒤 "상황 종료 (안전함)". 받은 사람들에게 안전하다고 전달됩니다 */
+  async resolve(sosId: string): Promise<void> {
+    if (!isLive('sos')) return mockResponse(undefined);
+    await apiClient.post(`/sos/${sosId}/resolve`);
+  },
+
   async received(): Promise<ReceivedSos[]> {
     if (!isLive('sos')) return mockResponse([]);
     const { data } = await apiClient.get<ReceivedSos[]>('/sos/received');

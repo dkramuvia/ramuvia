@@ -27,7 +27,7 @@ interface ServerSos {
   placeName: string | null;
   placeAddress: string | null;
   startedAt: string;
-  status?: 'sent' | 'cancelled';
+  status?: 'sent' | 'cancelled' | 'resolved';
   hasAudio?: boolean;
 }
 
@@ -75,7 +75,7 @@ function connect(token: string) {
   socket.on('sos', (payload: ServerSos) => {
     queryClient.invalidateQueries({ queryKey: ['sos', 'received'] });
     // 취소 알림은 팝업을 띄우지 않습니다 — 이미 지나간 일이라 놀라게만 합니다
-    if (payload.status === 'cancelled') return;
+    if (payload.status === 'cancelled' || payload.status === 'resolved') return;
     useAlertStore.getState().showPopup({
       kind: 'sos',
       name: payload.nickname,

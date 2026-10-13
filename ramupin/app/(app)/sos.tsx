@@ -51,6 +51,7 @@ export default function SosScreen() {
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
   const [cancelledBanner, setCancelledBanner] = useState(false);
   const [recipientCount, setRecipientCount] = useState(0);
+  const sosId = useRef<string | null>(null);
   /** 전송 완료 화면에 "무엇을 보냈는지" 를 그대로 보여 줍니다 (피그마 2026-09-28) */
   const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
   const [micDenied, setMicDenied] = useState(false);
@@ -139,6 +140,7 @@ export default function SosScreen() {
       startedAt: startedAt.current,
     });
     setRecipientCount(result.recipientCount);
+    sosId.current = result.sosId;
     setSentInfo({
       address: place?.address ?? null,
       latitude: position?.coords.latitude ?? null,
@@ -149,6 +151,16 @@ export default function SosScreen() {
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setPhase('sent');
+  };
+
+  /**
+   * 상황 종료 (안전함). 받은 사람들에게 안전하다고 알리고 SOS 수집 모드를 끕니다.
+   * 예전에는 화면만 닫아서 받은 사람에게 아무것도 안 가고, 폰은 30분 동안 가장 촘촘하게 수집했습니다 (10-13)
+   */
+  const resolve = async () => {
+    await setSosMode(false);
+    if (sosId.current) await sosApi.resolve(sosId.current).catch(() => undefined);
+    router.back();
   };
 
   const cancel = async () => {
@@ -253,7 +265,7 @@ export default function SosScreen() {
 
           <View style={styles.sentActions}>
             <Button label={t('sos.call112')} variant="danger" onPress={() => Linking.openURL('tel:112')} />
-            <Button label={t('sos.resolve')} variant="white" onPress={() => router.back()} />
+            <Button label={t('sos.resolve')} variant="white" onPress={() => void resolve()} />
           </View>
         </View>
       ) : (

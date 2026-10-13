@@ -58,6 +58,12 @@ class SosController {
     return this.sos.cancel(user.id, id);
   }
 
+  /** 상황 종료 (안전함) — 받은 사람들에게 안전하다고 알립니다 */
+  @Post(':id/resolve')
+  resolve(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.sos.resolve(user.id, id);
+  }
+
   /** 내가 받은 SOS (알림 보관함) */
   @Get('received')
   received(@CurrentUser() user: AuthUser) {

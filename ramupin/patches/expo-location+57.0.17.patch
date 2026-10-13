@@ -40,7 +40,7 @@ index b286ea2..3eb75b4 100644
        resumeLocationUpdates()
        resumeHeadingWatch()
 diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
-index b4f6c06..3accda9 100644
+index b4f6c06..7da2514 100644
 --- a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 +++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 @@ -54,12 +54,14 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
@@ -58,7 +58,38 @@ index b4f6c06..3accda9 100644
      stopLocationUpdates()
      stopForegroundService()
      mTask = null
-@@ -349,7 +351,19 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -178,10 +180,10 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+       return
+     }
+-    if (!AppForegroundedSingleton.isForegrounded) {
+-      Log.w(TAG, "Foreground location task cannot be started while the app is in the background!")
+-      return
+-    }
++    // ramupin 패치: 백그라운드여도 일단 시도합니다. 폰을 막 켰을 때(BOOT_COMPLETED)는 안드로이드가
++    // 백그라운드에서도 위치 서비스를 띄우도록 허용하는데, 원래는 시도조차 하지 않아 재부팅 뒤
++    // 앱을 열기 전까지 위치가 하나도 올라가지 않았습니다 (10-13). 막히면 아래 catch 에서 넘어갑니다
++    val inBackground = !AppForegroundedSingleton.isForegrounded
+     val task = mTask ?: run {
+       Log.w(TAG, "Location task is null")
+       return
+@@ -211,7 +213,14 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+       extras.putString("taskName", task.name)
+       extras.putBoolean("killService", serviceOptions.getBoolean("killServiceOnDestroy", false))
+       serviceIntent.putExtras(extras)
+-      context.startForegroundService(serviceIntent)
++      try {
++        context.startForegroundService(serviceIntent)
++      } catch (e: Exception) {
++        // 안드로이드 12+ 는 허용되지 않은 때 백그라운드 시작을 막습니다 (ForegroundServiceStartNotAllowedException).
++        // 앱이 앞으로 나오면 LocationModule 이 다시 띄웁니다 (ensureForegroundService)
++        Log.w(TAG, "Foreground location service could not start (background=$inBackground): ${e.message}")
++        return
++      }
+       context.bindService(
+         serviceIntent,
+         object : ServiceConnection {
+@@ -349,7 +358,19 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
      mIsHostPaused = true
    } //endregion
  

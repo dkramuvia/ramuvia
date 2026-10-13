@@ -45,6 +45,8 @@ export interface PlanPolicy {
    * 0 이면 거리 조건 없이 시간만 봅니다.
    */
   moveDistanceM: number;
+  /** 앱이 닫혀 있어도 서버 정책을 다시 받는 주기(초). 관리자 변경이 이 안에 적용됩니다 (10-13) */
+  policyRefreshSec: number;
   /** 모아서 서버로 보내는 주기(초). 확인 주기와 분리해 서버 요청 수를 줄입니다. 09-18 대표 결정: 60초 */
   uploadIntervalSec: number;
   /** 안심 장소(지오펜스) 등록 수 */
@@ -74,6 +76,7 @@ const base = {
   uploadIntervalSec: 60,
   lowBatteryPercent: 20,
   moveDistanceM: 75,
+  policyRefreshSec: 300,
   safeZoneLimit: 4,
   placeLimit: 10,
   geofenceAlertLimit: 0,

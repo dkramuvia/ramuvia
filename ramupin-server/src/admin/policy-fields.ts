@@ -51,6 +51,15 @@ export const POLICY_FIELDS: PolicyField[] = [
     max: 900,
   },
   {
+    key: 'policyRefreshSec',
+    label: '설정 확인 주기',
+    help: '앱이 닫혀 있어도 이 간격마다 서버 설정을 다시 받습니다. 여기서 주기를 바꾸면 이 시간 안에 모든 폰에 적용됩니다. 짧을수록 빨리 반영되지만 서버 요청이 늘어납니다.',
+    group: '위치 수집',
+    type: 'seconds',
+    min: 60,
+    max: 3600,
+  },
+  {
     key: 'lowBatteryPercent',
     label: '저전력 전환 배터리',
     help: '배터리가 이 값 아래로 내려가면 수집을 느슨하게 바꿔 전화기가 더 오래 버티게 합니다. 충전 중에는 해당 없습니다. GPS 보고서 기준 20%.',

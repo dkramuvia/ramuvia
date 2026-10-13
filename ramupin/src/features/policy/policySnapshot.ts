@@ -1,5 +1,9 @@
 import Storage from 'expo-sqlite/kv-store';
 
+import { policyApi } from '@/api/endpoints/policy';
+import { restoreSession } from '@/features/auth/session';
+import { useAuthStore } from '@/stores/authStore';
+
 import type { PlanPolicy } from './policies';
 
 /**
@@ -22,6 +26,8 @@ export interface PolicySnapshot {
   lowBatteryPercent: number;
   /** 이동 중 최소 이동 거리(m). 0 이면 시간만 봅니다 */
   moveDistanceM: number;
+  /** 백그라운드에서 서버 정책을 다시 받는 주기(초) */
+  policyRefreshSec: number;
 }
 
 /** 서버 정책을 아직 못 받았을 때 쓰는 값 (베이직 등급 기준) */
@@ -31,6 +37,7 @@ export const DEFAULT_SNAPSHOT: PolicySnapshot = {
   uploadIntervalSec: 60,
   lowBatteryPercent: 20,
   moveDistanceM: 75,
+  policyRefreshSec: 300,
 };
 
 export async function savePolicySnapshot(policy: PlanPolicy): Promise<void> {
@@ -40,11 +47,35 @@ export async function savePolicySnapshot(policy: PlanPolicy): Promise<void> {
     uploadIntervalSec: policy.uploadIntervalSec,
     lowBatteryPercent: policy.lowBatteryPercent,
     moveDistanceM: policy.moveDistanceM,
+    policyRefreshSec: policy.policyRefreshSec,
   };
   try {
     await Storage.setItem(KEY, JSON.stringify(snapshot));
   } catch (error) {
     console.warn('[policy] 사본 저장 실패', String(error));
+  }
+}
+
+let lastRefreshAt = 0;
+
+/**
+ * 앱이 닫혀 있어도 서버 정책을 주기적으로 다시 받습니다 (백그라운드 수집이 위치를 올릴 때 부릅니다).
+ *
+ * 예전에는 앱 화면이 열릴 때만 받아서, 관리자가 GPS 주기를 바꿔도 앱을 안 여는 사람은 계속
+ * 예전 주기로 돌았습니다 (10-13 대표님). 실패해도 지난 사본으로 계속 수집합니다.
+ */
+export async function refreshPolicySnapshotIfDue(): Promise<void> {
+  // 간격도 서버 정책값입니다 (관리자 > 설정 확인 주기, 기본 5분)
+  const { policyRefreshSec } = await loadPolicySnapshot();
+  if (Date.now() - lastRefreshAt < policyRefreshSec * 1000) return;
+  lastRefreshAt = Date.now();
+  try {
+    const token = useAuthStore.getState().accessToken;
+    if ((!token || token === 'dev-token') && !(await restoreSession())) return;
+    const planId = useAuthStore.getState().user?.plan ?? 'basic';
+    await savePolicySnapshot(await policyApi.get(planId));
+  } catch (error) {
+    console.warn('[policy] 백그라운드 정책 갱신 실패', String(error));
   }
 }
 
@@ -59,6 +90,7 @@ export async function loadPolicySnapshot(): Promise<PolicySnapshot> {
       gpsIntervalStillSec: positive(parsed.gpsIntervalStillSec, DEFAULT_SNAPSHOT.gpsIntervalStillSec),
       uploadIntervalSec: positive(parsed.uploadIntervalSec, DEFAULT_SNAPSHOT.uploadIntervalSec),
       lowBatteryPercent: positive(parsed.lowBatteryPercent, DEFAULT_SNAPSHOT.lowBatteryPercent),
+      policyRefreshSec: positive(parsed.policyRefreshSec, DEFAULT_SNAPSHOT.policyRefreshSec),
       // 0 을 허용해야 "거리 조건 끄기" 가 됩니다
       moveDistanceM: typeof parsed.moveDistanceM === 'number' && parsed.moveDistanceM >= 0 ? parsed.moveDistanceM : DEFAULT_SNAPSHOT.moveDistanceM,
     };

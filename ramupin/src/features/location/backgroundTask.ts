@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, PermissionsAndroid, Platform } from 'react-native';
 
-import { loadPolicySnapshot, type PolicySnapshot } from '@/features/policy/policySnapshot';
+import { loadPolicySnapshot, refreshPolicySnapshotIfDue, type PolicySnapshot } from '@/features/policy/policySnapshot';
 import {
   getActivity,
   isGpsModuleAvailable,
@@ -74,7 +74,9 @@ async function handleLocations(locations: Location.LocationObject[]) {
   ensureSatelliteUpdates();
 
   try {
-    // 수집·전송 주기는 모두 서버 정책값 (WBS 2.1: 앱에 숫자를 넣지 않음)
+    // 수집·전송 주기는 모두 서버 정책값 (WBS 2.1: 앱에 숫자를 넣지 않음).
+    // 앱이 닫혀 있어도 5분마다 서버에서 다시 받아, 관리자가 바꾼 값이 곧 적용됩니다
+    await refreshPolicySnapshotIfDue();
     const policy = await loadPolicySnapshot();
     const latest = toMyLocation(locations[locations.length - 1]);
     // 이동 중인지에 따라 대기열에 쌓는 최소 간격이 달라집니다

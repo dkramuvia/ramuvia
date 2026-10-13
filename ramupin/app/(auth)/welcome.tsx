@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { authApi, authErrorOf, type SocialProvider } from '@/api/endpoints/auth';
 import { AppText } from '@/components/ui';
@@ -35,7 +35,8 @@ const providers = (mono: string): { id: SocialProvider; label: string; icon: Rea
   { id: 'x', label: 'X', icon: <Ionicons name={'logo-x' as IconName} size={24} color={mono} /> },
   { id: 'facebook', label: 'Facebook', icon: <Ionicons name="logo-facebook" size={26} color="#1877F2" /> },
   { id: 'google', label: 'Google', icon: <Ionicons name="logo-google" size={24} color="#EA4335" /> },
-  { id: 'apple', label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={mono} /> },
+  // Apple 로그인은 iOS 에서만 보입니다. 안드로이드에서는 쓸 일이 없어 숨깁니다 (10-13 대표님)
+  ...(Platform.OS === 'ios' ? [{ id: 'apple' as const, label: 'Apple', icon: <Ionicons name="logo-apple" size={26} color={mono} /> }] : []),
 ];
 
 /** 브라우저에서 인가 코드를 받아 오는 제공자들. 토큰 교환은 서버가 합니다 */

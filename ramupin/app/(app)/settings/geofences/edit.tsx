@@ -57,13 +57,28 @@ export default function GeofenceEditScreen() {
   const areaName = useAreaName(center);
 
   // 새로 등록할 때는 내 위치에서 시작
-  const started = useRef(!!existing);
+  const started = useRef(!!id);
   useEffect(() => {
     if (started.current || !location) return;
     started.current = true;
     mapRef.current?.moveTo(location, 0.004);
     setCenter(location);
   }, [location]);
+
+  /**
+   * 고칠 때는 저장된 자리로 한 번 옮깁니다.
+   * 처음 카메라(initialCenter)만 두면 아래 시트만큼의 여백이 나중에 붙으면서 가운데가 여백 절반만큼 밀려,
+   * 수정 화면을 열기만 해도 주소가 바뀌고 그대로 저장하면 안심존이 옮겨졌습니다 (10-13 폰에서 확인)
+   */
+  const placed = useRef(false);
+  useEffect(() => {
+    if (placed.current || !existing) return;
+    placed.current = true;
+    const target = existing.center;
+    setCenter(target);
+    // 목록을 다시 받아 existing 이 바뀌어도 취소되지 않게 정리 함수를 두지 않습니다 (화면을 떠나면 mapRef 가 비어 아무 일도 없음)
+    setTimeout(() => mapRef.current?.moveTo(target, 0.004), 300);
+  }, [existing]);
 
   useEffect(() => {
     if (!center) return;

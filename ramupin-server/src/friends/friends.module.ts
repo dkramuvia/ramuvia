@@ -22,6 +22,7 @@ import { appError, parseInput } from '../common/app-error.js';
 import { FriendRequestsService } from './friend-requests.service.js';
 import { ContactsService, MAX_NUMBERS } from './contacts.service.js';
 import { NearbyService } from './nearby.service.js';
+import { PushModule } from '../push/push.module.js';
 import { QrTokenService } from './qr-token.service.js';
 import { summaryWithRelation } from '../users/relation.js';
 import { ShareSettingsService, shareSettingBody } from './share-settings.service.js';
@@ -341,7 +342,7 @@ class FriendsController {
 }
 
 @Module({
-  imports: [LocationModule],
+  imports: [LocationModule, PushModule],
   controllers: [FriendsController],
   providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService, ContactsService],
 })

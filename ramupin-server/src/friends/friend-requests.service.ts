@@ -1,9 +1,10 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type { Transaction } from 'kysely';
 
 import { appError } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { MainDatabase, ShareLevel } from '../database/main.schema.js';
+import { PushService } from '../push/push.service.js';
 import { toUserSummary, type UserSummary } from '../users/user-summary.js';
 
 /** 앱 src/types/models.ts 의 FriendRequest 와 같은 모양 */
@@ -40,12 +41,17 @@ function ageOf(birthDate: string | null): number | null {
 
 /**
  * 친구 요청 → 수락/거절/취소.
- * TODO(푸시 단계): 요청 받음·수락됨 알림
+ * 요청을 받으면, 내 요청이 수락되면 푸시로 알립니다 (설정 > 알림 "새로운 친구 요청")
  * TODO(1인 가구): 친구가 없으면 회사 계정(RamuVia)을 친구로 (WBS 4)
  */
 @Injectable()
 export class FriendRequestsService {
-  constructor(@Inject(MAIN_DB) private readonly db: MainDb) {}
+  private readonly logger = new Logger(FriendRequestsService.name);
+
+  constructor(
+    @Inject(MAIN_DB) private readonly db: MainDb,
+    private readonly push: PushService,
+  ) {}
 
   /** 대기 중인 요청: 받은 것 / 보낸 것 */
   async listPending(me: string): Promise<{ received: FriendRequestResponse[]; sent: FriendRequestResponse[] }> {
@@ -114,7 +120,10 @@ export class FriendRequestsService {
       .onConflict((oc) => oc.columns(['from_user_id', 'to_user_id']).where('status', '=', 'pending').doNothing())
       .returning('id')
       .executeTakeFirst();
-    if (inserted) return { requestId: inserted.id, status: 'pending' as const };
+    if (inserted) {
+      await this.notify(targetId, me, (name) => `${name}님이 친구 요청을 보냈어요`, `/friends/request/${inserted.id}`);
+      return { requestId: inserted.id, status: 'pending' as const };
+    }
 
     const existing = await this.db
       .selectFrom('social.friend_requests')
@@ -128,7 +137,7 @@ export class FriendRequestsService {
 
   /** 받은 요청 수락: 양방향 친구 + 기본 공유 설정 */
   async accept(me: string, requestId: string): Promise<{ singleHouseholdReleasable: boolean }> {
-    return this.db.transaction().execute(async (trx) => {
+    const { friendId, ...result } = await this.db.transaction().execute(async (trx) => {
       const request = await this.lockPending(trx, requestId, (r) => r.to_user_id === me);
       const friendId = request.from_user_id;
       const now = new Date();
@@ -173,8 +182,18 @@ export class FriendRequestsService {
         .executeTakeFirstOrThrow();
       const age = ageOf(user.birth_date);
       const singleHouseholdReleasable = user.single_household && Number(count) === 1 && (age === null || age < SENIOR_AGE);
-      return { singleHouseholdReleasable };
+      return { friendId, singleHouseholdReleasable };
     });
+    await this.notify(friendId, me, (name) => `${name}님이 친구 요청을 수락했어요`, '/people');
+    return result;
+  }
+
+  /** 친구 요청 알림. 푸시가 안 가도 요청 자체는 끝난 뒤라 실패는 기록만 합니다 */
+  private async notify(to: string, from: string, body: (nickname: string) => string, route: string) {
+    const sender = await this.db.selectFrom('member.users').select('nickname').where('id', '=', from).executeTakeFirst();
+    await this.push
+      .sendToUsers([to], { title: '라무핀', body: body(sender?.nickname ?? '누군가'), channel: 'general', category: 'friendRequest', route, data: { kind: 'friendRequest' } })
+      .catch((error: unknown) => this.logger.error(`친구 요청 알림 실패: ${String(error)}`));
   }
 
   async reject(me: string, requestId: string) {

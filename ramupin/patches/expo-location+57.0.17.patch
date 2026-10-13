@@ -1,8 +1,23 @@
 diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
-index b286ea2..f76cf1b 100644
+index b286ea2..3eb75b4 100644
 --- a/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
 +++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/LocationModule.kt
-@@ -323,7 +323,11 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
+@@ -133,6 +133,14 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
+       mLocationProvider = LocationServices.getFusedLocationProviderClient(mContext)
+       mSensorManager = mContext.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+         ?: throw SensorManagerUnavailable()
++      // ramupin 패치: 이 모듈은 JS 가 처음 쓸 때 만들어져서, 화면이 이미 앞에 나온 뒤면 '앞으로 나옴' 알림을
++      // 놓칩니다. 그러면 계속 백그라운드로 착각해 수집 서비스를 못 띄웠습니다 (10-13). 지금 상태를 직접 봅니다
++      val resumed = (appContext.currentActivity as? androidx.lifecycle.LifecycleOwner)
++        ?.lifecycle?.currentState?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) == true
++      if (resumed) {
++        AppForegroundedSingleton.isForegrounded = true
++        LocationTaskConsumer.active?.ensureForegroundService()
++      }
+     }
+ 
+     Events(HEADING_EVENT_NAME, LOCATION_EVENT_NAME, MOTION_ACTIVITY_EVENT_NAME)
+@@ -323,7 +331,11 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
        if (!shouldUseForegroundService && isMissingBackgroundPermissions()) {
          throw LocationBackgroundUnauthorizedException()
        }
@@ -15,3 +30,51 @@ index b286ea2..f76cf1b 100644
          throw ForegroundServiceStartNotAllowedException()
        }
  
+@@ -372,6 +384,8 @@ class LocationModule : Module(), SensorEventListener, ActivityEventListener {
+ 
+     OnActivityEntersForeground {
+       AppForegroundedSingleton.isForegrounded = true
++      // ramupin 패치: 화면보다 먼저 되살아난 작업에 서비스가 없으면 지금 띄웁니다 (LocationTaskConsumer 설명)
++      LocationTaskConsumer.active?.ensureForegroundService()
+       resumeGeocoder()
+       resumeLocationUpdates()
+       resumeHeadingWatch()
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
+index b4f6c06..3accda9 100644
+--- a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
+@@ -54,12 +54,14 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+   }
+ 
+   override fun didRegister(task: TaskInterface) {
++    active = this
+     mTask = task
+     startLocationUpdates()
+     maybeStartForegroundService()
+   }
+ 
+   override fun didUnregister() {
++    if (active === this) active = null
+     stopLocationUpdates()
+     stopForegroundService()
+     mTask = null
+@@ -349,7 +351,19 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+     mIsHostPaused = true
+   } //endregion
+ 
++  /**
++   * ramupin 패치: 앱이 앞으로 나왔을 때 수집 서비스가 빠져 있으면 띄웁니다.
++   * 앱을 새로 켜면 안드로이드가 등록된 작업을 화면보다 먼저 되살리는데, 그때는 백그라운드라
++   * 서비스를 못 띄우고 그대로 남아 수집이 조용히 멈췄습니다 (10-13)
++   */
++  fun ensureForegroundService() {
++    if (mService == null) maybeStartForegroundService()
++  }
++
+   companion object {
++    /** 지금 등록된 위치 작업 (앱에는 하나뿐). LocationModule 이 앞으로 나올 때 씁니다 */
++    @JvmStatic
++    var active: LocationTaskConsumer? = null
+     private const val TAG = "LocationTaskConsumer"
+     private const val FOREGROUND_SERVICE_KEY = "foregroundService"
+     private var sLastTimestamp: Long = 0

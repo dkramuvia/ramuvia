@@ -329,6 +329,7 @@
       input[type='number'],
       input[type='text'],
       input[type='password'],
+      input[type='date'],
       select {
         border: 1px solid var(--line);
         border-radius: 6px;
@@ -638,6 +639,15 @@
       .fields-3 select,
       .fields-3 input {
         width: 100%;
+      }
+      .row.between .hint {
+        color: var(--faint);
+        font-size: 12px;
+        flex: 1;
+      }
+      #userCount {
+        color: var(--faint);
+        font-size: 12px;
       }
       .row.between {
         justify-content: space-between;

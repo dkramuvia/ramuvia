@@ -1,5 +1,6 @@
 {
   "common": {
+    "requestFailed": "요청에 실패했어요. 잠시 후 다시 시도해 주세요.",
     "next": "다음",
     "confirm": "확인",
     "cancel": "취소",

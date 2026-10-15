@@ -118,6 +118,12 @@ export const friendsApi = {
     }
   },
 
+  /** 친구 삭제. 서로에게서 지워지고, 서로 걸어 둔 SOS·안심존 알림과 안 보낸 예약 메시지도 지워집니다 */
+  async remove(friendId: string): Promise<void> {
+    if (!isLive('friends')) return mockResponse(undefined);
+    await apiClient.delete(`/friends/${friendId}`);
+  },
+
   /** 이 친구의 어떤 소식을 받을지 (피그마 2026-09-28 친구별 맞춤 알림) */
   async alerts(friendId: string): Promise<FriendAlertSettings> {
     if (!isLive('friends')) return mockResponse({ friendId, battery: true, safeZone: true, speeding: false, nearby: false });

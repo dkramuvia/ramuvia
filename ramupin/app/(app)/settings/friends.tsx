@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button, Card, CountActionBar, Popup, Screen, SearchField } from '@/components/ui';
-import { useFriends } from '@/features/friends/queries';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { friendsApi } from '@/api/endpoints/friends';
+import { friendKeys, useFriends } from '@/features/friends/queries';
 import { useColors } from '@/theme';
 import type { Friend } from '@/types/models';
 import { showToast } from '@/utils/toast';
@@ -16,15 +19,30 @@ export default function FriendSettingsScreen() {
   const { data: friends = [] } = useFriends();
   const [query, setQuery] = useState('');
   const [removing, setRemoving] = useState<Friend | null>(null);
-  // TODO(5단계): 친구 삭제 API. 지금은 화면에서만 숨김
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
 
-  const visible = friends.filter((f) => !removedIds.includes(f.id) && f.nickname.toLowerCase().includes(query.trim().toLowerCase()));
+  const visible = friends.filter((f) => f.nickname.toLowerCase().includes(query.trim().toLowerCase()));
+
+  // 서버에서 지운 뒤 친구 목록을 다시 받습니다 (예전에는 화면에서만 숨겨 다시 열면 돌아와 있었습니다)
+  const remove = async (friend: Friend) => {
+    setBusy(true);
+    try {
+      await friendsApi.remove(friend.id);
+      await queryClient.invalidateQueries({ queryKey: friendKeys.list, exact: true });
+      showToast(t('friendSettings.removed', { name: friend.nickname }));
+    } catch {
+      showToast(t('common.requestFailed'));
+    } finally {
+      setBusy(false);
+      setRemoving(null);
+    }
+  };
 
   return (
     <Screen title={t('screens.friendSettings')} tab="map" contentStyle={styles.content}>
       <CountActionBar
-        label={t('friendSettings.registered', { count: friends.length - removedIds.length })}
+        label={t('friendSettings.registered', { count: friends.length })}
         actionLabel={t('friendSettings.addFriend')}
         onAction={() => router.push('/friends/add')}
       />
@@ -54,9 +72,7 @@ export default function FriendSettingsScreen() {
         onDismiss={() => setRemoving(null)}
         confirmLabel={t('friendSettings.remove')}
         onConfirm={() => {
-          if (removing) setRemovedIds((ids) => [...ids, removing.id]);
-          showToast(t('friendSettings.removed', { name: removing?.nickname }));
-          setRemoving(null);
+          if (removing && !busy) void remove(removing);
         }}
       />
     </Screen>

@@ -1,5 +1,6 @@
 {
   "common": {
+    "requestFailed": "Something went wrong. Please try again.",
     "next": "Next",
     "confirm": "OK",
     "cancel": "Cancel",

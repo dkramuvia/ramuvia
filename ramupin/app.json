@@ -27,7 +27,15 @@
       "expo-router",
       "expo-localization",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#473C39",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 288
+        }
+      ]
     ]
   }
 }

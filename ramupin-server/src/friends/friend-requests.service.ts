@@ -18,10 +18,15 @@ export interface FriendRequestResponse {
 }
 
 /**
- * 친구가 되었을 때 서로에게 공유하는 기본 수준.
- * WBS 6.8: 비공개로 시작 (피그마 완료 문구 "이제 서로의 위치를 알 수 있어요"와 충돌 → docs/wbs-check.md 2-4, 기획 확정 대기)
+ * 친구가 되었을 때 서로에게 공유하는 기본값.
+ *
+ * **정확한 위치 + 상태 + 배터리를 서로 보여 줍니다** — 친구 등록 완료 화면 문구
+ * "이제 서로의 위치를 알 수 있어요" 에 맞춤 (대표님 결정 2026-10-15, docs/wbs-check.md 2-4).
+ * 예전에는 WBS 6.8 대로 비공개로 시작해, 친구가 되어도 지도에 아무것도 안 나왔습니다.
+ *
+ * 이동 경로(지난 기록)는 더 민감해서 기본으로 열지 않습니다. 각자 친구별 공유 설정에서 켭니다.
  */
-const DEFAULT_SHARE_LEVEL: ShareLevel = 'hidden';
+const DEFAULT_SHARE = { location_level: 'exact' as ShareLevel, show_status: true, share_battery: true, share_route: false };
 /** WBS 3.7·4: 이 나이 이상은 1인 가구 모드를 해제하지 않음. TODO(정책): 70/75 확정 후 정책값으로 */
 const SENIOR_AGE = 75;
 /** 스팸 방지: 24시간 동안 보낼 수 있는 친구 요청 수 */
@@ -163,8 +168,8 @@ export class FriendRequestsService {
       await trx
         .insertInto('social.friend_share_settings')
         .values([
-          { owner_id: me, friend_id: friendId, location_level: DEFAULT_SHARE_LEVEL },
-          { owner_id: friendId, friend_id: me, location_level: DEFAULT_SHARE_LEVEL },
+          { owner_id: me, friend_id: friendId, ...DEFAULT_SHARE },
+          { owner_id: friendId, friend_id: me, ...DEFAULT_SHARE },
         ])
         .onConflict((oc) => oc.doNothing())
         .execute();

@@ -28,8 +28,8 @@ const SECTIONS: { titleKey: string; items: SettingKey[] }[] = [
   { titleKey: 'sectionSystem', items: ['notice', 'marketing'] },
 ];
 
-// TODO(정책): 배터리 경고 기준값은 서버 정책값 사용 (WBS 8.9)
-const BATTERY_ALERT_LEVEL = 15;
+// 서버가 배터리 부족 알림을 보내는 기준과 같아야 합니다 (ramupin-server anomaly.rules.ts lowBatteryPercent, WBS 9.1)
+const BATTERY_ALERT_LEVEL = 10;
 
 /** `23:00` → 23시 / 0분 */
 const parseHhmm = (value: string) => {

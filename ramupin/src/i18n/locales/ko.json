@@ -823,7 +823,7 @@
     "save": "설정 저장",
     "saved": "저장했어요.",
     "battery": "배터리 SOS",
-    "batteryDesc": "배터리가 15% 이하로 떨어져 방전되기 전일 때",
+    "batteryDesc": "배터리가 10% 이하로 떨어져 방전되기 전일 때",
     "safeZone": "안심존 출발 및 도착",
     "safeZoneDesc": "집, 학교 등 안심존에 들어가거나 나갈 때",
     "speeding": "과속 경고",

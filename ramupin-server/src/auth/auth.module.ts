@@ -29,6 +29,7 @@ import { DeviceVerificationService } from './device-verification.service.js';
 import { GoogleService } from './google.service.js';
 import { KakaoService } from './kakao.service.js';
 import { NaverService } from './naver.service.js';
+import { FacebookService } from './facebook.service.js';
 import { XService } from './x.service.js';
 import { SignUpService, type SocialIdentity } from './sign-up.service.js';
 import { SessionService, type DeviceInfo, type NewSession, type TokenPair } from './session.service.js';
@@ -62,6 +63,12 @@ const naverCallbackQuery = z.object({
 const naverLoginBody = z.object({
   code: z.string().min(1).max(500),
   state: z.string().min(1).max(200),
+  redirectUri: z.string().url().max(200),
+  device: deviceSchema,
+});
+// 페이스북도 네이버처럼 서버 콜백을 거쳐 오고, state 는 앱에서 비교합니다. 토큰 교환은 앱 시크릿으로
+const facebookLoginBody = z.object({
+  code: z.string().min(1).max(1000),
   redirectUri: z.string().url().max(200),
   device: deviceSchema,
 });
@@ -174,6 +181,7 @@ class AuthController {
     private readonly x: XService,
     private readonly naver: NaverService,
     private readonly google: GoogleService,
+    private readonly facebook: FacebookService,
     private readonly signUp: SignUpService,
   ) {}
 
@@ -215,6 +223,27 @@ class AuthController {
   async naverLogin(@Body() body: unknown): Promise<LoginResult> {
     const { code, state, redirectUri, device } = parseInput(naverLoginBody, body);
     return this.continueWith('naver', await this.naver.verify(code, state, redirectUri), device);
+  }
+
+  /**
+   * 페이스북이 로그인을 마치고 돌아오는 자리. 네이버 콜백과 같이 받은 값을 앱으로 넘기기만 합니다.
+   * 페이스북 개발자 > Facebook 로그인 > 설정 > "유효한 OAuth 리디렉션 URI" 에 이 주소를 등록해야 합니다.
+   */
+  @Get('facebook/callback')
+  facebookCallback(@Query() query: unknown, @Res() res: Response) {
+    const { code, state, error, error_description: detail } = parseInput(naverCallbackQuery, query);
+    const params = new URLSearchParams(
+      code && state ? { code, state } : { error: error ?? 'FACEBOOK_FAILED', ...(detail ? { error_description: detail } : {}) },
+    );
+    res.redirect(`${APP_SCHEME}://facebook-auth?${params.toString()}`);
+  }
+
+  /** 페이스북 로그인. 앱은 인가 코드만 받아 오고, 서버가 앱 시크릿으로 교환한 뒤 우리 앱 토큰인지 확인합니다 */
+  @Post('facebook')
+  @HttpCode(HttpStatus.OK)
+  async facebookLogin(@Body() body: unknown): Promise<LoginResult> {
+    const { code, redirectUri, device } = parseInput(facebookLoginBody, body);
+    return this.continueWith('facebook', await this.facebook.verify(code, redirectUri), device);
   }
 
   /** 구글 로그인. 앱은 인가 코드만 받아 오고, 서버가 우리 client_id 로 교환합니다 */
@@ -346,6 +375,7 @@ class AuthController {
     KakaoService,
     XService,
     NaverService,
+    FacebookService,
     GoogleService,
     SignUpService,
   ],

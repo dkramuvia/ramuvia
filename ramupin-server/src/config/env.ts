@@ -71,6 +71,9 @@ const schema = z.object({
   /** 구글 로그인 OAuth 클라이언트. 안드로이드 클라이언트는 공개 클라이언트라 secret 이 없습니다 */
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
+  /** 페이스북 로그인. 시크릿은 서버에만 (앱에는 앱 ID 만) */
+  FACEBOOK_APP_ID: z.string().default(''),
+  FACEBOOK_APP_SECRET: z.string().default(''),
   /** Firebase 서비스 계정 키 파일 경로 (푸시 발송용). 없으면 발송을 건너뜁니다 */
   FIREBASE_SERVICE_ACCOUNT_FILE: z.string().default(''),
   // 네이버 지도 REST (주소 검색·좌표→주소). 앱에는 Client ID 만 들어가고 Secret 은 서버 전용

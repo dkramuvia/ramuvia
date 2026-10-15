@@ -11,6 +11,7 @@ import { AppMapView } from '@/features/map/AppMapView';
 import { makeStyles, radius, useColors } from '@/theme';
 import type { LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
+import { useFriendAvatar } from './useFriendAvatar';
 
 const RED = '#FF1E00';
 const GREEN = '#34C759';
@@ -155,10 +156,11 @@ function PopupContent({ popup }: { popup: AlertPopupPayload }) {
 function IllustratedContent({ name, title, image, message, info }: { name: string; title: string; image: number; message: string; info: string }) {
   const styles = useStyles();
   const colors = useColors();
+  const avatarUrl = useFriendAvatar(name);
   return (
     <>
       <View style={styles.titleWithAvatar}>
-        <Avatar name={name} />
+        <Avatar name={name} imageUrl={avatarUrl} />
         <AppText variant="title3" style={styles.flex}>
           {title}
         </AppText>
@@ -176,13 +178,14 @@ function IllustratedContent({ name, title, image, message, info }: { name: strin
 
 function MapCircle({ center, name }: { center: LatLng; name?: string }) {
   const styles = useStyles();
+  const avatarUrl = useFriendAvatar(name);
   return (
     <View style={styles.map} pointerEvents="none">
       <AppMapView initialCenter={center} interactive={false} initialDelta={0.006} style={StyleSheet.absoluteFill} />
       <View style={styles.redCircle}>
         {name ? (
           <View style={styles.avatarRing}>
-            <Avatar name={name} size={40} />
+            <Avatar name={name} imageUrl={avatarUrl} size={40} />
           </View>
         ) : (
           <Ionicons name="warning" size={32} color={RED} />

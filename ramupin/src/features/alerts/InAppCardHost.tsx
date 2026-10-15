@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlertStore, type InAppCardPayload } from './alertStore';
 import { AppText, Avatar } from '@/components/ui';
 import { makeStyles, radius, useColors } from '@/theme';
+import { useFriendAvatar } from './useFriendAvatar';
 
 const ICONS: Record<InAppCardPayload['kind'], number> = {
   nearby: require('../../../assets/icons/feed-nearby.png'),
@@ -57,6 +58,7 @@ function InAppCard({ card }: { card: InAppCardPayload }) {
     speeding: [t('alerts.speedingFriendTitle', { name: card.name }), t('alerts.speedingFriendMessage', { speed: card.speedKmh ?? 0 })],
   };
   const [title, message] = titles[card.kind];
+  const avatarUrl = useFriendAvatar(card.name);
 
   return (
     <Pressable
@@ -68,7 +70,7 @@ function InAppCard({ card }: { card: InAppCardPayload }) {
       style={styles.card}
     >
       <View style={styles.header}>
-        <Avatar name={card.name} size={32} />
+        <Avatar name={card.name} imageUrl={avatarUrl} size={32} />
         <AppText variant="body2Bold" style={styles.flex} numberOfLines={1}>
           {title}
         </AppText>

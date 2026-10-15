@@ -155,7 +155,7 @@ export const authApi = {
    * 브라우저로 여는 소셜 로그인 (X · 네이버 · 구글).
    * 앱은 인가 코드만 받아 보내고, 토큰 교환은 서버가 합니다 (features/auth/social.ts 설명 참고)
    */
-  async codeLogin(provider: 'x' | 'naver' | 'google', auth: CodeAuth, device: DeviceInput): Promise<LoginResult> {
+  async codeLogin(provider: 'x' | 'naver' | 'google' | 'facebook', auth: CodeAuth, device: DeviceInput): Promise<LoginResult> {
     const { data } = await apiClient.post<LoginResult>(`/auth/${provider}`, { ...auth, device });
     return data;
   },

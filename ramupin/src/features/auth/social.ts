@@ -5,7 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { env } from '@/config/env';
 
 /**
- * 브라우저로 여는 소셜 로그인 (X · 네이버 · 구글).
+ * 브라우저로 여는 소셜 로그인 (X · 네이버 · 구글 · 페이스북).
  *
  * **셋 다 같은 방식입니다.** 앱은 브라우저에서 **인가 코드(code)만** 받아 오고,
  * 토큰 교환은 서버가 합니다. 앱이 받은 토큰을 그냥 서버에 건네면 남의 앱에서 받은
@@ -119,6 +119,56 @@ export async function signInWithNaver(): Promise<CodeAuthResult> {
 
   // 서버가 토큰으로 바꿀 때 네이버에 알려 준 주소와 **똑같이** 보내야 합니다
   return { code, state, redirectUri: NAVER_REDIRECT_URI };
+}
+
+/* ─── 페이스북 ──────────────────────────────────────────────────── */
+
+const FACEBOOK_AUTHORIZE = 'https://www.facebook.com/v21.0/dialog/oauth';
+
+/**
+ * 페이스북이 로그인을 마치고 돌아올 주소. 네이버처럼 우리 서버로 먼저 보내고 서버가 앱으로 넘깁니다
+ * (서버 auth.module.ts 의 `GET /auth/facebook/callback`).
+ * 페이스북 개발자 > Facebook 로그인 > 설정 > "유효한 OAuth 리디렉션 URI" 에 **이 주소를 그대로** 등록해야 합니다.
+ */
+export const FACEBOOK_REDIRECT_URI = `${env.apiBaseUrl}/auth/facebook/callback`;
+
+/** 서버가 앱으로 넘길 때 쓰는 주소 */
+const FACEBOOK_APP_RETURN = AuthSession.makeRedirectUri({ scheme: 'ramupin', path: 'facebook-auth' });
+
+/**
+ * 페이스북 로그인. 이름과 프로필 사진(public_profile)만 받습니다.
+ * 토큰 교환은 앱 시크릿이 필요해 서버가 합니다 — 앱에는 앱 ID 만 들어갑니다.
+ */
+export async function signInWithFacebook(): Promise<CodeAuthResult> {
+  if (!env.auth.facebookAppId) throw new Error('EXPO_PUBLIC_FACEBOOK_APP_ID 가 없습니다');
+
+  // 내가 시작한 로그인이 맞는지 확인할 임의의 값. 돌아온 것과 같아야 합니다
+  const state = Crypto.randomUUID();
+  const authUrl =
+    `${FACEBOOK_AUTHORIZE}?` +
+    new URLSearchParams({
+      client_id: env.auth.facebookAppId,
+      redirect_uri: FACEBOOK_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'public_profile',
+      state,
+    }).toString();
+
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, FACEBOOK_APP_RETURN);
+  if (result.type !== 'success') throw new SocialAuthCancelled();
+
+  const params = new URL(result.url).searchParams;
+  const error = params.get('error');
+  // 페이스북 로그인 창에서 [취소]를 누르면 access_denied 가 옵니다
+  if (error === 'access_denied') throw new SocialAuthCancelled();
+  if (error) throw new Error(`페이스북 로그인 오류: ${error}`);
+  if (params.get('state') !== state) throw new Error('페이스북 로그인 응답이 올바르지 않습니다');
+
+  const code = params.get('code');
+  if (!code) throw new Error('페이스북 로그인에 실패했습니다');
+
+  // 서버가 토큰으로 바꿀 때 페이스북에 알려 준 주소와 **똑같이** 보내야 합니다
+  return { code, state, redirectUri: FACEBOOK_REDIRECT_URI };
 }
 
 /* ─── 구글 ──────────────────────────────────────────────────────── */

@@ -9,7 +9,7 @@ import { AppText } from '@/components/ui';
 import { env, isLive } from '@/config/env';
 import { getDeviceInput } from '@/features/auth/device';
 import { signInWithKakao } from '@/features/auth/kakao';
-import { SocialAuthCancelled, signInWithGoogle, signInWithNaver, signInWithX } from '@/features/auth/social';
+import { SocialAuthCancelled, signInWithFacebook, signInWithGoogle, signInWithNaver, signInWithX } from '@/features/auth/social';
 import { applyLoginResult } from '@/features/auth/session';
 import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
@@ -44,20 +44,20 @@ const CODE_LOGINS = {
   x: signInWithX,
   naver: signInWithNaver,
   google: signInWithGoogle,
+  facebook: signInWithFacebook,
 } as const;
 
 /**
  * 아직 붙이지 않은 제공자.
- * Apple 은 iOS 단계(3단계), Facebook 은 앱 등록·검수가 끝나야 붙일 수 있습니다.
+ * Apple 은 iOS 단계(3단계)에 붙입니다.
  * 누르면 아무 일도 안 일어나거나 오류가 나는 것보다, 준비 중이라고 알려 주는 편이 낫습니다.
  */
 const NOT_READY: Partial<Record<SocialProvider, string>> = {
   apple: 'onboarding.appleLater',
-  facebook: 'onboarding.notReady',
   instagram: 'onboarding.notReady',
 };
 
-const PROVIDER_LABELS: Record<keyof typeof CODE_LOGINS, string> = { x: 'X', naver: '네이버', google: '구글' };
+const PROVIDER_LABELS: Record<keyof typeof CODE_LOGINS, string> = { x: 'X', naver: '네이버', google: '구글', facebook: '페이스북' };
 
 /** 피그마: 가입/로그인 선택 (348:14951) */
 export default function WelcomeScreen() {

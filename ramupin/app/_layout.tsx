@@ -5,7 +5,8 @@ import '@/features/location/backgroundTask';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import { useEffect } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
+import { useCallback, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -18,6 +19,13 @@ import { usePush } from '@/features/notifications/usePush';
 import { resumeBackgroundTrackingIfWanted } from '@/features/location/backgroundTask';
 import { selectIsSignedIn, useAuthStore } from '@/stores/authStore';
 import { fontAssets } from '@/theme';
+
+/**
+ * 첫 화면(스플래시)은 첫 화면이 그려질 때까지 둡니다.
+ * 저절로 내리게 두면 폰트를 읽는 동안(아래 return null) 흰 화면이 2초쯤 보였습니다 (10-15 폰에서 확인)
+ */
+void SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ fade: true, duration: 200 });
 
 export default function RootLayout() {
   const isSignedIn = useAuthStore(selectIsSignedIn);
@@ -33,10 +41,13 @@ export default function RootLayout() {
 
   // 폰트가 늦게 적용되면 글자가 깜빡이므로 로드가 끝난 뒤 그립니다 (실패하면 시스템 폰트로 진행)
   // 개발용 서버 로그인 중이면 토큰을 받을 때까지 기다립니다 (최대 6초)
+  // 화면이 처음 자리를 잡으면 스플래시를 내립니다
+  const onReady = useCallback(() => SplashScreen.hide(), []);
+
   if ((!fontsLoaded && !fontError) || devSession === 'connecting') return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <ThemedStatusBar />

@@ -25,6 +25,7 @@ import { appError, parseInput } from '../common/app-error.js';
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { AnomalyModule } from '../anomaly/anomaly.module.js';
+import { PhoneModule } from '../phone/phone.module.js';
 import { REDIS } from '../redis/redis.module.js';
 import {
   ADMIN_AUDIENCE,
@@ -38,6 +39,7 @@ import {
   type AdminTokenPayload,
   type AdminUser,
 } from './admin.guard.js';
+import { AdminUsersController } from './admin-users.controller.js';
 import { MonitoringController } from './monitoring.controller.js';
 import { OverviewController } from './overview.controller.js';
 import { hashPassword, verifyPassword } from './admin-password.js';
@@ -169,24 +171,16 @@ class AdminPolicyController {
   }
 
   /**
-   * 사용자 한 명만 다르게 (등급 정책 위에 덮어씀).
-   * 예: 치매 어르신 한 분만 더 촘촘하게 보고 싶을 때.
+   * 사용자 한 명만 다르게 (등급 정책 위에 덮어씀).  예: 치매 어르신 한 분만 더 촘촘하게 보고 싶을 때.
+   * 사용자 조회·검색·계정 정보는 admin-users.controller.ts 에 있습니다
    */
-  @Get('users/:publicId')
-  async user(@Param('publicId') publicIdRaw: string) {
-    const publicId = parseInput(publicIdParam, publicIdRaw);
-    const row = await this.db
-      .selectFrom('member.users as u')
-      .leftJoin('config.user_policy_overrides as o', 'o.user_id', 'u.id')
-      .select(['u.id', 'u.public_id', 'u.nickname', 'u.plan', 'o.policy as override'])
-      .where('u.public_id', '=', publicId)
-      .executeTakeFirst();
-    if (!row) throw new NotFoundException('없는 사용자입니다');
-    return { publicId: row.public_id, nickname: row.nickname, plan: row.plan, override: row.override ?? null };
-  }
-
   @Put('users/:publicId')
-  async updateUser(@CurrentAdmin() admin: AdminUser, @Param('publicId') publicIdRaw: string, @Body() body: unknown) {
+  async updateUser(
+    @CurrentAdmin() admin: AdminUser,
+    @Param('publicId') publicIdRaw: string,
+    @Body() body: unknown,
+    @Query('replace') replace?: string,
+  ) {
     assertCanEdit(admin);
     const publicId = parseInput(publicIdParam, publicIdRaw);
     const patch = parsePolicyPatch(body);
@@ -199,7 +193,8 @@ class AdminPolicyController {
     if (!row) throw new NotFoundException('없는 사용자입니다');
 
     const before = row.override ?? {};
-    const next = applyPatch(before, patch);
+    // replace=1: 보낸 항목만 남깁니다 (관제센터 03 은 등급 기본값과 다른 항목만 모아 통째로 저장)
+    const next = applyPatch(replace === '1' ? {} : before, patch);
     await this.db
       .insertInto('config.user_policy_overrides')
       .values({ user_id: row.id, policy: JSON.stringify(next), updated_at: new Date() })
@@ -289,8 +284,8 @@ function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 const DUMMY_HASH = hashPassword('ramupin-dummy-password');
 
 @Module({
-  imports: [JwtModule.register({ secret: env.JWT_SECRET }), AnomalyModule],
-  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, MonitoringController, OverviewController],
+  imports: [JwtModule.register({ secret: env.JWT_SECRET }), AnomalyModule, PhoneModule],
+  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, AdminUsersController, MonitoringController, OverviewController],
   providers: [AdminGuard],
 })
 export class AdminModule {}

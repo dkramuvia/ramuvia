@@ -42,6 +42,8 @@ export interface UsersTable {
    * 관리자 관제센터가 이 값으로 국가별 집계를 냅니다
    */
   country: Generated<string>;
+  /** 등급(구독) 만료일. 비어 있으면 만료 없음 (0035) */
+  plan_expires_at: Date | null;
   last_active_at: Date | null;
   created_at: Timestamp;
   updated_at: Timestamp;

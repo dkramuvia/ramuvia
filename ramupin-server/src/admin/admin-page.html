@@ -1774,7 +1774,13 @@
       // ── 이력 ────────────────────────────────────────────
       async function loadAudit() {
         const rows = await api('/audit');
-        const label = (key) => fields.find((f) => f.key === key)?.label || key;
+        // 계정 정보(account.*)와 등급 변경으로 지워진 개별 설정(override.*)도 사람이 읽는 이름으로
+        const ACCOUNT_LABELS = { 'account.country': '국가', 'account.plan': '등급', 'account.planExpiresAt': '만료일' };
+        const label = (key) =>
+          ACCOUNT_LABELS[key] ||
+          (key.startsWith('override.') ? '개별 설정 ' + (fields.find((f) => f.key === key.slice(9))?.label || key.slice(9)) : null) ||
+          fields.find((f) => f.key === key)?.label ||
+          key;
         $('auditBody').innerHTML = rows.length
           ? rows
               .map(

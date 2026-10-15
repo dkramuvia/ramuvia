@@ -58,6 +58,39 @@ class FriendsService {
     private readonly location: LocationService,
   ) {}
 
+  /**
+   * 친구 삭제. 양쪽 모두에서 지웁니다 (한쪽만 친구인 상태는 없습니다).
+   *
+   * 서로에게 걸어 둔 것도 함께 지웁니다 — 남겨 두면 친구가 아닌 사람에게 SOS·안심존 알림이 가거나
+   * 예약 메시지가 발송됩니다: 공유 설정, 친구별 알림 설정, SOS 받을 사람, 안심존 알림 받을 사람,
+   * 아직 안 보낸 예약 메시지. 대화방과 지난 기록은 그대로 둡니다.
+   *
+   * 예전에는 앱의 [친구 삭제]가 화면에서만 숨기고 서버에는 아무것도 보내지 않아, 다시 열면 친구가
+   * 돌아와 있었습니다 (10-15 실서버 시험)
+   */
+  async remove(me: string, friendId: string): Promise<void> {
+    await this.db.transaction().execute(async (trx) => {
+      const pair = (a: string, b: string) => (eb: any) =>
+        eb.or([eb.and([eb(a, '=', me), eb(b, '=', friendId)]), eb.and([eb(a, '=', friendId), eb(b, '=', me)])]);
+      const removed = await trx.deleteFrom('social.friendships').where(pair('user_id', 'friend_id')).executeTakeFirst();
+      if (Number(removed.numDeletedRows) === 0) throw appError(HttpStatus.NOT_FOUND, 'NOT_FRIENDS', '친구가 아닙니다');
+
+      await trx.deleteFrom('social.friend_share_settings').where(pair('owner_id', 'friend_id')).execute();
+      await trx.deleteFrom('social.friend_alert_settings').where(pair('owner_id', 'friend_id')).execute();
+      await trx.deleteFrom('member.sos_recipients').where('kind', '=', 'friend').where(pair('user_id', 'target_id')).execute();
+      await trx
+        .deleteFrom('member.safe_zone_recipients')
+        .where((eb) =>
+          eb.or([
+            eb.and([eb('friend_id', '=', friendId), eb('zone_id', 'in', eb.selectFrom('member.safe_zones').select('id').where('user_id', '=', me))]),
+            eb.and([eb('friend_id', '=', me), eb('zone_id', 'in', eb.selectFrom('member.safe_zones').select('id').where('user_id', '=', friendId))]),
+          ]),
+        )
+        .execute();
+      await trx.deleteFrom('member.scheduled_messages').where('sent_at', 'is', null).where(pair('user_id', 'target_id')).execute();
+    });
+  }
+
   async list(me: string): Promise<FriendResponse[]> {
     // 1) 본 DB: 친구 목록 + 양방향 공유 설정 (위치 DB 와 JOIN 하지 않음)
     const rows = await this.db
@@ -217,6 +250,13 @@ class FriendsController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.friends.list(user.id);
+  }
+
+  /** 친구 삭제 (설정 > 친구 관리) */
+  @Delete(':friendId')
+  @HttpCode(204)
+  async remove(@CurrentUser() user: AuthUser, @Param('friendId', ParseUUIDPipe) friendId: string) {
+    await this.friends.remove(user.id, friendId);
   }
 
   @Get('requests')

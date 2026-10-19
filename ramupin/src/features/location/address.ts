@@ -11,7 +11,11 @@ import type { LatLng, SharedPlace } from '@/types/models';
 export async function describePlace(coordinate: LatLng): Promise<SharedPlace> {
   const fromServer = await placesApi.reverse(coordinate).catch(() => null);
   if (fromServer) return fromServer;
+  return describeOnDevice(coordinate);
+}
 
+/** 기기 내장 변환만 씁니다 (서버가 이미 주소를 못 붙인 것을 알 때 — 다시 물어봐도 같은 결과) */
+export async function describeOnDevice(coordinate: LatLng): Promise<SharedPlace> {
   const [address] = await Location.reverseGeocodeAsync(coordinate).catch(() => []);
   const full = (address?.formattedAddress ?? '').replace(/^대한민국\s*/, '').trim();
   const name = address?.name?.trim();

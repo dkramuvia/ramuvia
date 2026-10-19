@@ -13,6 +13,7 @@ import {
 } from '../mock/settings';
 import { env, isLive } from '@/config/env';
 import { inbox } from '@/db/inbox';
+import { describeOnDevice } from '@/features/location/address';
 import { isMeId } from '@/stores/authStore';
 import type {
   Geofence,
@@ -268,6 +269,15 @@ export const historyApi = {
       return mockResponse(mockJourney(userId, friend?.batteryLevel));
     }
     const { data } = await apiClient.get<JourneyDay | null>(`/users/${userId}/journey/today`);
-    return data;
+    if (!data) return data;
+    // 서버의 네이버 주소 변환이 실패하면 주소가 빈 칸으로 옵니다 → 히스토리에 시간만 보이던 것 (10-19)
+    const stops = await Promise.all(
+      data.stops.map(async (stop) => {
+        if (stop.placeName || stop.address) return stop;
+        const place = await describeOnDevice(stop);
+        return { ...stop, placeName: place.placeName, address: place.address };
+      }),
+    );
+    return { ...data, stops };
   },
 };

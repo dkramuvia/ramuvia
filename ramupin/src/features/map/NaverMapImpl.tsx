@@ -103,7 +103,8 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
             outlineWidth={1}
           />
         ))}
-        {polylines.map((p) => (
+        {/* 네이버 경로선은 좌표가 2개 미만이면 앱이 죽습니다 (NaverMapJSError) — 오늘 위치가 한 점뿐일 때 등 */}
+        {polylines.filter((p) => p.coordinates.length >= 2).map((p) => (
           <NaverMapPathOverlay key={p.id} coords={p.coordinates} width={p.width ?? 6} color={p.color} outlineWidth={0} />
         ))}
         {/*

@@ -135,7 +135,14 @@ function PlaceHistory() {
   if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
   if (!journey) return null;
 
-  // TODO(5단계): 기간 합계·자주 간 장소는 서버 통계 API
+  // TODO(5단계): 기간 합계·자주 간 장소는 서버 통계 API. 그 전까지는 오늘 기록에서 셉니다
+  const visits = new Map<string, number>();
+  journey.stops.forEach((s) => {
+    const name = s.placeName || s.address;
+    if (name) visits.set(name, (visits.get(name) ?? 0) + 1);
+  });
+  const mostVisited = [...visits].sort((a, b) => b[1] - a[1])[0];
+
   const summary = (
     <View style={styles.summaryRow}>
       <AppText variant="body2Bold" style={styles.flex}>
@@ -158,7 +165,7 @@ function PlaceHistory() {
         <View style={styles.placeHeader}>
           <AppText variant="body2Bold">{t('history.myPlaces')}</AppText>
           {summary}
-          <AppText variant="label1">{t('history.mostVisited', { place: journey.stops[journey.stops.length - 1].placeName, count: 14 })}</AppText>
+          {mostVisited ? <AppText variant="label1">{t('history.mostVisited', { place: mostVisited[0], count: mostVisited[1] })}</AppText> : null}
         </View>
       }
       renderSectionHeader={({ section }) => (

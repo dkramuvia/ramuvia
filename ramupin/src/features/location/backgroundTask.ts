@@ -289,6 +289,8 @@ export async function resumeBackgroundTrackingIfWanted(): Promise<boolean> {
 
     const background = await Location.getBackgroundPermissionsAsync();
     if (background.status !== Location.PermissionStatus.GRANTED) return false;
+    // 화면이 앞에 없으면 안드로이드가 거부합니다. 앞으로 올 때 다시 불립니다 (_layout)
+    if (AppState.currentState !== 'active') return false;
 
     ensureSatelliteUpdates();
     const started = await startUpdates(INITIAL_INTERVAL_SEC, Location.Accuracy.Balanced);

@@ -7,6 +7,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -34,9 +35,19 @@ export default function RootLayout() {
   useRealtime();
   usePush();
 
-  // 강제 종료 뒤에는 안드로이드가 위치 수집을 되살려 주지 않아서, 앱이 켜질 때 직접 되살립니다
+  // 강제 종료·앱 업데이트 뒤에는 안드로이드가 위치 수집을 되살려 주지 않아서, 앱이 켜질 때 직접 되살립니다.
+  // 켜지는 순간 화면이 아직 앞에 없으면 안드로이드 12+ 가 거부하므로, 앞으로 올 때마다 다시 확인합니다 (10-19)
   useEffect(() => {
     void resumeBackgroundTrackingIfWanted();
+    // 켜지는 중에는 화면이 앞에 있다고 나와도 거부될 때가 있어 조금 뒤 한 번 더 (이미 돌고 있으면 바로 끝남)
+    const retry = setTimeout(() => void resumeBackgroundTrackingIfWanted(), 3000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void resumeBackgroundTrackingIfWanted();
+    });
+    return () => {
+      clearTimeout(retry);
+      sub.remove();
+    };
   }, []);
 
   // 폰트가 늦게 적용되면 글자가 깜빡이므로 로드가 끝난 뒤 그립니다 (실패하면 시스템 폰트로 진행)

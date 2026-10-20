@@ -5,11 +5,21 @@ import { sql, type Kysely } from 'kysely';
 import { ANOMALY_RULES, distanceM } from '../anomaly/anomaly.rules.js';
 import { ChatGateway } from '../chat/chat.gateway.js';
 import { decryptCoords, encryptCoords } from '../common/location-crypto.js';
+import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { REDIS } from '../redis/redis.module.js';
 import type { LocationDatabase } from './location.schema.js';
 
 export const LOCATION_DB = Symbol('LOCATION_DB');
 export type LocationDb = Kysely<LocationDatabase>;
+
+/**
+ * 위치를 어떤 서비스로 쓰거나 넘겼는지 (확인자료의 "제공서비스").
+ * 화면 이름은 관리자 화면의 ACCESS_PURPOSE_NAMES 에 있습니다
+ */
+export type AccessPurpose = 'friend_list' | 'journey' | 'nearby' | 'sos' | 'geofence' | 'monitoring';
+
+/** 친구가 직접 위치를 본 것 (피드의 "최근에 내 위치를 본 사람") */
+const VIEW_PURPOSES: AccessPurpose[] = ['friend_list', 'journey', 'nearby'];
 
 export interface LocationPointInput {
   latitude: number;
@@ -81,6 +91,8 @@ export class LocationService {
     @Inject(LOCATION_DB) private readonly db: LocationDb,
     @Inject(REDIS) private readonly redis: Redis,
     private readonly gateway: ChatGateway,
+    // 확인자료의 취득경로(기기 종류)를 읽으려고만 씁니다 (member.devices)
+    @Inject(MAIN_DB) private readonly mainDb: MainDb,
   ) {}
 
   /**
@@ -329,6 +341,8 @@ export class LocationService {
       .where('subject_user_id', '=', userId)
       .where('viewer_user_id', 'is not', null)
       .where('viewer_user_id', '!=', userId)
+      // 친구가 직접 본 것만. SOS·안심존 알림으로 보낸 것까지 "봤다"고 띄우면 피드가 알림 반복이 됩니다
+      .where('purpose', 'in', VIEW_PURPOSES)
       .where('accessed_at', '>=', since)
       .orderBy('accessed_at', 'desc')
       .limit(limit)
@@ -336,13 +350,84 @@ export class LocationService {
     return rows.map((r) => ({ id: r.id, viewerUserId: r.viewer_user_id as string, accessedAt: r.accessed_at }));
   }
 
-  /** 위치정보 이용·제공 사실 확인자료 (위치정보법) */
-  async logAccess(subjectUserIds: string[], viewerUserId: string, purpose: string) {
+  /**
+   * 위치정보 이용·제공 사실 확인자료 (위치정보법) — 한 사람이 여러 사람의 위치를 봤을 때.
+   * 취득경로(대상이 위치를 보낸 앱)를 함께 남깁니다 (위치정보사업 신고 [첨부 2])
+   */
+  async logAccess(subjectUserIds: string[], viewerUserId: string, purpose: AccessPurpose) {
     if (subjectUserIds.length === 0) return;
+    const sources = await this.sourcesOf(subjectUserIds);
     await this.db
       .insertInto('location.location_access_logs')
-      .values(subjectUserIds.map((id) => ({ subject_user_id: id, viewer_user_id: viewerUserId, purpose })))
+      .values(subjectUserIds.map((id) => ({ subject_user_id: id, viewer_user_id: viewerUserId, purpose, source: sources.get(id) ?? null })))
       .execute();
+  }
+
+  /** 한 사람의 위치를 여러 사람에게 보냈을 때 (SOS 수신인, 안심존 알림 받는 친구) */
+  async logProvided(subjectUserId: string, recipientIds: string[], purpose: AccessPurpose) {
+    if (recipientIds.length === 0) return;
+    const source = (await this.sourcesOf([subjectUserId])).get(subjectUserId) ?? null;
+    await this.db
+      .insertInto('location.location_access_logs')
+      .values(recipientIds.map((id) => ({ subject_user_id: subjectUserId, viewer_user_id: id, purpose, source })))
+      .execute();
+  }
+
+  /** 관제센터 직원이 위치를 봤을 때 (모니터링 상세·SOS 목록) */
+  async logAdminView(subjectUserIds: string[], adminId: string, purpose: AccessPurpose) {
+    if (subjectUserIds.length === 0) return;
+    const sources = await this.sourcesOf(subjectUserIds);
+    await this.db
+      .insertInto('location.location_access_logs')
+      .values(subjectUserIds.map((id) => ({ subject_user_id: id, viewer_admin_id: adminId, purpose, source: sources.get(id) ?? null })))
+      .execute();
+  }
+
+  /**
+   * 관리자 화면 "위치정보 이용·제공사실 확인자료".
+   * subjectUserId 를 주면 그 사람의 위치가 쓰인 기록만, before 를 주면 그 id 보다 오래된 것부터 (더 보기).
+   */
+  async listAccessLogs(options: { subjectUserId?: string; before?: string; limit: number }) {
+    let query = this.db
+      .selectFrom('location.location_access_logs')
+      .select(['id', 'subject_user_id', 'viewer_user_id', 'viewer_admin_id', 'source', 'purpose', 'accessed_at'])
+      .orderBy('id', 'desc')
+      .limit(options.limit);
+    if (options.subjectUserId) query = query.where('subject_user_id', '=', options.subjectUserId);
+    if (options.before) query = query.where('id', '<', options.before);
+    return query.execute();
+  }
+
+  /**
+   * 위치를 받은 기록 (위치정보사업 신고: "이용자의 위치정보를 전송받을 때마다").
+   * 앱이 한 번에 보낸 묶음이 같은 received_at 으로 저장되므로 묶음 단위로 보여 줍니다.
+   */
+  async listCollections(options: { userId?: string; before?: Date; limit: number }) {
+    let query = this.db
+      .selectFrom('location.location_points')
+      .select((eb) => ['user_id', 'received_at', eb.fn.countAll<string>().as('points')])
+      .groupBy(['user_id', 'received_at'])
+      .orderBy('received_at', 'desc')
+      .limit(options.limit);
+    if (options.userId) query = query.where('user_id', '=', options.userId);
+    if (options.before) query = query.where('received_at', '<', options.before);
+    const rows = await query.execute();
+    const sources = await this.sourcesOf([...new Set(rows.map((r) => r.user_id))]);
+    return rows.map((r) => ({ userId: r.user_id, receivedAt: r.received_at, points: Number(r.points), source: sources.get(r.user_id) ?? null }));
+  }
+
+  /** 사용자마다 마지막으로 쓴 기기의 종류 (android / ios) — 취득경로 */
+  private async sourcesOf(userIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (userIds.length === 0) return result;
+    const rows = await this.mainDb
+      .selectFrom('member.devices')
+      .select(['user_id', 'platform'])
+      .where('user_id', 'in', userIds)
+      .orderBy('last_seen_at', 'desc')
+      .execute();
+    for (const row of rows) if (!result.has(row.user_id)) result.set(row.user_id, row.platform);
+    return result;
   }
 
   async ping() {

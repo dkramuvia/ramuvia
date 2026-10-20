@@ -36,6 +36,12 @@ export interface Fix {
   measuredAt: Date;
 }
 
+/** 드나든 것 하나와, 그 소식(=위치)을 받은 친구 */
+export interface ZoneCrossing {
+  crossing: Crossing;
+  notified: string[];
+}
+
 @Injectable()
 export class SafeZoneService {
   private readonly logger = new Logger(SafeZoneService.name);
@@ -173,7 +179,7 @@ export class SafeZoneService {
    * 위치 저장 워커에서 부르므로 **절대 예외를 밖으로 던지지 않습니다.**
    * 지오펜스 판정이 실패했다고 위치 저장이 통째로 실패하면 안 됩니다.
    */
-  async check(userId: string, fix: Fix): Promise<Crossing[]> {
+  async check(userId: string, fix: Fix): Promise<ZoneCrossing[]> {
     try {
       return await this.checkInner(userId, fix);
     } catch (error) {
@@ -182,7 +188,7 @@ export class SafeZoneService {
     }
   }
 
-  private async checkInner(userId: string, fix: Fix): Promise<Crossing[]> {
+  private async checkInner(userId: string, fix: Fix): Promise<ZoneCrossing[]> {
     const zones = await this.db
       .selectFrom('member.safe_zones')
       .select(['id', 'name', 'latitude', 'longitude', 'radius_m', 'inside'])
@@ -191,7 +197,7 @@ export class SafeZoneService {
       .execute();
     if (zones.length === 0) return [];
 
-    const results: Crossing[] = [];
+    const results: ZoneCrossing[] = [];
     for (const zone of zones) {
       const crossing = judgeCrossing(
         { latitude: zone.latitude, longitude: zone.longitude, radiusM: zone.radius_m, inside: zone.inside },
@@ -226,20 +232,20 @@ export class SafeZoneService {
         })
         .execute();
 
-      results.push(crossing);
-      await this.notify(userId, zone.id, zone.name, crossing, fix);
+      const notified = await this.notify(userId, zone.id, zone.name, crossing, fix);
+      results.push({ crossing, notified });
     }
     return results;
   }
 
-  /** 이 장소에 지정된 친구에게만 알립니다 (전체 친구가 아닙니다) */
-  private async notify(userId: string, zoneId: string, zoneName: string, crossing: 'enter' | 'leave', fix: Fix) {
+  /** 이 장소에 지정된 친구에게만 알립니다 (전체 친구가 아닙니다). 알린 친구를 돌려줍니다 (위치 제공 기록용) */
+  private async notify(userId: string, zoneId: string, zoneName: string, crossing: 'enter' | 'leave', fix: Fix): Promise<string[]> {
     const [recipients, me] = await Promise.all([
       this.db.selectFrom('member.safe_zone_recipients').select('friend_id').where('zone_id', '=', zoneId).execute(),
       this.db.selectFrom('member.users').select('nickname').where('id', '=', userId).executeTakeFirst(),
     ]);
     const friendIds = recipients.map((r) => r.friend_id);
-    if (friendIds.length === 0) return;
+    if (friendIds.length === 0) return [];
 
     const nickname = me?.nickname ?? '친구';
     const body = crossing === 'enter' ? `${nickname}님이 ${zoneName}에 도착했어요` : `${nickname}님이 ${zoneName}에서 나갔어요`;
@@ -262,6 +268,7 @@ export class SafeZoneService {
         data: { zoneId, kind: crossing },
       })
       .catch((error: unknown) => this.logger.error(`지오펜스 푸시 실패: ${String(error)}`));
+    return friendIds;
   }
 
   /** 알림 받을 친구를 통째로 다시 씁니다. 친구가 아닌 사람은 걸러 냅니다 */

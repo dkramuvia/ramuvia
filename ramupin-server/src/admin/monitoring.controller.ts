@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AnomalyService } from '../anomaly/anomaly.service.js';
 import { parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import { LocationService } from '../location/location.service.js';
 import { withSosPlace } from '../sos/sos-place.js';
 import { AdminGuard, assertCanEdit, CurrentAdmin, type AdminUser } from './admin.guard.js';
 
@@ -22,6 +23,7 @@ export class MonitoringController {
   constructor(
     private readonly anomaly: AnomalyService,
     @Inject(MAIN_DB) private readonly db: MainDb,
+    private readonly location: LocationService,
   ) {}
 
   /**
@@ -29,13 +31,14 @@ export class MonitoringController {
    * 지정 수신인이 없는 분이 SOS 를 누르면 여기로만 옵니다 — 놓치면 안 됩니다.
    */
   @Get('sos')
-  async sosList(@Query('limit') limitRaw?: string) {
+  async sosList(@CurrentAdmin() admin: AdminUser, @Query('limit') limitRaw?: string) {
     const limit = Math.min(Number(limitRaw) || 100, 300);
     const rows = await this.db
       .selectFrom('member.sos_events as e')
       .innerJoin('member.users as u', 'u.id', 'e.user_id')
       .select([
         'e.id',
+        'e.user_id as userId',
         'u.nickname',
         'u.public_id as publicId',
         'u.single_household as singleHousehold',
@@ -52,6 +55,8 @@ export class MonitoringController {
       .orderBy('e.created_at', 'desc')
       .limit(limit)
       .execute();
+    // 관제센터 직원이 SOS 위치를 본 기록 (위치정보 이용·제공사실 확인자료)
+    await this.location.logAdminView([...new Set(rows.map((r) => r.userId))], admin.id, 'monitoring');
     return rows.map(withSosPlace);
   }
 
@@ -76,10 +81,12 @@ export class MonitoringController {
 
   /** 한 사람의 지금 상태 + 지난 기록. 전화를 걸지 판단할 때 봅니다 */
   @Get('users/:publicId')
-  async user(@Param('publicId') publicIdRaw: string) {
+  async user(@CurrentAdmin() admin: AdminUser, @Param('publicId') publicIdRaw: string) {
     const publicId = parseInput(z.string().regex(/^\d{8}$/, '8자리 사용자 ID'), publicIdRaw);
     const detail = await this.anomaly.userDetail(publicId);
     if (!detail) throw new NotFoundException('없는 사용자입니다');
+    // 마지막 위치를 보여 주므로 관제센터 열람으로 남깁니다 (위치정보 이용·제공사실 확인자료)
+    if (detail.status) await this.location.logAdminView([detail.user.id], admin.id, 'monitoring');
     return detail;
   }
 

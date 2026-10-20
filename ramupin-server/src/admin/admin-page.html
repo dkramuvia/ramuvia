@@ -823,6 +823,21 @@
             </svg>
             변경 이력
           </button>
+          <div class="group">법정 기록</div>
+          <button data-page="access">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="5" y="10" width="14" height="10" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+            관리자 접근기록
+          </button>
+          <button data-page="locationlog">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11Z" />
+              <circle cx="12" cy="10" r="2.3" />
+            </svg>
+            위치정보 확인자료
+          </button>
         </nav>
       </aside>
 
@@ -1091,6 +1106,62 @@
             </table>
           </div>
         </section>
+
+        <!-- 위치정보사업 신고 [첨부 2]: 위치정보시스템의 관리자 접근사실 기록 -->
+        <section id="page-access" class="hidden">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>관리자 접근기록</h2>
+              <span class="hint">관제센터 로그인 · 로그아웃 · 실패 시도가 자동으로 남고, 고치거나 지울 수 없습니다.</span>
+            </div>
+            <div class="scroll">
+              <table class="grid-table">
+                <thead>
+                  <tr>
+                    <th style="width: 170px">접속일시</th>
+                    <th style="width: 160px">관리자 (아이디)</th>
+                    <th style="width: 150px">구분</th>
+                    <th style="width: 150px">접속 IP</th>
+                    <th>접속 환경</th>
+                  </tr>
+                </thead>
+                <tbody id="accessBody"></tbody>
+              </table>
+            </div>
+            <div class="row" style="margin-top: 12px"><button class="ghost small" id="accessMore">더 보기</button></div>
+          </div>
+        </section>
+
+        <!-- 위치정보사업 신고 [첨부 2]: 위치정보의 이용 · 제공사실 확인자료 -->
+        <section id="page-locationlog" class="hidden">
+          <div class="panel">
+            <div class="panel-head">
+              <h2 id="locLogTitle">위치정보 이용 · 제공사실 확인자료</h2>
+              <span class="hint">위치정보시스템이 자동으로 기록 · 보존합니다 (고치거나 지울 수 없음)</span>
+            </div>
+            <div class="row" style="margin-bottom: 14px">
+              <select id="locLogKind" style="width: 170px">
+                <option value="use">이용 · 제공 기록</option>
+                <option value="collect">수집 기록 (전송받은 위치)</option>
+              </select>
+              <input id="locLogQuery" type="text" placeholder="대상 8자리 ID (비우면 전체)" style="width: 240px" />
+              <button class="action" id="locLogFind">검색</button>
+              <span class="msg" id="locLogMsg"></span>
+            </div>
+            <div class="scroll">
+              <table class="grid-table">
+                <thead id="locLogHead"></thead>
+                <tbody id="locLogBody"></tbody>
+              </table>
+            </div>
+            <div class="row" style="margin-top: 12px"><button class="ghost small" id="locLogMore">더 보기</button></div>
+            <div class="sub" style="margin-top: 14px; line-height: 1.7">
+              대상: 개인위치정보주체의 사용자 ID(8자리, 이름 · 전화번호 대신 부여한 식별값) · 취득경로: 위치를 보낸 라무핀 앱(기기 GPS) ·
+              제공서비스: 위치를 쓴 라무핀 기능 · 제공받는자: 위치를 받은 사용자 ID 또는 관제센터 담당자 — 제3자 제공이 없으면 “-” ·
+              이용일시: 초 단위
+            </div>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -1197,6 +1268,8 @@
         user: ['사용자별 설정', '사용자를 검색해 개별 등급 및 옵션을 조정합니다'],
         plans: ['등급 · 요금 관리', '위치 수집 주기 · 제한 · 기능'],
         audit: ['변경 이력', '누가 언제 무엇을 바꿨는지'],
+        access: ['관리자 접근기록', '위치정보시스템(관제센터)의 관리자 접근사실 기록'],
+        locationlog: ['위치정보 확인자료', '위치정보의 수집 · 이용 · 제공사실 확인자료 (위치정보법)'],
       };
 
       async function showPage(name) {
@@ -1207,6 +1280,8 @@
         $('asOf').textContent = '';
         if (name === 'overview') await loadOverview();
         if (name === 'audit') await loadAudit();
+        if (name === 'access') await loadAccess(true);
+        if (name === 'locationlog') await loadLocLog(true);
         if (name === 'user' && !$('userRows').children.length) await searchUsers(0);
       }
 
@@ -1804,6 +1879,124 @@
               .join('')
           : '<tr><td colspan="4" style="color:var(--dim)">아직 변경 기록이 없습니다.</td></tr>';
       }
+
+      // ── 법정 기록 ───────────────────────────────────────
+      /** 2026-10-20 14:16:03 (초 단위, 이 PC 시간대) */
+      function fmtSec(value) {
+        const d = new Date(value);
+        const p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+      }
+      const ACCESS_ACTIONS = { login: '로그인', login_failed: '로그인 실패', login_locked: '차단 (실패 반복)', logout: '로그아웃' };
+      const ACCESS_PURPOSE_NAMES = {
+        friend_list: '친구 위치 보기 (지도)',
+        journey: '이동경로 보기',
+        nearby: '주변 친구 찾기',
+        sos: 'SOS 긴급 알림',
+        geofence: '안심존 도착 · 이탈 알림',
+        monitoring: '관제센터 안전 확인',
+      };
+      const SOURCES = { android: 'Android 앱 (기기 GPS)', ios: 'iOS 앱 (기기 GPS)' };
+      /** 사용자 표시: 8자리 ID (닉네임). 탈퇴로 지워졌으면 그렇게 적습니다 */
+      const who = (u) => (u && u.publicId ? `${u.publicId} <span style="color:var(--dim)">(${esc(u.nickname)})</span>` : '<span style="color:var(--dim)">탈퇴한 사용자</span>');
+
+      /** 브라우저 정보를 "Chrome 141 · Windows" 처럼 짧게 (원문은 칸에 마우스를 올리면 보입니다) */
+      function uaSummary(ua) {
+        if (!ua) return '-';
+        // 순서가 중요합니다: Edge·Whale 도 Chrome 이라고 적혀 있어 먼저 봅니다
+        const known = [
+          [/Edg\/(\d+)/, 'Edge'],
+          [/Whale\/(\d+)/, 'Whale'],
+          [/Chrome\/(\d+)/, 'Chrome'],
+          [/Firefox\/(\d+)/, 'Firefox'],
+          [/Version\/(\d+).*Safari/, 'Safari'],
+        ];
+        const hit = known.map(([re, name]) => [ua.match(re), name]).find(([m]) => m);
+        const browser = hit ? hit[1] + ' ' + hit[0][1] : '기타 브라우저';
+        const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '기타';
+        return browser + ' · ' + os;
+      }
+
+      let accessCursor = null;
+      async function loadAccess(reset) {
+        if (reset) {
+          accessCursor = null;
+          $('accessBody').innerHTML = '';
+        }
+        const rows = await api('/access-logs?limit=100' + (accessCursor ? '&before=' + accessCursor : ''));
+        $('accessBody').insertAdjacentHTML(
+          'beforeend',
+          rows
+            .map(
+              (r) => `<tr>
+                <td class="num">${fmtSec(r.createdAt)}</td>
+                <td>${esc(r.name || '-')} (${esc(r.loginId)})</td>
+                <td>${ACCESS_ACTIONS[r.action] || esc(r.action)}</td>
+                <td class="num">${esc(r.ip || '-')}</td>
+                <td style="color:var(--dim)" title="${esc(r.userAgent || '')}">${esc(uaSummary(r.userAgent))}</td>
+              </tr>`,
+            )
+            .join(''),
+        );
+        if (rows.length) accessCursor = rows[rows.length - 1].id;
+        if (reset && !rows.length) $('accessBody').innerHTML = '<tr><td colspan="5" style="color:var(--dim)">아직 기록이 없습니다.</td></tr>';
+        $('accessMore').classList.toggle('hidden', rows.length < 100);
+      }
+      $('accessMore').onclick = () => loadAccess(false);
+
+      let locLogCursor = null;
+      async function loadLocLog(reset) {
+        const kind = $('locLogKind').value;
+        const q = $('locLogQuery').value.trim();
+        $('locLogMsg').textContent = '';
+        if (reset) {
+          locLogCursor = null;
+          $('locLogBody').innerHTML = '';
+          $('locLogTitle').textContent = kind === 'use' ? '위치정보 이용 · 제공사실 확인자료' : '위치정보 수집 기록 (전송받은 위치)';
+          $('locLogHead').innerHTML =
+            kind === 'use'
+              ? '<tr><th style="width:190px">대상</th><th style="width:170px">취득경로</th><th style="width:190px">제공서비스</th><th>제공받는자</th><th style="width:170px">이용일시</th></tr>'
+              : '<tr><th style="width:190px">대상</th><th style="width:170px">취득경로</th><th style="width:190px">제공서비스</th><th>받은 위치 수</th><th style="width:170px">수신일시</th></tr>';
+        }
+        const params = new URLSearchParams({ limit: '100' });
+        if (q) params.set('q', q);
+        if (locLogCursor) params.set('before', locLogCursor);
+        let rows;
+        try {
+          rows = await api((kind === 'use' ? '/location-logs?' : '/location-collections?') + params);
+        } catch (error) {
+          $('locLogMsg').textContent = error.message;
+          return;
+        }
+        const html =
+          kind === 'use'
+            ? rows.map(
+                (r) => `<tr>
+                  <td>${who(r.subject)}</td>
+                  <td>${SOURCES[r.source] || '-'}</td>
+                  <td>${ACCESS_PURPOSE_NAMES[r.purpose] || esc(r.purpose)}</td>
+                  <td>${r.recipient ? (r.recipient.kind === 'admin' ? '관제센터 · ' + esc(r.recipient.name || '담당자') : who(r.recipient)) : '-'}</td>
+                  <td class="num">${fmtSec(r.accessedAt)}</td>
+                </tr>`,
+              )
+            : rows.map(
+                (r) => `<tr>
+                  <td>${who(r.subject)}</td>
+                  <td>${SOURCES[r.source] || '-'}</td>
+                  <td>위치 수집 (라무핀 위치 공유)</td>
+                  <td class="num">${r.points}건</td>
+                  <td class="num">${fmtSec(r.receivedAt)}</td>
+                </tr>`,
+              );
+        $('locLogBody').insertAdjacentHTML('beforeend', html.join(''));
+        if (rows.length) locLogCursor = kind === 'use' ? rows[rows.length - 1].id : rows[rows.length - 1].receivedAt;
+        if (reset && !rows.length) $('locLogBody').innerHTML = '<tr><td colspan="5" style="color:var(--dim)">기록이 없습니다.</td></tr>';
+        $('locLogMore').classList.toggle('hidden', rows.length < 100);
+      }
+      $('locLogFind').onclick = () => loadLocLog(true);
+      $('locLogKind').onchange = () => loadLocLog(true);
+      onEnter($('locLogQuery'), () => loadLocLog(true));
+      $('locLogMore').onclick = () => loadLocLog(false);
 
       // 이미 로그인돼 있으면 바로 화면으로
       start().catch(() => {

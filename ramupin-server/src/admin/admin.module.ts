@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Inject,
+  Logger,
   Module,
   NotFoundException,
   Param,
@@ -25,6 +26,7 @@ import { appError, parseInput } from '../common/app-error.js';
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { AnomalyModule } from '../anomaly/anomaly.module.js';
+import { LocationModule } from '../location/location.module.js';
 import { PhoneModule } from '../phone/phone.module.js';
 import { REDIS } from '../redis/redis.module.js';
 import {
@@ -35,11 +37,13 @@ import {
   CurrentAdmin,
   adminSessionKey,
   assertCanEdit,
+  clientIp,
   readCookie,
   type AdminTokenPayload,
   type AdminUser,
 } from './admin.guard.js';
 import { AdminUsersController } from './admin-users.controller.js';
+import { LogsController } from './logs.controller.js';
 import { MonitoringController } from './monitoring.controller.js';
 import { OverviewController } from './overview.controller.js';
 import { hashPassword, verifyPassword } from './admin-password.js';
@@ -69,6 +73,8 @@ class AdminPageController {
 
 @Controller('admin/api')
 class AdminAuthController {
+  private readonly logger = new Logger('AdminAuth');
+
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     @Inject(REDIS) private readonly redis: Redis,
@@ -78,8 +84,11 @@ class AdminAuthController {
   @Post('login')
   async login(@Req() request: Request, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
     const { loginId, password } = parseInput(loginBody, body);
-    const failKey = `admin:login-fail:${request.ip ?? ''}:${loginId}`;
+    const ip = clientIp(request);
+    // 같은 곳(IP)에서 틀린 횟수를 셉니다. 전에는 nginx 주소로 세어서 모든 관리자가 한 칸을 같이 썼습니다
+    const failKey = `admin:login-fail:${ip ?? ''}:${loginId}`;
     if (Number(await this.redis.get(failKey)) >= LOGIN_FAIL_LIMIT) {
+      await this.logAccess(request, null, loginId, 'login_locked');
       const retryAfterSec = Math.max(await this.redis.ttl(failKey), 1);
       throw appError(429, 'ADMIN_LOGIN_LOCKED', `로그인 실패가 많아 잠시 막았습니다. ${Math.ceil(retryAfterSec / 60)}분 뒤에 다시 시도하세요`, {
         retryAfterSec,
@@ -98,9 +107,11 @@ class AdminAuthController {
     if (!row || !ok || row.disabled) {
       const fails = await this.redis.incr(failKey);
       if (fails === 1) await this.redis.expire(failKey, LOGIN_FAIL_WINDOW_SEC);
+      await this.logAccess(request, row?.id ?? null, loginId, 'login_failed');
       throw appError(401, 'ADMIN_LOGIN_FAILED', '아이디 또는 비밀번호가 다릅니다');
     }
     await this.redis.del(failKey);
+    await this.logAccess(request, row.id, row.login_id, 'login');
 
     // 로그아웃하면 이 세션을 지워, 쿠키를 복사해 둔 사람도 더는 못 쓰게 합니다 (AdminGuard)
     const sid = randomUUID();
@@ -128,9 +139,28 @@ class AdminAuthController {
         .verifyAsync<AdminTokenPayload>(token, { audience: ADMIN_AUDIENCE, ignoreExpiration: true })
         .catch(() => null);
       if (payload?.sid) await this.redis.del(adminSessionKey(payload.sid));
+      if (payload) await this.logAccess(request, payload.sub, payload.loginId, 'logout');
     }
     response.clearCookie(ADMIN_COOKIE, { path: '/admin' });
     return { ok: true };
+  }
+
+  /**
+   * 관리자 접근기록 (위치정보사업 신고 [첨부 2]: 위치정보시스템의 관리자 접근사실 기록).
+   * 기록이 실패했다고 로그인을 막지는 않습니다 — 실패는 서버 로그에 남깁니다
+   */
+  private async logAccess(request: Request, adminId: string | null, loginId: string, action: 'login' | 'login_failed' | 'login_locked' | 'logout') {
+    await this.db
+      .insertInto('config.admin_access_logs')
+      .values({
+        admin_id: adminId,
+        login_id: loginId.slice(0, 64),
+        action,
+        ip: clientIp(request),
+        user_agent: (request.headers['user-agent'] ?? '').slice(0, 300) || null,
+      })
+      .execute()
+      .catch((error: unknown) => this.logger.error(`관리자 접근기록 실패: ${String(error)}`));
   }
 }
 
@@ -284,8 +314,9 @@ function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 const DUMMY_HASH = hashPassword('ramupin-dummy-password');
 
 @Module({
-  imports: [JwtModule.register({ secret: env.JWT_SECRET }), AnomalyModule, PhoneModule],
-  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, AdminUsersController, MonitoringController, OverviewController],
+  // 위치 확인자료 조회·관제센터 열람 기록 (LocationService)
+  imports: [JwtModule.register({ secret: env.JWT_SECRET }), AnomalyModule, PhoneModule, LocationModule],
+  controllers: [AdminPageController, AdminAuthController, AdminPolicyController, AdminUsersController, MonitoringController, OverviewController, LogsController],
   providers: [AdminGuard],
 })
 export class AdminModule {}

@@ -286,6 +286,17 @@ export interface AdminUsersTable {
   updated_at: Timestamp;
 }
 
+/** 관리자 접근기록 (덧붙이기만 합니다, migrations/main/0038) */
+export interface AdminAccessLogsTable {
+  id: Generated<string>;
+  admin_id: string | null;
+  login_id: string;
+  action: 'login' | 'login_failed' | 'login_locked' | 'logout';
+  ip: string | null;
+  user_agent: string | null;
+  created_at: Generated<Date>;
+}
+
 /** 정책을 누가 언제 무엇에서 무엇으로 바꿨는지 */
 export interface PolicyAuditTable {
   id: Generated<number>;
@@ -501,6 +512,7 @@ export interface MainDatabase {
   'media.posts': MediaPostsTable;
   'media.post_assets': MediaPostAssetsTable;
   'config.admin_users': AdminUsersTable;
+  'config.admin_access_logs': AdminAccessLogsTable;
   'config.policy_audit': PolicyAuditTable;
   'member.anomaly_events': AnomalyEventsTable;
   'member.push_tokens': PushTokensTable;

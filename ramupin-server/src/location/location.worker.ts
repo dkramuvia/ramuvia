@@ -96,7 +96,10 @@ export class LocationWorker implements OnModuleInit, OnApplicationShutdown {
       accuracy: latest.accuracy ?? null,
       measuredAt: new Date(latest.measuredAt),
     };
-    await this.zones.check(userId, fix);
+    const crossings = await this.zones.check(userId, fix);
+    // 친구에게 도착·이탈을 알린 것은 위치를 넘긴 것이라 확인자료로 남깁니다 (위치정보법)
+    const notified = [...new Set(crossings.flatMap((c) => c.notified))];
+    await this.location.logProvided(userId, notified, 'geofence').catch((error: unknown) => this.logger.error(`안심존 알림 기록 실패: ${String(error)}`));
     // 위험지역도 같은 위치로 함께 봅니다 (WBS 9.6)
     await this.dangerZones.check(userId, fix);
   }

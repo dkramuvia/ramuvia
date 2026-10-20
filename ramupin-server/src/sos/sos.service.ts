@@ -4,6 +4,7 @@ import { ChatGateway } from '../chat/chat.gateway.js';
 import { appError } from '../common/app-error.js';
 import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import { LocationService } from '../location/location.service.js';
 import { PushService } from '../push/push.service.js';
 import { encryptSosPlace, withSosPlace } from './sos-place.js';
 
@@ -34,6 +35,7 @@ export class SosService {
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly gateway: ChatGateway,
     private readonly push: PushService,
+    private readonly location: LocationService,
   ) {}
 
   async send(userId: string, input: SosInput) {
@@ -70,6 +72,10 @@ export class SosService {
         .values(recipients.map((id) => ({ sos_id: event.id, recipient_user_id: id })))
         .execute();
       await this.notify(recipients, event.id, userId, me.nickname, input);
+      // 누른 곳을 수신인에게 넘겼으므로 확인자료로 남깁니다 (위치정보법). 기록이 실패해도 SOS 는 이미 갔습니다
+      if (input.latitude != null || input.placeName != null || input.placeAddress != null) {
+        await this.location.logProvided(userId, recipients, 'sos').catch((error: unknown) => this.logger.error(`SOS 위치 제공 기록 실패: ${String(error)}`));
+      }
     } else {
       // 모니터링 사이트가 이 표를 읽어 보여 주고, 전화는 사람이 겁니다
       this.logger.warn(`SOS 수신인 없음 → 모니터링 (user ${userId})`);

@@ -91,6 +91,15 @@ export function assertCanEdit(admin: AdminUser) {
   if (admin.role === 'viewer') throw appError(403, 'ADMIN_READ_ONLY', '보기 권한만 있습니다');
 }
 
+/**
+ * 접속한 사람의 IP. 서버 앞에 nginx 가 있어 request.ip 는 nginx 주소가 됩니다.
+ * nginx 가 넣어 주는 X-Real-IP 를 씁니다 (docker/nginx/nginx.conf). API 는 nginx 를 거쳐서만 닿습니다
+ */
+export function clientIp(request: { headers: Record<string, string | string[] | undefined>; ip?: string }): string | null {
+  const real = request.headers['x-real-ip'];
+  return (Array.isArray(real) ? real[0] : real) || request.ip || null;
+}
+
 export function readCookie(header: string | undefined, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(';')) {

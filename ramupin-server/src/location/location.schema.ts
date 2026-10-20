@@ -27,6 +27,10 @@ export interface LocationAccessLogsTable {
   id: Generated<string>;
   subject_user_id: string;
   viewer_user_id: string | null;
+  /** 관제센터 직원이 본 경우 (본 DB config.admin_users.id) */
+  viewer_admin_id: string | null;
+  /** 취득경로: 대상이 위치를 보낸 앱 (android / ios). 기기가 없으면 null */
+  source: string | null;
   purpose: string;
   accessed_at: Generated<Date>;
 }

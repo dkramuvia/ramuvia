@@ -44,12 +44,11 @@ describe('SOS 장소', () => {
   });
 
   it('암호화된 행을 화면이 받는 모양으로 풉니다', () => {
-    const row = { id: 'x', place_enc: encryptSosPlace(place), latitude: null, longitude: null, altitude: null, place_name: null, place_address: null };
+    const row = { id: 'x', place_enc: encryptSosPlace(place) };
     expect(withSosPlace(row)).toEqual({ id: 'x', latitude: 37.5, longitude: 127, placeName: '코엑스', placeAddress: '서울특별시 강남구 영동대로 513' });
   });
 
-  it('암호화로 옮기기 전 옛 행은 평문 칸을 씁니다', () => {
-    const row = { id: 'y', place_enc: null, latitude: 37.1, longitude: 127.1, altitude: null, place_name: '집', place_address: '주소' };
-    expect(withSosPlace(row)).toEqual({ id: 'y', latitude: 37.1, longitude: 127.1, placeName: '집', placeAddress: '주소' });
+  it('위치 없이 보낸 SOS 는 장소가 모두 비어 있습니다', () => {
+    expect(withSosPlace({ id: 'y', place_enc: null })).toEqual({ id: 'y', latitude: null, longitude: null, placeName: null, placeAddress: null });
   });
 });

@@ -151,24 +151,20 @@ export class SafeZoneService {
     const rows = await this.db
       .selectFrom('member.safe_zone_events as e')
       .innerJoin('member.safe_zones as z', 'z.id', 'e.zone_id')
-      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.coords_enc', 'e.latitude', 'e.longitude', 'z.id as zoneId', 'z.name'])
+      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.coords_enc', 'z.id as zoneId', 'z.name'])
       .where('e.user_id', '=', userId)
       .orderBy('e.occurred_at', 'desc')
       .limit(Math.min(limit, 200))
       .execute();
-    return rows.map((r) => {
-      // 암호화로 옮기기 전 옛 행이면 평문 칸 (coords-backfill.service.ts)
-      const at = r.coords_enc ? decryptCoords(r.coords_enc) : { latitude: r.latitude, longitude: r.longitude };
-      return {
-        id: r.id,
-        zoneId: r.zoneId,
-        zoneName: r.name,
-        kind: r.kind,
-        occurredAt: r.occurred_at.toISOString(),
-        latitude: at.latitude,
-        longitude: at.longitude,
-      };
-    });
+    return rows.map((r) => ({
+      id: r.id,
+      zoneId: r.zoneId,
+      zoneName: r.name,
+      kind: r.kind,
+      occurredAt: r.occurred_at.toISOString(),
+      // 드나든 위치는 암호화돼 있어 여기서 풉니다 (common/location-crypto.ts)
+      ...decryptCoords(r.coords_enc),
+    }));
   }
 
   /**

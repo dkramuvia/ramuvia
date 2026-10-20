@@ -8,7 +8,6 @@ import { RealtimeModule } from '../chat/chat.gateway.js';
 import { PushModule } from '../push/push.module.js';
 import { SafeZoneModule } from '../safe-zones/safe-zone.module.js';
 import { env } from '../config/env.js';
-import { CoordsBackfillService } from './coords-backfill.service.js';
 import type { LocationDatabase } from './location.schema.js';
 import { LocationQueue } from './location.queue.js';
 import { LOCATION_DB, LocationService } from './location.service.js';
@@ -116,8 +115,6 @@ class LocationController {
     LocationWorker,
     SpeedingService,
     RetentionService,
-    // 암호화 이전 평문 좌표를 옮깁니다 (migrations/location/0006, main/0036)
-    CoordsBackfillService,
   ],
   exports: [LocationService],
 })

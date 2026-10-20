@@ -5,7 +5,7 @@ import { appError } from '../common/app-error.js';
 import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
-import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
+import { encryptSosPlace, withSosPlace } from './sos-place.js';
 
 /**
  * SOS (WBS 7.9 / 8.3 / 9.3 / 10.8).
@@ -150,7 +150,7 @@ export class SosService {
         'e.id',
         'e.user_id as userId',
         'u.nickname',
-        ...SOS_PLACE_COLUMNS,
+        'e.place_enc',
         'e.status',
         'e.started_at as startedAt',
         'e.created_at as createdAt',

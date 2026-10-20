@@ -215,14 +215,8 @@ export interface SosEventsTable {
   id: Generated<string>;
   user_id: string;
   started_at: Timestamp;
-  /** { latitude, longitude, altitude, placeName, placeAddress } 암호화 (common/location-crypto.ts) */
+  /** { latitude, longitude, altitude, placeName, placeAddress } 암호화 (common/location-crypto.ts). 위치를 못 잡았으면 null */
   place_enc: Buffer | null;
-  /** 암호화 이전 평문 칸 (migrations/main/0036). 새 값은 넣지 않습니다 */
-  latitude: number | null;
-  longitude: number | null;
-  altitude: number | null;
-  place_name: string | null;
-  place_address: string | null;
   audio_asset_id: string | null;
   status: Generated<'sent' | 'cancelled' | 'resolved'>;
   recipient_count: Generated<number>;
@@ -373,10 +367,7 @@ export interface SafeZoneEventsTable {
   kind: 'enter' | 'leave';
   occurred_at: Date;
   /** 드나든 순간의 [위도, 경도] 암호화 (common/location-crypto.ts) */
-  coords_enc: Buffer | null;
-  /** 암호화 이전 평문 칸 (migrations/main/0036). 새 값은 넣지 않습니다 */
-  latitude: number | null;
-  longitude: number | null;
+  coords_enc: Buffer;
   created_at: Generated<Date>;
 }
 

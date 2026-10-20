@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AnomalyService } from '../anomaly/anomaly.service.js';
 import { parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
-import { SOS_PLACE_COLUMNS, withSosPlace } from '../sos/sos-place.js';
+import { withSosPlace } from '../sos/sos-place.js';
 import { AdminGuard, assertCanEdit, CurrentAdmin, type AdminUser } from './admin.guard.js';
 
 /**
@@ -40,7 +40,7 @@ export class MonitoringController {
         'u.public_id as publicId',
         'u.single_household as singleHousehold',
         // 장소는 암호화돼 있어 서버에서 풀어 보냅니다 (관리자 화면이 받는 모양은 그대로)
-        ...SOS_PLACE_COLUMNS,
+        'e.place_enc',
         'e.status',
         'e.recipient_count as recipientCount',
         'e.to_monitoring as toMonitoring',

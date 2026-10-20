@@ -4,7 +4,7 @@ import { sql, type Kysely } from 'kysely';
 
 import { ANOMALY_RULES, distanceM } from '../anomaly/anomaly.rules.js';
 import { ChatGateway } from '../chat/chat.gateway.js';
-import { decryptCoords, encryptCoords, type Coords } from '../common/location-crypto.js';
+import { decryptCoords, encryptCoords } from '../common/location-crypto.js';
 import { REDIS } from '../redis/redis.module.js';
 import type { LocationDatabase } from './location.schema.js';
 
@@ -172,7 +172,7 @@ export class LocationService {
     if (prev && prev.last_measured_at >= measuredAt) return;
 
     // 기준점에서 반경 밖으로 나갔으면 "지금부터 여기 머무는 중"으로 새로 잡습니다
-    const anchor = prev ? readCoords(prev.anchor_coords_enc, prev.fixed_anchor_latitude, prev.fixed_anchor_longitude) : null;
+    const anchor = prev ? decryptCoords(prev.anchor_coords_enc) : null;
     const movedAway = !prev || !anchor || distanceM(anchor.latitude, anchor.longitude, latest.latitude, latest.longitude) > ANOMALY_RULES.fixedRadiusM;
     const newAnchor = movedAway || !anchor ? latest : anchor;
 
@@ -183,15 +183,11 @@ export class LocationService {
       .values({
         user_id: userId,
         last_measured_at: measuredAt,
-        // 좌표는 암호화해서만 저장하고 평문 칸은 비웁니다 (common/location-crypto.ts)
+        // 좌표는 암호화해서만 저장합니다 (common/location-crypto.ts)
         last_coords_enc: encryptCoords(latest.latitude, latest.longitude),
         anchor_coords_enc: encryptCoords(newAnchor.latitude, newAnchor.longitude),
-        last_latitude: null,
-        last_longitude: null,
         last_battery: battery,
         last_charging: latest.charging ?? null,
-        fixed_anchor_latitude: null,
-        fixed_anchor_longitude: null,
         fixed_since: movedAway ? measuredAt : prev.fixed_since,
         battery_zero_since: batteryZeroSince,
         updated_at: new Date(),
@@ -201,12 +197,8 @@ export class LocationService {
           last_measured_at: eb.ref('excluded.last_measured_at'),
           last_coords_enc: eb.ref('excluded.last_coords_enc'),
           anchor_coords_enc: eb.ref('excluded.anchor_coords_enc'),
-          last_latitude: eb.ref('excluded.last_latitude'),
-          last_longitude: eb.ref('excluded.last_longitude'),
           last_battery: eb.ref('excluded.last_battery'),
           last_charging: eb.ref('excluded.last_charging'),
-          fixed_anchor_latitude: eb.ref('excluded.fixed_anchor_latitude'),
-          fixed_anchor_longitude: eb.ref('excluded.fixed_anchor_longitude'),
           fixed_since: eb.ref('excluded.fixed_since'),
           battery_zero_since: eb.ref('excluded.battery_zero_since'),
           updated_at: eb.ref('excluded.updated_at'),
@@ -235,13 +227,13 @@ export class LocationService {
   async dayPoints(userId: string, from: Date, to: Date) {
     const rows = await this.db
       .selectFrom('location.location_points')
-      .select(['coords_enc', 'latitude', 'longitude', 'measured_at'])
+      .select(['coords_enc', 'measured_at'])
       .where('user_id', '=', userId)
       .where('measured_at', '>=', from)
       .where('measured_at', '<', to)
       .orderBy('measured_at')
       .execute();
-    return rows.map((r) => ({ ...readCoords(r.coords_enc, r.latitude, r.longitude), measured_at: r.measured_at }));
+    return rows.map((r) => ({ ...decryptCoords(r.coords_enc), measured_at: r.measured_at }));
   }
 
   /**
@@ -362,14 +354,6 @@ export class LocationService {
   }
 }
 
-/**
- * 암호화된 좌표를 풉니다. 아직 암호화로 옮기지 못한 옛 행이면 평문 칸을 씁니다
- * (서버가 켜질 때 coords-backfill.service.ts 가 옮깁니다. 평문 칸을 없앨 때 이 대체도 지웁니다)
- */
-function readCoords(enc: Buffer | null, latitude: number | null, longitude: number | null): Coords {
-  return enc ? decryptCoords(enc) : { latitude: Number(latitude), longitude: Number(longitude) };
-}
-
 /** user_status 한 행 → 감시·화면이 쓰는 모양 */
 function toSnapshot(r: {
   user_id: string;
@@ -378,11 +362,9 @@ function toSnapshot(r: {
   last_charging: boolean | null;
   fixed_since: Date;
   battery_zero_since: Date | null;
-  last_coords_enc: Buffer | null;
-  last_latitude: number | null;
-  last_longitude: number | null;
+  last_coords_enc: Buffer;
 }): UserStatusSnapshot {
-  const last = readCoords(r.last_coords_enc, r.last_latitude, r.last_longitude);
+  const last = decryptCoords(r.last_coords_enc);
   return {
     userId: r.user_id,
     lastMeasuredAt: r.last_measured_at,

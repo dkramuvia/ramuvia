@@ -5,6 +5,7 @@ import { appError } from '../common/app-error.js';
 import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
+import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
 
 /**
  * SOS (WBS 7.9 / 8.3 / 9.3 / 10.8).
@@ -54,11 +55,8 @@ export class SosService {
       .values({
         user_id: userId,
         started_at: input.startedAt,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        altitude: input.altitude,
-        place_name: input.placeName,
-        place_address: input.placeAddress,
+        // 누른 곳의 좌표·장소는 암호화해서만 저장합니다 (common/location-crypto.ts)
+        place_enc: encryptSosPlace(input),
         audio_asset_id: input.audioAssetId,
         recipient_count: recipients.length,
         to_monitoring: toMonitoring,
@@ -144,7 +142,7 @@ export class SosService {
 
   /** 내가 받은 SOS 목록 (앱 알림 보관함) */
   async received(userId: string, limit = 50) {
-    return this.db
+    const rows = await this.db
       .selectFrom('member.sos_events as e')
       .innerJoin('member.sos_deliveries as d', 'd.sos_id', 'e.id')
       .innerJoin('member.users as u', 'u.id', 'e.user_id')
@@ -152,10 +150,7 @@ export class SosService {
         'e.id',
         'e.user_id as userId',
         'u.nickname',
-        'e.latitude',
-        'e.longitude',
-        'e.place_name as placeName',
-        'e.place_address as placeAddress',
+        ...SOS_PLACE_COLUMNS,
         'e.status',
         'e.started_at as startedAt',
         'e.created_at as createdAt',
@@ -165,6 +160,7 @@ export class SosService {
       .orderBy('e.created_at', 'desc')
       .limit(limit)
       .execute();
+    return rows.map(withSosPlace);
   }
 
   /**

@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { ChatGateway } from '../chat/chat.gateway.js';
+import { decryptCoords, encryptCoords } from '../common/location-crypto.js';
 import { policyNumber, resolvePolicy, type Policy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
@@ -150,20 +151,24 @@ export class SafeZoneService {
     const rows = await this.db
       .selectFrom('member.safe_zone_events as e')
       .innerJoin('member.safe_zones as z', 'z.id', 'e.zone_id')
-      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.latitude', 'e.longitude', 'z.id as zoneId', 'z.name'])
+      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.coords_enc', 'e.latitude', 'e.longitude', 'z.id as zoneId', 'z.name'])
       .where('e.user_id', '=', userId)
       .orderBy('e.occurred_at', 'desc')
       .limit(Math.min(limit, 200))
       .execute();
-    return rows.map((r) => ({
-      id: r.id,
-      zoneId: r.zoneId,
-      zoneName: r.name,
-      kind: r.kind,
-      occurredAt: r.occurred_at.toISOString(),
-      latitude: r.latitude,
-      longitude: r.longitude,
-    }));
+    return rows.map((r) => {
+      // 암호화로 옮기기 전 옛 행이면 평문 칸 (coords-backfill.service.ts)
+      const at = r.coords_enc ? decryptCoords(r.coords_enc) : { latitude: r.latitude, longitude: r.longitude };
+      return {
+        id: r.id,
+        zoneId: r.zoneId,
+        zoneName: r.name,
+        kind: r.kind,
+        occurredAt: r.occurred_at.toISOString(),
+        latitude: at.latitude,
+        longitude: at.longitude,
+      };
+    });
   }
 
   /**
@@ -220,8 +225,8 @@ export class SafeZoneService {
           user_id: userId,
           kind: crossing,
           occurred_at: fix.measuredAt,
-          latitude: fix.latitude,
-          longitude: fix.longitude,
+          // 드나든 순간의 위치는 암호화해서만 저장합니다 (common/location-crypto.ts)
+          coords_enc: encryptCoords(fix.latitude, fix.longitude),
         })
         .execute();
 

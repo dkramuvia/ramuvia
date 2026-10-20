@@ -113,6 +113,11 @@ const schema = z.object({
   LOCATION_KEEP_MONTHS: z.coerce.number().int().min(0).max(120).default(6),
   PHONE_ENC_KEY: z.string().min(40),
   PHONE_HASH_KEY: z.string().min(40),
+  /**
+   * 위치정보 저장 암호화 키 (32바이트 base64). 비워 두면 PHONE_ENC_KEY 에서 위치 전용 키를 뽑습니다
+   * (common/location-crypto.ts). 한 번 정한 뒤에는 바꾸지 마세요 — 저장된 위치를 못 읽게 됩니다.
+   */
+  LOCATION_ENC_KEY: z.string().default(''),
   DEV_LOGIN_ENABLED: z
     .string()
     .default('false')

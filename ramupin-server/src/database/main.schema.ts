@@ -215,6 +215,9 @@ export interface SosEventsTable {
   id: Generated<string>;
   user_id: string;
   started_at: Timestamp;
+  /** { latitude, longitude, altitude, placeName, placeAddress } 암호화 (common/location-crypto.ts) */
+  place_enc: Buffer | null;
+  /** 암호화 이전 평문 칸 (migrations/main/0036). 새 값은 넣지 않습니다 */
   latitude: number | null;
   longitude: number | null;
   altitude: number | null;
@@ -369,8 +372,11 @@ export interface SafeZoneEventsTable {
   user_id: string;
   kind: 'enter' | 'leave';
   occurred_at: Date;
-  latitude: number;
-  longitude: number;
+  /** 드나든 순간의 [위도, 경도] 암호화 (common/location-crypto.ts) */
+  coords_enc: Buffer | null;
+  /** 암호화 이전 평문 칸 (migrations/main/0036). 새 값은 넣지 않습니다 */
+  latitude: number | null;
+  longitude: number | null;
   created_at: Generated<Date>;
 }
 

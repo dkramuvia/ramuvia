@@ -157,7 +157,7 @@ export class SafeZoneService {
     const rows = await this.db
       .selectFrom('member.safe_zone_events as e')
       .innerJoin('member.safe_zones as z', 'z.id', 'e.zone_id')
-      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.latitude_enc', 'e.longitude_enc', 'e.coords_enc', 'z.id as zoneId', 'z.name'])
+      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.latitude_enc', 'e.longitude_enc', 'z.id as zoneId', 'z.name'])
       .where('e.user_id', '=', userId)
       .orderBy('e.occurred_at', 'desc')
       .limit(Math.min(limit, 200))
@@ -169,7 +169,7 @@ export class SafeZoneService {
       kind: r.kind,
       occurredAt: r.occurred_at.toISOString(),
       // 드나든 위치는 암호화돼 있어 여기서 풉니다 (common/location-crypto.ts)
-      ...readCoords(r.latitude_enc, r.longitude_enc, r.coords_enc),
+      ...readCoords(r.latitude_enc, r.longitude_enc),
     }));
   }
 

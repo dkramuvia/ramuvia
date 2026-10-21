@@ -46,18 +46,7 @@ export const encryptOptional = (value: number | string | null | undefined): Buff
 export const decryptNumber = (stored: Buffer): number => decryptLocation<number>(stored);
 export const decryptOptional = <T extends number | string>(stored: Buffer | null): T | null => (stored ? decryptLocation<T>(stored) : null);
 
-/**
- * 나누기 전에는 [위도, 경도] 를 한 칸(coords_enc)에 넣었습니다 (10-20).
- * 칸을 나누는 동안 옛 행을 읽고 옮기는 데만 씁니다 (location/coords-split.service.ts)
- */
-export function decryptCoords(stored: Buffer): Coords {
-  const [latitude, longitude] = decryptLocation<[number, number]>(stored);
-  return { latitude, longitude };
-}
-
-/** 위도·경도 칸을 풉니다. 아직 나누지 않은 옛 행이면 한 칸짜리를 풉니다 */
-export function readCoords(latitudeEnc: Buffer | null, longitudeEnc: Buffer | null, combined: Buffer | null): Coords {
-  if (latitudeEnc && longitudeEnc) return { latitude: decryptNumber(latitudeEnc), longitude: decryptNumber(longitudeEnc) };
-  if (combined) return decryptCoords(combined);
-  throw new Error('암호화된 좌표가 없습니다');
+/** 위도·경도 칸을 풉니다 */
+export function readCoords(latitudeEnc: Buffer, longitudeEnc: Buffer): Coords {
+  return { latitude: decryptNumber(latitudeEnc), longitude: decryptNumber(longitudeEnc) };
 }

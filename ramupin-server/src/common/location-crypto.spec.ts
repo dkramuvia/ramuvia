@@ -10,7 +10,7 @@ import { decryptLocation, decryptNumber, decryptOptional, encryptLocation, encry
  */
 describe('위치 암호화', () => {
   it('위도·경도를 칸마다 암호화했다가 그대로 되돌립니다', () => {
-    expect(readCoords(encryptValue(37.4776123), encryptValue(126.8826456), null)).toEqual({ latitude: 37.4776123, longitude: 126.8826456 });
+    expect(readCoords(encryptValue(37.4776123), encryptValue(126.8826456))).toEqual({ latitude: 37.4776123, longitude: 126.8826456 });
   });
 
   it('저장된 값에 숫자가 평문으로 보이지 않습니다', () => {
@@ -34,10 +34,6 @@ describe('위치 암호화', () => {
     expect(decryptOptional<number>(encryptOptional(42.5))).toBe(42.5);
   });
 
-  it('칸을 나누기 전(한 칸에 [위도, 경도]) 옛 행도 읽습니다', () => {
-    expect(readCoords(null, null, encryptLocation([37.1, 127.1]))).toEqual({ latitude: 37.1, longitude: 127.1 });
-  });
-
   it('여러 값을 한 덩어리로 넣고 꺼냅니다', () => {
     const value = { a: 1, b: '서울특별시 금천구', c: null };
     expect(decryptLocation(encryptLocation(value))).toEqual(value);
@@ -54,17 +50,12 @@ describe('SOS 장소', () => {
   });
 
   it('칸마다 암호화한 행을 화면이 받는 모양으로 풉니다', () => {
-    const row = { id: 'x', ...encryptSosPlace(place), place_enc: null };
+    const row = { id: 'x', ...encryptSosPlace(place) };
     expect(withSosPlace(row)).toEqual({ id: 'x', ...expected });
-  });
-
-  it('칸을 나누기 전 한 덩어리 옛 행도 풉니다', () => {
-    const none = encryptSosPlace({ latitude: null, longitude: null, altitude: null, placeName: null, placeAddress: null });
-    expect(withSosPlace({ id: 'y', ...none, place_enc: encryptLocation(place) })).toEqual({ id: 'y', ...expected });
   });
 
   it('위치 없이 보낸 SOS 는 장소가 모두 비어 있습니다', () => {
     const none = encryptSosPlace({ latitude: null, longitude: null, altitude: null, placeName: null, placeAddress: null });
-    expect(withSosPlace({ id: 'z', ...none, place_enc: null })).toEqual({ id: 'z', latitude: null, longitude: null, placeName: null, placeAddress: null });
+    expect(withSosPlace({ id: 'z', ...none })).toEqual({ id: 'z', latitude: null, longitude: null, placeName: null, placeAddress: null });
   });
 });

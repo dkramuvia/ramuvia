@@ -221,8 +221,6 @@ export interface SosEventsTable {
   altitude_enc: Buffer | null;
   place_name_enc: Buffer | null;
   place_address_enc: Buffer | null;
-  /** 나누기 전 칸 (위 다섯 값을 한 덩어리로). 옮기는 동안만 남아 있습니다 (migrations/main/0039) */
-  place_enc: Buffer | null;
   audio_asset_id: string | null;
   status: Generated<'sent' | 'cancelled' | 'resolved'>;
   recipient_count: Generated<number>;
@@ -384,10 +382,8 @@ export interface SafeZoneEventsTable {
   kind: 'enter' | 'leave';
   occurred_at: Date;
   /** 드나든 순간의 위도·경도 (칸마다 암호화, common/location-crypto.ts) */
-  latitude_enc: Buffer | null;
-  longitude_enc: Buffer | null;
-  /** 나누기 전 칸 ([위도, 경도] 한 덩어리). 옮기는 동안만 남아 있습니다 (migrations/main/0039) */
-  coords_enc: Buffer | null;
+  latitude_enc: Buffer;
+  longitude_enc: Buffer;
   created_at: Generated<Date>;
 }
 

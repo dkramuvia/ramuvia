@@ -185,7 +185,7 @@ export class LocationService {
     if (prev && prev.last_measured_at >= measuredAt) return;
 
     // 기준점에서 반경 밖으로 나갔으면 "지금부터 여기 머무는 중"으로 새로 잡습니다
-    const anchor = prev ? readCoords(prev.anchor_latitude_enc, prev.anchor_longitude_enc, prev.anchor_coords_enc) : null;
+    const anchor = prev ? readCoords(prev.anchor_latitude_enc, prev.anchor_longitude_enc) : null;
     const movedAway = !prev || !anchor || distanceM(anchor.latitude, anchor.longitude, latest.latitude, latest.longitude) > ANOMALY_RULES.fixedRadiusM;
     const newAnchor = movedAway || !anchor ? latest : anchor;
 
@@ -196,13 +196,11 @@ export class LocationService {
       .values({
         user_id: userId,
         last_measured_at: measuredAt,
-        // 위도·경도는 칸마다 암호화해서만 저장하고, 나누기 전 한 덩어리 칸은 비웁니다 (common/location-crypto.ts)
+        // 위도·경도는 칸마다 암호화해서만 저장합니다 (common/location-crypto.ts)
         last_latitude_enc: encryptValue(latest.latitude),
         last_longitude_enc: encryptValue(latest.longitude),
         anchor_latitude_enc: encryptValue(newAnchor.latitude),
         anchor_longitude_enc: encryptValue(newAnchor.longitude),
-        last_coords_enc: null,
-        anchor_coords_enc: null,
         last_battery: battery,
         last_charging: latest.charging ?? null,
         fixed_since: movedAway ? measuredAt : prev.fixed_since,
@@ -216,8 +214,6 @@ export class LocationService {
           last_longitude_enc: eb.ref('excluded.last_longitude_enc'),
           anchor_latitude_enc: eb.ref('excluded.anchor_latitude_enc'),
           anchor_longitude_enc: eb.ref('excluded.anchor_longitude_enc'),
-          last_coords_enc: eb.ref('excluded.last_coords_enc'),
-          anchor_coords_enc: eb.ref('excluded.anchor_coords_enc'),
           last_battery: eb.ref('excluded.last_battery'),
           last_charging: eb.ref('excluded.last_charging'),
           fixed_since: eb.ref('excluded.fixed_since'),
@@ -248,13 +244,13 @@ export class LocationService {
   async dayPoints(userId: string, from: Date, to: Date) {
     const rows = await this.db
       .selectFrom('location.location_points')
-      .select(['latitude_enc', 'longitude_enc', 'coords_enc', 'measured_at'])
+      .select(['latitude_enc', 'longitude_enc', 'measured_at'])
       .where('user_id', '=', userId)
       .where('measured_at', '>=', from)
       .where('measured_at', '<', to)
       .orderBy('measured_at')
       .execute();
-    return rows.map((r) => ({ ...readCoords(r.latitude_enc, r.longitude_enc, r.coords_enc), measured_at: r.measured_at }));
+    return rows.map((r) => ({ ...readCoords(r.latitude_enc, r.longitude_enc), measured_at: r.measured_at }));
   }
 
   /**
@@ -456,11 +452,10 @@ function toSnapshot(r: {
   last_charging: boolean | null;
   fixed_since: Date;
   battery_zero_since: Date | null;
-  last_latitude_enc: Buffer | null;
-  last_longitude_enc: Buffer | null;
-  last_coords_enc: Buffer | null;
+  last_latitude_enc: Buffer;
+  last_longitude_enc: Buffer;
 }): UserStatusSnapshot {
-  const last = readCoords(r.last_latitude_enc, r.last_longitude_enc, r.last_coords_enc);
+  const last = readCoords(r.last_latitude_enc, r.last_longitude_enc);
   return {
     userId: r.user_id,
     lastMeasuredAt: r.last_measured_at,

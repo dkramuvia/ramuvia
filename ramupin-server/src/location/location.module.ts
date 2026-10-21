@@ -8,7 +8,6 @@ import { RealtimeModule } from '../chat/chat.gateway.js';
 import { PushModule } from '../push/push.module.js';
 import { SafeZoneModule } from '../safe-zones/safe-zone.module.js';
 import { env } from '../config/env.js';
-import { CoordsSplitService } from './coords-split.service.js';
 import type { LocationDatabase } from './location.schema.js';
 import { LocationQueue } from './location.queue.js';
 import { LOCATION_DB, LocationService } from './location.service.js';
@@ -116,8 +115,6 @@ class LocationController {
     LocationWorker,
     SpeedingService,
     RetentionService,
-    // 한 칸에 함께 암호화했던 좌표를 칸마다 나눠 옮깁니다 (migrations/location/0009, main/0039)
-    CoordsSplitService,
   ],
   exports: [LocationService],
 })

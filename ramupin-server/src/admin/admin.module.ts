@@ -18,13 +18,14 @@ import {
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
 import type { Redis } from 'ioredis';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { appError, parseInput } from '../common/app-error.js';
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import type { AdminAccessAction } from '../database/main.schema.js';
 import { AnomalyModule } from '../anomaly/anomaly.module.js';
 import { LocationModule } from '../location/location.module.js';
 import { PhoneModule } from '../phone/phone.module.js';
@@ -46,19 +47,37 @@ import { AdminUsersController } from './admin-users.controller.js';
 import { LogsController } from './logs.controller.js';
 import { MonitoringController } from './monitoring.controller.js';
 import { OverviewController } from './overview.controller.js';
+import { OTP_ISSUER, decryptOtpSecret, encryptOtpSecret, generateOtpSecret, otpQrDataUrl, verifyTotp } from './admin-otp.js';
 import { hashPassword, verifyPassword } from './admin-password.js';
 import { POLICY_FIELDS, applyPatch, parsePolicyPatch } from './policy-fields.js';
 
 const ADMIN_PAGE = new URL('./admin-page.html', import.meta.url);
 
 /**
- * 로그인 실패 제한. 같은 곳(IP)에서 같은 아이디로 15분에 5번 틀리면 15분 동안 막습니다.
+ * 로그인 실패 제한. 같은 곳(IP)에서 같은 아이디로 30분에 5번 틀리면 30분 동안 막습니다.
  * 막혀 있는 동안은 맞는 비밀번호도 받지 않습니다 — 받으면 막아도 계속 맞혀 볼 수 있습니다 (10-12 자동 시험)
  */
 const LOGIN_FAIL_LIMIT = 5;
-const LOGIN_FAIL_WINDOW_SEC = 15 * 60;
+// 계정 잠금(30분)과 같은 시간으로 둡니다 — 안내 문구와 잠긴 시간이 어긋나지 않게
+const LOGIN_FAIL_WINDOW_SEC = 30 * 60;
+
+/** 계정 잠금: 비밀번호·OTP 를 연속 이만큼 틀리면 (위치정보사업 신고 [첨부 2]: 5회 오류 잠금) */
+const ACCOUNT_LOCK_LIMIT = 5;
+const ACCOUNT_LOCK_SEC = 30 * 60;
+/** 비밀번호를 맞힌 뒤 OTP 를 넣을 시간 */
+const OTP_CHALLENGE_SEC = 5 * 60;
+const otpChallengeKey = (challenge: string) => `admin:otp-challenge:${challenge}`;
+
+const lockedError = (retryAfterSec: number) =>
+  appError(
+    423,
+    'ADMIN_LOGIN_LOCKED',
+    `비밀번호 또는 인증번호를 ${ACCOUNT_LOCK_LIMIT}회 잘못 입력해 로그인이 잠겼습니다. ${Math.ceil(retryAfterSec / 60)}분 뒤에 다시 시도하거나 최고 관리자에게 잠금 해제를 요청하세요`,
+    { retryAfterSec },
+  );
 
 const loginBody = z.object({ loginId: z.string().min(1).max(64), password: z.string().min(1).max(200) });
+const otpBody = z.object({ challenge: z.string().min(16).max(100), code: z.string().min(6).max(12) });
 const publicIdParam = z.string().regex(/^\d{8}$/, '8자리 사용자 ID');
 
 @Controller('admin')
@@ -81,25 +100,37 @@ class AdminAuthController {
     private readonly jwt: JwtService,
   ) {}
 
+  /**
+   * 1단계: 아이디·비밀번호. 맞으면 OTP 단계로 넘어갑니다 (등록 전이면 QR 등록 화면).
+   *
+   * 잠금은 두 가지입니다.
+   *  - 계정: 비밀번호·OTP 를 연속 5회 틀리면 그 계정을 30분 잠급니다. IP 를 바꿔도 소용없습니다.
+   *  - IP: 같은 곳에서 같은 아이디로 30분에 5번 — 없는 아이디를 계속 넣어 보는 것을 막습니다.
+   * 잠겨 있는 동안은 맞는 비밀번호도 받지 않습니다 — 받으면 막아도 계속 맞혀 볼 수 있습니다 (10-12 자동 시험)
+   */
   @Post('login')
   async login(@Req() request: Request, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
     const { loginId, password } = parseInput(loginBody, body);
     const ip = clientIp(request);
     // 같은 곳(IP)에서 틀린 횟수를 셉니다. 전에는 nginx 주소로 세어서 모든 관리자가 한 칸을 같이 썼습니다
     const failKey = `admin:login-fail:${ip ?? ''}:${loginId}`;
-    if (Number(await this.redis.get(failKey)) >= LOGIN_FAIL_LIMIT) {
+    const ipFails = Number(await this.redis.get(failKey));
+    if (ipFails >= LOGIN_FAIL_LIMIT) {
       await this.logAccess(request, null, loginId, 'login_locked');
       const retryAfterSec = Math.max(await this.redis.ttl(failKey), 1);
-      throw appError(429, 'ADMIN_LOGIN_LOCKED', `로그인 실패가 많아 잠시 막았습니다. ${Math.ceil(retryAfterSec / 60)}분 뒤에 다시 시도하세요`, {
-        retryAfterSec,
-      });
+      throw lockedError(retryAfterSec);
     }
 
     const row = await this.db
       .selectFrom('config.admin_users')
-      .select(['id', 'login_id', 'password_hash', 'name', 'role', 'disabled'])
+      .select(['id', 'login_id', 'password_hash', 'name', 'role', 'disabled', 'otp_enabled', 'otp_secret_enc', 'failed_count', 'locked_until'])
       .where('login_id', '=', loginId)
       .executeTakeFirst();
+
+    if (row?.locked_until && row.locked_until.getTime() > Date.now()) {
+      await this.logAccess(request, row.id, loginId, 'login_locked');
+      throw lockedError(Math.ceil((row.locked_until.getTime() - Date.now()) / 1000));
+    }
 
     // 아이디가 없을 때도 같은 시간이 걸리도록 해시 검사를 항상 돌립니다 (아이디가 있는지 새어 나가지 않게)
     const stored = row?.password_hash ?? (await DUMMY_HASH);
@@ -108,11 +139,110 @@ class AdminAuthController {
       const fails = await this.redis.incr(failKey);
       if (fails === 1) await this.redis.expire(failKey, LOGIN_FAIL_WINDOW_SEC);
       await this.logAccess(request, row?.id ?? null, loginId, 'login_failed');
-      throw appError(401, 'ADMIN_LOGIN_FAILED', '아이디 또는 비밀번호가 다릅니다');
+      // 없는 아이디도 같은 모양으로 답합니다 (남은 횟수는 IP 기준) — 아이디가 있는지 새어 나가지 않게
+      const remaining = row && !row.disabled ? await this.registerFailure(request, row.id, row.login_id) : LOGIN_FAIL_LIMIT - fails;
+      if (remaining <= 0) throw lockedError(ACCOUNT_LOCK_SEC);
+      throw appError(401, 'ADMIN_LOGIN_FAILED', `아이디 또는 비밀번호가 다릅니다. (남은 시도 ${remaining}회)`, { remainingAttempts: remaining });
     }
     await this.redis.del(failKey);
-    await this.logAccess(request, row.id, row.login_id, 'login');
 
+    if (!env.ADMIN_OTP_REQUIRED) return this.issueSession(request, response, row);
+
+    // 2단계(OTP)로. 비밀번호를 맞혔다는 표시는 5분짜리 일회용 열쇠로만 넘깁니다
+    const challenge = randomBytes(24).toString('base64url');
+    if (row.otp_enabled && row.otp_secret_enc) {
+      await this.redis.set(otpChallengeKey(challenge), JSON.stringify({ adminId: row.id }), 'EX', OTP_CHALLENGE_SEC);
+      return { status: 'otp_required' as const, challenge };
+    }
+    // 처음 로그인: 인증 앱에 등록할 비밀값을 만들어 보여 줍니다. 숫자를 한 번 맞혀야 저장됩니다
+    const secret = generateOtpSecret();
+    await this.redis.set(otpChallengeKey(challenge), JSON.stringify({ adminId: row.id, pendingSecret: secret }), 'EX', OTP_CHALLENGE_SEC);
+    return {
+      status: 'otp_enroll' as const,
+      challenge,
+      qr: await otpQrDataUrl(row.login_id, secret),
+      // QR 을 못 찍을 때 인증 앱에 직접 넣는 키 (4자리씩 띄어 보여 줍니다)
+      secret: secret.replace(/(.{4})/g, '$1 ').trim(),
+      issuer: OTP_ISSUER,
+      account: row.login_id,
+    };
+  }
+
+  /** 2단계: 인증 앱의 6자리 숫자 */
+  @Post('login/otp')
+  async loginOtp(@Req() request: Request, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+    const { challenge, code } = parseInput(otpBody, body);
+    const raw = await this.redis.get(otpChallengeKey(challenge));
+    if (!raw) throw appError(401, 'ADMIN_OTP_EXPIRED', '인증 시간이 지났습니다. 아이디와 비밀번호부터 다시 입력하세요');
+    const pending = JSON.parse(raw) as { adminId: string; pendingSecret?: string };
+
+    const row = await this.db
+      .selectFrom('config.admin_users')
+      .select(['id', 'login_id', 'name', 'role', 'disabled', 'otp_enabled', 'otp_secret_enc', 'locked_until'])
+      .where('id', '=', pending.adminId)
+      .executeTakeFirst();
+    if (!row || row.disabled) throw appError(401, 'ADMIN_LOGIN_FAILED', '로그인할 수 없는 계정입니다');
+    if (row.locked_until && row.locked_until.getTime() > Date.now()) {
+      await this.redis.del(otpChallengeKey(challenge));
+      await this.logAccess(request, row.id, row.login_id, 'login_locked');
+      throw lockedError(Math.ceil((row.locked_until.getTime() - Date.now()) / 1000));
+    }
+
+    const secret = pending.pendingSecret ?? (row.otp_secret_enc ? decryptOtpSecret(row.otp_secret_enc) : null);
+    const step = secret ? verifyTotp(secret, code.replace(/\s/g, '')) : null;
+    // 같은 숫자를 두 번 쓰지 못하게 합니다 (어깨너머로 본 숫자를 30초 안에 다시 넣는 것)
+    const fresh = step !== null && (await this.redis.set(`admin:otp-used:${row.id}:${step}`, '1', 'EX', 120, 'NX')) === 'OK';
+    if (!fresh) {
+      await this.logAccess(request, row.id, row.login_id, 'otp_failed');
+      const remaining = await this.registerFailure(request, row.id, row.login_id);
+      if (remaining <= 0) {
+        await this.redis.del(otpChallengeKey(challenge));
+        throw lockedError(ACCOUNT_LOCK_SEC);
+      }
+      throw appError(401, 'ADMIN_OTP_FAILED', `인증번호가 맞지 않습니다. (남은 시도 ${remaining}회)`, { remainingAttempts: remaining });
+    }
+
+    await this.redis.del(otpChallengeKey(challenge));
+    if (pending.pendingSecret) {
+      await this.db
+        .updateTable('config.admin_users')
+        .set({ otp_secret_enc: encryptOtpSecret(pending.pendingSecret), otp_enabled: true, updated_at: new Date() })
+        .where('id', '=', row.id)
+        .execute();
+      await this.logAccess(request, row.id, row.login_id, 'otp_enrolled');
+    }
+    return this.issueSession(request, response, row);
+  }
+
+  /**
+   * 틀린 횟수를 올리고 남은 횟수를 돌려줍니다. 5회째면 30분 잠그고 0.
+   * 계정 행에서 한 번에 올려, 여러 창에서 동시에 넣어도 횟수가 새지 않습니다
+   */
+  private async registerFailure(request: Request, adminId: string, loginId: string): Promise<number> {
+    const updated = await this.db
+      .updateTable('config.admin_users')
+      .set((eb) => ({ failed_count: eb('failed_count', '+', 1) }))
+      .where('id', '=', adminId)
+      .returning('failed_count')
+      .executeTakeFirstOrThrow();
+    const remaining = ACCOUNT_LOCK_LIMIT - updated.failed_count;
+    if (remaining > 0) return remaining;
+    await this.db
+      .updateTable('config.admin_users')
+      .set({ locked_until: new Date(Date.now() + ACCOUNT_LOCK_SEC * 1000), failed_count: 0 })
+      .where('id', '=', adminId)
+      .execute();
+    await this.logAccess(request, adminId, loginId, 'account_locked');
+    return 0;
+  }
+
+  /** 모든 단계를 통과: 세션을 만들고 쿠키를 줍니다 */
+  private async issueSession(
+    request: Request,
+    response: Response,
+    row: { id: string; login_id: string; name: string; role: 'viewer' | 'editor' | 'owner' },
+  ) {
+    await this.logAccess(request, row.id, row.login_id, 'login');
     // 로그아웃하면 이 세션을 지워, 쿠키를 복사해 둔 사람도 더는 못 쓰게 합니다 (AdminGuard)
     const sid = randomUUID();
     await this.redis.set(adminSessionKey(sid), row.id, 'EX', ADMIN_SESSION_SEC);
@@ -126,8 +256,9 @@ class AdminAuthController {
       secure: env.NODE_ENV === 'production',
       path: '/admin',
     });
-    await this.db.updateTable('config.admin_users').set({ last_login_at: new Date() }).where('id', '=', row.id).execute();
-    return { name: row.name, role: row.role };
+    // 다 맞혔으니 틀린 횟수를 지웁니다 (연속 5회 기준)
+    await this.db.updateTable('config.admin_users').set({ last_login_at: new Date(), failed_count: 0, locked_until: null }).where('id', '=', row.id).execute();
+    return { status: 'ok' as const, name: row.name, role: row.role };
   }
 
   @Post('logout')
@@ -149,7 +280,7 @@ class AdminAuthController {
    * 관리자 접근기록 (위치정보사업 신고 [첨부 2]: 위치정보시스템의 관리자 접근사실 기록).
    * 기록이 실패했다고 로그인을 막지는 않습니다 — 실패는 서버 로그에 남깁니다
    */
-  private async logAccess(request: Request, adminId: string | null, loginId: string, action: 'login' | 'login_failed' | 'login_locked' | 'logout') {
+  private async logAccess(request: Request, adminId: string | null, loginId: string, action: AdminAccessAction) {
     await this.db
       .insertInto('config.admin_access_logs')
       .values({

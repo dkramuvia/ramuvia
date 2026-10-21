@@ -756,13 +756,35 @@
     <!-- 로그인 -->
     <div id="login" class="panel hidden">
       <h2>RamuPin 관제센터</h2>
-      <div class="sub">관리자 계정으로 로그인하세요.</div>
-      <label for="loginId">아이디</label>
-      <input id="loginId" type="text" autocomplete="username" />
-      <label for="password">비밀번호</label>
-      <input id="password" type="password" autocomplete="current-password" />
-      <button class="action" id="loginBtn">로그인</button>
+      <!-- 1단계: 아이디 · 비밀번호 -->
+      <div id="loginStep1">
+        <div class="sub">관리자 계정으로 로그인하세요.</div>
+        <label for="loginId">아이디</label>
+        <input id="loginId" type="text" autocomplete="username" />
+        <label for="password">비밀번호</label>
+        <input id="password" type="password" autocomplete="current-password" />
+        <button class="action" id="loginBtn">로그인</button>
+      </div>
+      <!-- 2단계: 인증 앱(OTP) 6자리. 처음이면 QR 로 등록부터 -->
+      <div id="loginStep2" class="hidden">
+        <div id="otpEnroll" class="hidden">
+          <div class="sub" style="line-height: 1.6">
+            처음 로그인입니다. 휴대폰의 <b>Google Authenticator</b> 등 인증 앱에서 <b>＋ → QR 코드 스캔</b>으로 아래 QR 을 등록하세요.
+          </div>
+          <div style="text-align: center; margin: 12px 0 6px"><img id="otpQr" alt="OTP 등록 QR 코드" width="180" height="180" style="border-radius: 8px; background: #fff" /></div>
+          <div class="sub" style="font-size: 12px; text-align: center">QR 을 찍을 수 없으면 <b>설정 키 입력</b>에 이 키를 넣으세요<br /><code id="otpSecret" style="font-size: 13px; letter-spacing: 0.5px"></code></div>
+        </div>
+        <div class="sub" id="otpGuide">휴대폰 인증 앱에 표시된 <b>RamuPin 관제센터</b> 6자리 인증번호를 입력하세요.</div>
+        <label for="otpCode">인증번호 (OTP)</label>
+        <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" style="letter-spacing: 6px; font-size: 18px; text-align: center" />
+        <button class="action" id="otpBtn">확인</button>
+        <button class="ghost small" id="otpBack" style="margin-top: 8px; width: 100%">처음부터 다시</button>
+      </div>
       <div class="msg err" id="loginMsg" style="margin-top: 12px"></div>
+      <div class="sub" style="margin-top: 16px; font-size: 12px; line-height: 1.6; border-top: 1px solid var(--line, #e5e7eb); padding-top: 12px">
+        🔒 보안 안내 · 로그인에는 비밀번호와 인증 앱(OTP) 6자리가 모두 필요합니다.<br />
+        비밀번호 또는 인증번호를 <b>5회 잘못 입력하면 30분간 로그인이 잠깁니다.</b> 모든 접속은 기록됩니다.
+      </div>
     </div>
 
     <!-- 본 화면 -->
@@ -1223,22 +1245,64 @@
       paintThemeBtn();
 
       // ── 로그인 ───────────────────────────────────────────
+      // 1단계(비밀번호)를 통과하면 서버가 주는 5분짜리 일회용 열쇠. 2단계(OTP)에 같이 보냅니다
+      let otpChallenge = null;
+      function showLoginStep(step) {
+        $('loginStep1').classList.toggle('hidden', step !== 1);
+        $('loginStep2').classList.toggle('hidden', step !== 2);
+      }
       $('loginBtn').onclick = async () => {
         $('loginMsg').textContent = '';
         try {
-          await api('/login', {
+          const result = await api('/login', {
             method: 'POST',
             body: JSON.stringify({ loginId: $('loginId').value, password: $('password').value }),
           });
+          if (result.status === 'otp_required' || result.status === 'otp_enroll') {
+            otpChallenge = result.challenge;
+            const enroll = result.status === 'otp_enroll';
+            $('otpEnroll').classList.toggle('hidden', !enroll);
+            if (enroll) {
+              $('otpQr').src = result.qr;
+              $('otpSecret').textContent = result.secret;
+            }
+            $('otpGuide').innerHTML = enroll
+              ? '등록한 뒤 인증 앱에 나오는 <b>6자리 숫자</b>를 입력하면 등록과 로그인이 함께 끝납니다.'
+              : '휴대폰 인증 앱에 표시된 <b>RamuPin 관제센터</b> 6자리 인증번호를 입력하세요.';
+            $('otpCode').value = '';
+            showLoginStep(2);
+            $('otpCode').focus();
+            return;
+          }
           await start();
         } catch (error) {
           $('loginMsg').textContent = error.message;
         }
       };
+      $('otpBtn').onclick = async () => {
+        $('loginMsg').textContent = '';
+        try {
+          await api('/login/otp', { method: 'POST', body: JSON.stringify({ challenge: otpChallenge, code: $('otpCode').value.trim() }) });
+          otpChallenge = null;
+          await start();
+        } catch (error) {
+          $('loginMsg').textContent = error.message;
+          // 시간이 지났거나 잠겼으면 처음부터
+          if (/다시 입력하세요|잠겼습니다/.test(error.message)) showLoginStep(1);
+          $('otpCode').select();
+        }
+      };
+      $('otpBack').onclick = () => {
+        otpChallenge = null;
+        $('loginMsg').textContent = '';
+        $('password').value = '';
+        showLoginStep(1);
+      };
       // 화살표 함수가 false 를 돌려주면 브라우저가 그 키 입력을 취소합니다.
       // `e.key === 'Enter' && ...` 는 다른 키에서 false 가 되어 글자가 아예 안 들어갔습니다 (09-18 수정).
       onEnter($('loginId'), () => $('loginBtn').click());
       onEnter($('password'), () => $('loginBtn').click());
+      onEnter($('otpCode'), () => $('otpBtn').click());
 
       $('logoutBtn').onclick = async () => {
         await api('/logout', { method: 'POST' });
@@ -1887,7 +1951,17 @@
         const p = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
       }
-      const ACCESS_ACTIONS = { login: '로그인', login_failed: '로그인 실패', login_locked: '차단 (실패 반복)', logout: '로그아웃' };
+      const ACCESS_ACTIONS = {
+        login: '로그인',
+        login_failed: '비밀번호 오류',
+        otp_failed: 'OTP 오류',
+        account_locked: '계정 잠김 (5회 오류)',
+        login_locked: '잠긴 상태에서 시도',
+        logout: '로그아웃',
+        otp_enrolled: 'OTP 등록',
+        otp_reset: 'OTP 초기화',
+        unlocked: '잠금 해제',
+      };
       const ACCESS_PURPOSE_NAMES = {
         friend_list: '친구 위치 보기 (지도)',
         journey: '이동경로 보기',

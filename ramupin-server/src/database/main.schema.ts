@@ -286,16 +286,33 @@ export interface AdminUsersTable {
   role: Generated<'viewer' | 'editor' | 'owner'>;
   disabled: Generated<boolean>;
   last_login_at: NullableTimestamp;
+  /** 인증 앱 OTP 비밀값 (암호화, admin/admin-otp.ts). 처음 로그인할 때 등록합니다 */
+  otp_secret_enc: Buffer | null;
+  otp_enabled: Generated<boolean>;
+  /** 비밀번호·OTP 를 연속으로 틀린 횟수. 5회면 locked_until 까지 잠깁니다 */
+  failed_count: Generated<number>;
+  locked_until: NullableTimestamp;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
 
-/** 관리자 접근기록 (덧붙이기만 합니다, migrations/main/0038) */
+export type AdminAccessAction =
+  | 'login'
+  | 'login_failed'
+  | 'login_locked'
+  | 'logout'
+  | 'otp_failed'
+  | 'account_locked'
+  | 'otp_enrolled'
+  | 'otp_reset'
+  | 'unlocked';
+
+/** 관리자 접근기록 (덧붙이기만 합니다, migrations/main/0038·0041) */
 export interface AdminAccessLogsTable {
   id: Generated<string>;
   admin_id: string | null;
   login_id: string;
-  action: 'login' | 'login_failed' | 'login_locked' | 'logout';
+  action: AdminAccessAction;
   ip: string | null;
   user_agent: string | null;
   created_at: Generated<Date>;

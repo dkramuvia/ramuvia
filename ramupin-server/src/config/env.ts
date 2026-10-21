@@ -118,6 +118,15 @@ const schema = z.object({
    * (common/location-crypto.ts). 한 번 정한 뒤에는 바꾸지 마세요 — 저장된 위치를 못 읽게 됩니다.
    */
   LOCATION_ENC_KEY: z.string().default(''),
+  /**
+   * 관제센터 로그인에 OTP(인증 앱 6자리)를 요구할지. 기본 켜짐.
+   * ⚠️ 비상용: 관리자 전원이 인증 앱을 잃어 못 들어갈 때만 false 로 두고 api 를 다시 띄웁니다.
+   * 한 사람만 문제면 끄지 말고 scripts/admin-security.mjs reset-otp 로 그 계정만 초기화합니다
+   */
+  ADMIN_OTP_REQUIRED: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false'),
   DEV_LOGIN_ENABLED: z
     .string()
     .default('false')

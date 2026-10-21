@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { ChatGateway } from '../chat/chat.gateway.js';
-import { decryptCoords, encryptCoords } from '../common/location-crypto.js';
+import { encryptValue, readCoords } from '../common/location-crypto.js';
 import { policyNumber, resolvePolicy, type Policy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
@@ -157,7 +157,7 @@ export class SafeZoneService {
     const rows = await this.db
       .selectFrom('member.safe_zone_events as e')
       .innerJoin('member.safe_zones as z', 'z.id', 'e.zone_id')
-      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.coords_enc', 'z.id as zoneId', 'z.name'])
+      .select(['e.id', 'e.kind', 'e.occurred_at', 'e.latitude_enc', 'e.longitude_enc', 'e.coords_enc', 'z.id as zoneId', 'z.name'])
       .where('e.user_id', '=', userId)
       .orderBy('e.occurred_at', 'desc')
       .limit(Math.min(limit, 200))
@@ -169,7 +169,7 @@ export class SafeZoneService {
       kind: r.kind,
       occurredAt: r.occurred_at.toISOString(),
       // 드나든 위치는 암호화돼 있어 여기서 풉니다 (common/location-crypto.ts)
-      ...decryptCoords(r.coords_enc),
+      ...readCoords(r.latitude_enc, r.longitude_enc, r.coords_enc),
     }));
   }
 
@@ -227,8 +227,9 @@ export class SafeZoneService {
           user_id: userId,
           kind: crossing,
           occurred_at: fix.measuredAt,
-          // 드나든 순간의 위치는 암호화해서만 저장합니다 (common/location-crypto.ts)
-          coords_enc: encryptCoords(fix.latitude, fix.longitude),
+          // 드나든 순간의 위도·경도는 칸마다 암호화해서만 저장합니다 (common/location-crypto.ts)
+          latitude_enc: encryptValue(fix.latitude),
+          longitude_enc: encryptValue(fix.longitude),
         })
         .execute();
 

@@ -6,7 +6,7 @@ import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { PushService } from '../push/push.service.js';
-import { encryptSosPlace, withSosPlace } from './sos-place.js';
+import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
 
 /**
  * SOS (WBS 7.9 / 8.3 / 9.3 / 10.8).
@@ -57,8 +57,8 @@ export class SosService {
       .values({
         user_id: userId,
         started_at: input.startedAt,
-        // 누른 곳의 좌표·장소는 암호화해서만 저장합니다 (common/location-crypto.ts)
-        place_enc: encryptSosPlace(input),
+        // 누른 곳의 위도·경도·고도·장소명·주소는 칸마다 암호화해서만 저장합니다 (common/location-crypto.ts)
+        ...encryptSosPlace(input),
         audio_asset_id: input.audioAssetId,
         recipient_count: recipients.length,
         to_monitoring: toMonitoring,
@@ -156,7 +156,7 @@ export class SosService {
         'e.id',
         'e.user_id as userId',
         'u.nickname',
-        'e.place_enc',
+        ...SOS_PLACE_COLUMNS,
         'e.status',
         'e.started_at as startedAt',
         'e.created_at as createdAt',

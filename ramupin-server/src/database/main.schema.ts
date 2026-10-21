@@ -215,7 +215,13 @@ export interface SosEventsTable {
   id: Generated<string>;
   user_id: string;
   started_at: Timestamp;
-  /** { latitude, longitude, altitude, placeName, placeAddress } 암호화 (common/location-crypto.ts). 위치를 못 잡았으면 null */
+  /** 누른 곳: 위도·경도·고도·장소명·주소를 칸마다 암호화 (common/location-crypto.ts). 못 잡은 값은 null */
+  latitude_enc: Buffer | null;
+  longitude_enc: Buffer | null;
+  altitude_enc: Buffer | null;
+  place_name_enc: Buffer | null;
+  place_address_enc: Buffer | null;
+  /** 나누기 전 칸 (위 다섯 값을 한 덩어리로). 옮기는 동안만 남아 있습니다 (migrations/main/0039) */
   place_enc: Buffer | null;
   audio_asset_id: string | null;
   status: Generated<'sent' | 'cancelled' | 'resolved'>;
@@ -377,8 +383,11 @@ export interface SafeZoneEventsTable {
   user_id: string;
   kind: 'enter' | 'leave';
   occurred_at: Date;
-  /** 드나든 순간의 [위도, 경도] 암호화 (common/location-crypto.ts) */
-  coords_enc: Buffer;
+  /** 드나든 순간의 위도·경도 (칸마다 암호화, common/location-crypto.ts) */
+  latitude_enc: Buffer | null;
+  longitude_enc: Buffer | null;
+  /** 나누기 전 칸 ([위도, 경도] 한 덩어리). 옮기는 동안만 남아 있습니다 (migrations/main/0039) */
+  coords_enc: Buffer | null;
   created_at: Generated<Date>;
 }
 

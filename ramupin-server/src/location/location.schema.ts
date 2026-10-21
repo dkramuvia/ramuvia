@@ -5,8 +5,12 @@ export interface LocationPointsTable {
   user_id: string;
   measured_at: ColumnType<Date, Date | string, never>;
   received_at: Generated<Date>;
-  /** [위도, 경도] AES-256-GCM (common/location-crypto.ts). 평문 좌표 칸은 없습니다 (migrations/location/0007) */
-  coords_enc: Buffer;
+  /** 위도·경도·고도를 칸마다 AES-256-GCM 으로 암호화 (common/location-crypto.ts, migrations/location/0009). 고도가 없으면 null */
+  latitude_enc: Buffer | null;
+  longitude_enc: Buffer | null;
+  altitude_enc: Buffer | null;
+  /** 나누기 전 칸: [위도, 경도] 한 덩어리 암호화, 평문 고도. 옮기는 동안만 남아 있고 새 행에는 넣지 않습니다 */
+  coords_enc: Buffer | null;
   altitude: number | null;
   accuracy: number | null;
   altitude_accuracy: number | null;
@@ -39,13 +43,17 @@ export interface LocationAccessLogsTable {
 export interface UserStatusTable {
   user_id: string;
   last_measured_at: Date;
-  /** 마지막 위치 [위도, 경도] 암호화 */
-  last_coords_enc: Buffer;
+  /** 마지막 위치 위도·경도 (칸마다 암호화) */
+  last_latitude_enc: Buffer | null;
+  last_longitude_enc: Buffer | null;
   last_battery: number | null;
   last_charging: boolean | null;
-  /** 지금 자리에 머물기 시작한 기준점과 시각 (반경 밖으로 나가면 새로 잡음) */
-  /** 머물기 시작한 기준점 [위도, 경도] 암호화 */
-  anchor_coords_enc: Buffer;
+  /** 지금 자리에 머물기 시작한 기준점 위도·경도 (칸마다 암호화)와 시각 (반경 밖으로 나가면 새로 잡음) */
+  anchor_latitude_enc: Buffer | null;
+  anchor_longitude_enc: Buffer | null;
+  /** 나누기 전 칸 ([위도, 경도] 한 덩어리). 옮기는 동안만 남아 있습니다 */
+  last_coords_enc: Buffer | null;
+  anchor_coords_enc: Buffer | null;
   fixed_since: Date;
   /** 배터리가 0% 가 된 시각 (0% 를 벗어나면 null) */
   battery_zero_since: Date | null;

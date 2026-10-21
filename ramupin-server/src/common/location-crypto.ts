@@ -37,10 +37,27 @@ export interface Coords {
   longitude: number;
 }
 
-/** 좌표 한 쌍은 [위도, 경도] 로 짧게 넣습니다 (위치 이력은 하루 수천 건이라 크기가 쌓입니다) */
-export const encryptCoords = (latitude: number, longitude: number): Buffer => encryptLocation([latitude, longitude]);
+/**
+ * 위도·경도·고도·장소명은 **칸마다 따로** 암호화합니다 (위치정보사업 신고 [첨부 2] 예시처럼 X·Y 좌표가 각각 암호화된 모양).
+ * 값이 없으면(null) 칸도 비웁니다.
+ */
+export const encryptValue = (value: number | string): Buffer => encryptLocation(value);
+export const encryptOptional = (value: number | string | null | undefined): Buffer | null => (value == null ? null : encryptLocation(value));
+export const decryptNumber = (stored: Buffer): number => decryptLocation<number>(stored);
+export const decryptOptional = <T extends number | string>(stored: Buffer | null): T | null => (stored ? decryptLocation<T>(stored) : null);
 
+/**
+ * 나누기 전에는 [위도, 경도] 를 한 칸(coords_enc)에 넣었습니다 (10-20).
+ * 칸을 나누는 동안 옛 행을 읽고 옮기는 데만 씁니다 (location/coords-split.service.ts)
+ */
 export function decryptCoords(stored: Buffer): Coords {
   const [latitude, longitude] = decryptLocation<[number, number]>(stored);
   return { latitude, longitude };
+}
+
+/** 위도·경도 칸을 풉니다. 아직 나누지 않은 옛 행이면 한 칸짜리를 풉니다 */
+export function readCoords(latitudeEnc: Buffer | null, longitudeEnc: Buffer | null, combined: Buffer | null): Coords {
+  if (latitudeEnc && longitudeEnc) return { latitude: decryptNumber(latitudeEnc), longitude: decryptNumber(longitudeEnc) };
+  if (combined) return decryptCoords(combined);
+  throw new Error('암호화된 좌표가 없습니다');
 }

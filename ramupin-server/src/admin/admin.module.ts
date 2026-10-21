@@ -66,6 +66,8 @@ const ACCOUNT_LOCK_LIMIT = 5;
 const ACCOUNT_LOCK_SEC = 30 * 60;
 /** 비밀번호를 맞힌 뒤 OTP 를 넣을 시간 */
 const OTP_CHALLENGE_SEC = 5 * 60;
+/** 등록 중인 OTP 비밀값을 유지하는 시간 (그동안은 다시 로그인해도 같은 QR) */
+const OTP_PENDING_SEC = 24 * 60 * 60;
 const otpChallengeKey = (challenge: string) => `admin:otp-challenge:${challenge}`;
 
 const lockedError = (retryAfterSec: number) =>
@@ -154,8 +156,12 @@ class AdminAuthController {
       await this.redis.set(otpChallengeKey(challenge), JSON.stringify({ adminId: row.id }), 'EX', OTP_CHALLENGE_SEC);
       return { status: 'otp_required' as const, challenge };
     }
-    // 처음 로그인: 인증 앱에 등록할 비밀값을 만들어 보여 줍니다. 숫자를 한 번 맞혀야 저장됩니다
-    const secret = generateOtpSecret();
+    // 처음 로그인: 인증 앱에 등록할 비밀값을 보여 줍니다. 숫자를 한 번 맞혀야 저장됩니다.
+    // 등록을 마칠 때까지는 다시 로그인해도 **같은 QR** 을 보여 줍니다. 로그인할 때마다 새로 만들었더니
+    // 앱에 찍어 둔 QR 과 화면의 QR 이 달라져 숫자가 계속 안 맞았습니다 (10-21 실서버 첫 등록)
+    const pendingKey = `admin:otp-pending:${row.id}`;
+    const secret = (await this.redis.get(pendingKey)) ?? generateOtpSecret();
+    await this.redis.set(pendingKey, secret, 'EX', OTP_PENDING_SEC);
     await this.redis.set(otpChallengeKey(challenge), JSON.stringify({ adminId: row.id, pendingSecret: secret }), 'EX', OTP_CHALLENGE_SEC);
     return {
       status: 'otp_enroll' as const,
@@ -210,6 +216,7 @@ class AdminAuthController {
         .where('id', '=', row.id)
         .execute();
       await this.logAccess(request, row.id, row.login_id, 'otp_enrolled');
+      await this.redis.del(`admin:otp-pending:${row.id}`);
     }
     return this.issueSession(request, response, row);
   }

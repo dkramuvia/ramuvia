@@ -269,7 +269,9 @@ export const historyApi = {
       return mockResponse(mockJourney(userId, friend?.batteryLevel));
     }
     const { data } = await apiClient.get<JourneyDay | null>(`/users/${userId}/journey/today`);
-    if (!data) return data;
+    // 경로를 공개하지 않은 친구면 서버가 null 을 줍니다. 예전 서버는 본문을 비워 보내 '' 가 왔고,
+    // 그걸 그대로 돌려줘 이동경로 화면이 stops 를 읽다 죽었습니다 (10-21). 모양이 아니면 모두 "없음"으로
+    if (!data || !Array.isArray(data.stops)) return null;
     // 서버의 네이버 주소 변환이 실패하면 주소가 빈 칸으로 옵니다 → 히스토리에 시간만 보이던 것 (10-19)
     const stops = await Promise.all(
       data.stops.map(async (stop) => {

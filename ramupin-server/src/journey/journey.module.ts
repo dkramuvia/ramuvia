@@ -1,4 +1,5 @@
-import { Controller, Get, Module, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Module, Param, ParseUUIDPipe, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
@@ -21,11 +22,17 @@ const historyQuery = z.object({ category: z.enum(['safety', 'place']).optional()
 class JourneyController {
   constructor(private readonly journey: JourneyService) {}
 
-  /** 그 사람의 하루 여정. 경로를 공개하지 않은 사이면 null */
+  /**
+   * 그 사람의 하루 여정. 경로를 공개하지 않은 사이면 null.
+   *
+   * Nest 는 null 을 돌려주면 본문을 **비워서** 보냅니다(0바이트). 앱은 그걸 빈 글자로 받아
+   * "여정이 있다"고 보고 stops 를 읽다가 이동경로 화면이 죽었습니다 (10-21 실기기, 경로 공유를 끈 친구).
+   * 그래서 JSON null 을 직접 보냅니다.
+   */
   @Get(':userId/journey/today')
-  today(@CurrentUser() user: AuthUser, @Param('userId', ParseUUIDPipe) userId: string, @Query() query: unknown) {
+  async today(@CurrentUser() user: AuthUser, @Param('userId', ParseUUIDPipe) userId: string, @Query() query: unknown, @Res() response: Response) {
     const { date } = parseInput(journeyQuery, query);
-    return this.journey.today(user.id, userId, date);
+    response.json(await this.journey.today(user.id, userId, date));
   }
 }
 

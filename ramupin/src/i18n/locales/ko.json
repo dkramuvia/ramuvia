@@ -1071,5 +1071,18 @@
     "normal": "보통",
     "large": "크게",
     "xlarge": "아주 크게"
+  },
+  "sharingReminder": {
+    "title": "지금 내 위치를\n{{count}}명이 보고 있어요",
+    "subtitle": "모르는 사람이나 원하지 않는 사람이 있으면 바로 멈추세요.",
+    "since": "{{date}}부터",
+    "lastViewed": "최근 확인 {{time}}",
+    "notViewed": "최근 확인 없음",
+    "viewsToday": "하루 {{count}}회 확인",
+    "stop": "멈추기",
+    "stopped": "{{name}}님에게 내 위치 공유를 멈췄어요.",
+    "note": "조회가 갑자기 많아지면 노란색으로 알려드려요. 공유를 멈춰도 상대에게 알림이 가지 않아요.",
+    "allOk": "모두 괜찮아요",
+    "help": "도움이 필요해요 (안전 가이드)"
   }
 }

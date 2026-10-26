@@ -339,6 +339,45 @@ export class LocationService {
    * 내 위치를 누가 봤는지는 본인이 알 수 있어야 합니다.
    * 시스템이 본 것(`viewer_user_id` 가 없는 것)은 뺍니다.
    */
+  /**
+   * 친구별로 내 위치를 얼마나 봤는지 (보완 4.12 위치 공유 중 알림, 스토킹 방지).
+   *
+   * 친구 목록은 30초마다 다시 받아 그때마다 기록이 남으므로, 기록 건수 그대로가 아니라
+   * **10분 단위로 묶어 한 번** 으로 셉니다. "하루 42회 확인" = 지난 24시간에 본 10분 칸 수.
+   * 이상 징후: 지난 24시간 횟수가 그 전 3일 하루 평균의 3배 이상이고 5회 이상.
+   */
+  async viewStats(subjectUserId: string, viewerIds: string[], now = new Date()) {
+    const stats = new Map<string, { lastViewedAt: Date | null; viewsToday: number; dailyAverage: number; unusual: boolean }>();
+    if (viewerIds.length === 0) return stats;
+    const dayAgo = new Date(now.getTime() - 86_400_000);
+    const fourDaysAgo = new Date(now.getTime() - 4 * 86_400_000);
+    const rows = await sql<{ viewer: string; last_at: Date | null; today: string; before: string }>`
+      SELECT viewer_user_id AS viewer,
+             max(accessed_at) AS last_at,
+             count(DISTINCT date_trunc('hour', accessed_at) + floor(extract(minute FROM accessed_at) / 10) * interval '10 minutes')
+               FILTER (WHERE accessed_at >= ${dayAgo}) AS today,
+             count(DISTINCT date_trunc('hour', accessed_at) + floor(extract(minute FROM accessed_at) / 10) * interval '10 minutes')
+               FILTER (WHERE accessed_at < ${dayAgo}) AS before
+      FROM location.location_access_logs
+      WHERE subject_user_id = ${subjectUserId}
+        AND viewer_user_id = ANY(${viewerIds}::uuid[])
+        AND purpose = ANY(${VIEW_PURPOSES}::text[])
+        AND accessed_at >= ${fourDaysAgo}
+      GROUP BY viewer_user_id
+    `.execute(this.db);
+    for (const row of rows.rows) {
+      const today = Number(row.today);
+      const dailyAverage = Number(row.before) / 3;
+      stats.set(row.viewer, {
+        lastViewedAt: row.last_at ? new Date(row.last_at) : null,
+        viewsToday: today,
+        dailyAverage: Math.round(dailyAverage * 10) / 10,
+        unusual: today >= 5 && today >= dailyAverage * 3,
+      });
+    }
+    return stats;
+  }
+
   async recentViewers(userId: string, since: Date, limit: number) {
     const rows = await this.db
       .selectFrom('location.location_access_logs')

@@ -94,6 +94,40 @@ class FriendsService {
     });
   }
 
+  /**
+   * 지금 내 위치를 보고 있는 친구 (보완 4.12 위치 공유 중 알림).
+   * 내가 "비공개" 가 아닌 수준으로 공유 중인 친구만. 공유 시작 = 친구가 된 날.
+   */
+  async sharingOverview(me: string) {
+    const rows = await this.db
+      .selectFrom('social.friend_share_settings as s')
+      .innerJoin('social.friendships as f', (join) => join.onRef('f.user_id', '=', 's.owner_id').onRef('f.friend_id', '=', 's.friend_id'))
+      .innerJoin('member.users as u', 'u.id', 's.friend_id')
+      .select(['u.id', 'u.nickname', 'u.avatar_url', 's.location_level', 'f.created_at'])
+      .where('s.owner_id', '=', me)
+      .where('s.location_level', '!=', 'hidden')
+      .where('u.status', '=', 'active')
+      .orderBy('f.created_at', 'desc')
+      .execute();
+    const stats = await this.location.viewStats(
+      me,
+      rows.map((r) => r.id),
+    );
+    return rows.map((r) => {
+      const s = stats.get(r.id);
+      return {
+        id: r.id,
+        nickname: r.nickname,
+        avatarUrl: r.avatar_url,
+        level: r.location_level,
+        sharingSince: new Date(r.created_at).toISOString(),
+        lastViewedAt: s?.lastViewedAt?.toISOString() ?? null,
+        viewsToday: s?.viewsToday ?? 0,
+        unusual: s?.unusual ?? false,
+      };
+    });
+  }
+
   async list(me: string): Promise<FriendResponse[]> {
     // 1) 본 DB: 친구 목록 + 양방향 공유 설정 (위치 DB 와 JOIN 하지 않음)
     const rows = await this.db
@@ -260,6 +294,12 @@ class FriendsController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.friends.list(user.id);
+  }
+
+  /** 지금 내 위치를 보고 있는 친구와 확인 횟수 (보완 4.12) */
+  @Get('sharing-overview')
+  sharingOverview(@CurrentUser() user: AuthUser) {
+    return this.friends.sharingOverview(user.id);
   }
 
   /** 친구 삭제 (설정 > 친구 관리) */

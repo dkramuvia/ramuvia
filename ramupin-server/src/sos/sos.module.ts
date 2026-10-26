@@ -120,7 +120,37 @@ class SafetyController {
         .select(['sos_enabled', 'emergency_name', 'emergency_number', 'sms_enabled', 'record_enabled', 'long_press_start'])
         .where('user_id', '=', user.id)
         .executeTakeFirst(),
-      this.db.selectFrom('member.sos_recipients').select(['kind', 'target_id']).where('user_id', '=', user.id).execute(),
+      // 지금도 친구이거나 내가 속한 그룹만 돌려줍니다. 수신인 표는 사용자·그룹과 외래키가 없어,
+      // 상대가 탈퇴하거나 그룹을 나가면 남은 줄이 화면 인원 수를 부풀렸습니다 (10-26 실서버)
+      this.db
+        .selectFrom('member.sos_recipients as r')
+        .select(['r.kind', 'r.target_id'])
+        .where('r.user_id', '=', user.id)
+        .where((eb) =>
+          eb.or([
+            eb.and([
+              eb('r.kind', '=', 'friend'),
+              eb.exists(
+                eb
+                  .selectFrom('social.friendships as f')
+                  .select('f.friend_id')
+                  .whereRef('f.user_id', '=', 'r.user_id')
+                  .whereRef('f.friend_id', '=', 'r.target_id'),
+              ),
+            ]),
+            eb.and([
+              eb('r.kind', '=', 'group'),
+              eb.exists(
+                eb
+                  .selectFrom('social.group_members as m')
+                  .select('m.user_id')
+                  .whereRef('m.user_id', '=', 'r.user_id')
+                  .whereRef('m.group_id', '=', 'r.target_id'),
+              ),
+            ]),
+          ]),
+        )
+        .execute(),
       this.sms.contacts(user.id),
     ]);
     return {

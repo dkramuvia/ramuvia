@@ -13,13 +13,21 @@ import { SafeZoneService } from './safe-zone.service.js';
  * 앱은 지금까지 목업으로 쓰던 `/geofences` 를 그대로 씁니다 (src/api/endpoints/settings.ts).
  */
 
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
 const zoneBody = z.object({
   name: z.string().min(1).max(50),
   address: z.string().max(300).default(''),
   center: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) }),
-  // 50m 보다 작으면 위치 오차만으로 들락거림이 반복됩니다 (zone-crossing.ts 설명 참고)
+  // 50m 보다 작으면 위치 오차만으로 들락거림이 반복됩니다 (zone-crossing.ts 설명 참고). 새 앱은 100m~1km (보완 4.16)
   radiusM: z.number().int().min(50).max(5000),
   enabled: z.boolean().default(true),
+  kind: z.enum(['home', 'work', 'school', 'hospital', 'other']).default('other'),
+  notifyFriends: z.boolean().default(true),
+  alertStart: hhmm.nullish(),
+  alertEnd: hhmm.nullish(),
+  /** 친구별 도착·출발 알림 (보완 4.17). 없으면 예전 앱처럼 recipientFriendIds 를 둘 다 켠 것으로 */
+  recipients: z.array(z.object({ friendId: z.uuid(), enter: z.boolean(), leave: z.boolean() })).max(200).optional(),
   recipientFriendIds: z.array(z.uuid()).max(200).default([]),
 });
 
@@ -64,7 +72,11 @@ function toInput(body: unknown) {
     longitude: input.center.longitude,
     radiusM: input.radiusM,
     enabled: input.enabled,
-    recipientFriendIds: input.recipientFriendIds,
+    kind: input.kind,
+    notifyFriends: input.notifyFriends,
+    alertStart: input.alertStart ?? null,
+    alertEnd: input.alertEnd ?? null,
+    recipients: input.recipients ?? input.recipientFriendIds.map((friendId) => ({ friendId, enter: true, leave: true })),
   };
 }
 

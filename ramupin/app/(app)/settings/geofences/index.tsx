@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, BottomNav, Button, Header, Popup } from '@/components/ui';
 import { AppMapView, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { PlacePin } from '@/features/map/PlacePin';
+import { zoneDraft } from '@/features/geofence/zoneDraft';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useRemoveGeofence, useSaveGeofence } from '@/features/settings/queries';
 import { layout, makeStyles, radius, useColors, withAlpha } from '@/theme';
@@ -149,6 +150,17 @@ export default function GeofencesScreen() {
                       toggleAlert(g);
                     }}
                   />
+                  {g.enabled ? (
+                    <MenuAction
+                      label={t('geofence.alertSettings')}
+                      onPress={() => {
+                        // 기존 안심존 › 더보기 › 알림 설정 (보완 4.17)
+                        setMenuId(null);
+                        zoneDraft.set(g);
+                        router.push('/settings/geofences/alerts');
+                      }}
+                    />
+                  ) : null}
                   <MenuAction
                     label={t('geofence.edit')}
                     onPress={() => {

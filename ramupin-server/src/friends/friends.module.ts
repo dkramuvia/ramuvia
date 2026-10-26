@@ -40,6 +40,8 @@ interface FriendResponse {
   avatarUrl: string | null;
   /** 내가 이 친구에게 공유하는 수준 */
   myShareLevel: ShareLevel;
+  /** 이 친구가 나에게 공유하는 수준. 안심존 알림 대상에서 흐림·비공개 친구를 고를 수 없게 (보완 4.17) */
+  theirShareLevel: ShareLevel;
   isOnline: boolean;
   batteryLevel?: number;
   speedKmh?: number;
@@ -140,6 +142,7 @@ class FriendsService {
         nickname: r.nickname,
         avatarUrl: r.avatar_url,
         myShareLevel: (r.my_level ?? 'hidden') as ShareLevel,
+        theirShareLevel: theirLevel,
         isOnline: !!(r.their_show_status && loc && Date.now() - new Date(loc.measuredAt).getTime() < ONLINE_WINDOW_MS),
       };
       if (loc) {

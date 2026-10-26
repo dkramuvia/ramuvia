@@ -434,14 +434,32 @@ export interface SafeZonesTable {
   /** 지금 이 안에 있는지. 진입·이탈은 달라졌을 때만 알립니다 */
   inside: Generated<boolean>;
   inside_since: Date | null;
+  /** 집·직장·학교·병원·기타 (보완 4.16) */
+  kind: Generated<'home' | 'work' | 'school' | 'hospital' | 'other'>;
+  /** 내가 드나들 때 지정한 친구에게 알릴지 (보완 4.17) */
+  notify_friends: Generated<boolean>;
+  /** 알림 시간 ('HH:MM:SS'). 둘 다 null 이면 항상 */
+  alert_start: string | null;
+  alert_end: string | null;
+  /** 3분 확정을 기다리는 진입·이탈 */
+  pending_kind: 'enter' | 'leave' | null;
+  pending_since: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
 
-/** 이 장소를 드나들 때 알림을 받을 친구 */
+/** 이 장소에 지정한 친구 (내 드나듦을 받을 사람이자, 내가 드나듦을 지켜보는 사람) */
 export interface SafeZoneRecipientsTable {
   zone_id: string;
   friend_id: string;
+  /** 이 친구가 이 장소에 도착·출발할 때 장소 주인에게 알림 (보완 4.17) */
+  watch_enter: Generated<boolean>;
+  watch_leave: Generated<boolean>;
+  /** 이 친구가 지금 안에 있는지 (null = 아직 모름)와 3분 확정 대기 */
+  inside: boolean | null;
+  inside_since: Date | null;
+  pending_kind: 'enter' | 'leave' | null;
+  pending_since: Date | null;
 }
 
 /** 진입·이탈 기록 (알림을 보낸 근거) */

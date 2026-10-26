@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { distanceM } from './geo.js';
-import { EXIT_MARGIN_M, judgeCrossing, MAX_ACCURACY_M } from './zone-crossing.js';
+import { DWELL_MS, EXIT_MARGIN_M, judgeCrossing, MAX_ACCURACY_M, settleCrossing } from './zone-crossing.js';
 
 /** 회사 근처 한 지점을 기준으로 씁니다 */
 const CENTER = { latitude: 37.4763, longitude: 126.8879 };
@@ -68,5 +68,35 @@ describe('거리 계산', () => {
 
   it('같은 자리는 0', () => {
     expect(distanceM(CENTER, CENTER)).toBe(0);
+  });
+});
+
+describe('3분 머문 뒤 확정 (보완 4.17)', () => {
+  const t0 = new Date('2026-10-26T09:00:00Z');
+  const after = (ms: number) => new Date(t0.getTime() + ms);
+  const outside = { inside: false, pendingKind: null, pendingSince: null };
+
+  it('처음 넘으면 기다림으로 적어 둠', () => {
+    expect(settleCrossing(outside, 'enter', t0)).toEqual({ action: 'pend' });
+  });
+
+  it('3분이 안 됐으면 아직 확정하지 않음', () => {
+    expect(settleCrossing({ inside: false, pendingKind: 'enter', pendingSince: t0 }, 'enter', after(2 * 60_000))).toEqual({ action: 'none' });
+  });
+
+  it('3분 넘게 안에 있으면 처음 넘은 시각으로 확정', () => {
+    expect(settleCrossing({ inside: false, pendingKind: 'enter', pendingSince: t0 }, 'enter', after(DWELL_MS))).toEqual({
+      action: 'confirm',
+      kind: 'enter',
+      occurredAt: t0,
+    });
+  });
+
+  it('기다리는 중에 다시 나가면 없던 일로', () => {
+    expect(settleCrossing({ inside: false, pendingKind: 'enter', pendingSince: t0 }, null, after(60_000))).toEqual({ action: 'clear' });
+  });
+
+  it('아무 일 없으면 그대로', () => {
+    expect(settleCrossing(outside, null, t0)).toEqual({ action: 'none' });
   });
 });

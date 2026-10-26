@@ -98,6 +98,8 @@ export interface Friend {
   batteryLevel?: number; // 0~100
   /** 내가 이 친구에게 공유하는 수준 */
   myShareLevel: LocationShareLevel;
+  /** 이 친구가 나에게 공유하는 수준 (서버 연결 시). 안심존 알림 대상 고르기에 씁니다 */
+  theirShareLevel?: LocationShareLevel;
   location?: LatLng & { address?: string; updatedAt: string };
   speedKmh?: number;
   /** 언제부터 한자리에 있는지 (ISO). 지도 마커의 "같은 자리에서 N분" */
@@ -174,6 +176,16 @@ export interface GroupDetail extends Group {
   members: GroupMember[];
 }
 
+export type GeofenceKind = 'home' | 'work' | 'school' | 'hospital' | 'other';
+
+export interface GeofenceRecipient {
+  friendId: string;
+  /** 이 친구가 도착할 때 나에게 알림 */
+  enter: boolean;
+  /** 이 친구가 출발할 때 나에게 알림 */
+  leave: boolean;
+}
+
 export interface Geofence {
   id: string;
   name: string;
@@ -181,7 +193,16 @@ export interface Geofence {
   center: LatLng;
   radiusM: number;
   enabled: boolean;
-  /** 드나들 때 알림을 받을 친구 (등급별 인원 제한: geofenceAlertLimit) */
+  /** 집·직장·학교·병원·기타 (보완 4.16) */
+  kind?: GeofenceKind;
+  /** 내가 드나들 때 지정한 친구에게 알리기 (보완 4.17, 정확으로 공유 중인 친구에게만) */
+  notifyFriends?: boolean;
+  /** 알림 시간 'HH:MM'. 둘 다 없으면 항상 */
+  alertStart?: string | null;
+  alertEnd?: string | null;
+  /** 지정한 친구와, 그 친구가 이 장소에 도착·출발할 때 나에게 알릴지 (보완 4.17) */
+  recipients?: GeofenceRecipient[];
+  /** 지정한 친구 id (예전 모양. recipients 와 같은 사람들) */
   recipientFriendIds: string[];
   /** 서버가 판단한 "지금 이 안에 있는지" */
   inside?: boolean;

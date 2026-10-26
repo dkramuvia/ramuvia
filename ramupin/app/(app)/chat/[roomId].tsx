@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { MessageItem } from '@/features/chat/MessageItem';
 import { useChatMessages, useChatRooms, useSendMessage } from '@/features/chat/queries';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
+import { ReportSheet, type ReportTarget } from '@/features/safety/ReportSheet';
 import { useIsMe } from '@/stores/authStore';
 import { makeStyles, useColors } from '@/theme';
 import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
@@ -28,6 +29,8 @@ export default function ChatRoomScreen() {
   const { t } = useTranslation();
   const { roomId } = useLocalSearchParams<{ roomId: string }>();
   const isMe = useIsMe();
+  // 상대 메시지를 길게 누르면 신고 (보완 4.11)
+  const [reporting, setReporting] = useState<ReportTarget | null>(null);
   const keyboardPadding = useKeyboardPadding();
   const { data: group } = useGroup(roomId);
   const { data: messages = [] } = useChatMessages(roomId);
@@ -135,6 +138,18 @@ export default function ChatRoomScreen() {
                 sender={member}
                 showSender={!sameAsOlder}
                 showTime={!sameAsNewer && !isMine}
+                onLongPress={
+                  !isMine && item.type !== 'system'
+                    ? () =>
+                        setReporting({
+                          userId: item.senderId,
+                          nickname: member?.nickname ?? '',
+                          kind: 'message',
+                          targetId: item.id,
+                          preview: item.type === 'text' ? item.text : undefined,
+                        })
+                    : undefined
+                }
               />
             );
           }}
@@ -155,6 +170,7 @@ export default function ChatRoomScreen() {
           />
         )}
       </View>
+      <ReportSheet target={reporting} onClose={() => setReporting(null)} onDone={(blocked) => blocked && room?.memberCount === 2 && router.back()} />
     </SafeAreaView>
   );
 }

@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, BatteryBadge, Button, MenuItem, QueryState, Screen, ShareLevelIcon, ToggleRow } from '@/components/ui';
 import { useFriends, useSaveShareSetting, useShareSetting } from '@/features/friends/queries';
+import { ReportSheet, type ReportTarget } from '@/features/safety/ReportSheet';
 import { applyShareLevel, isToggleLocked } from '@/features/sharing/shareRules';
 import { makeStyles, radius, useColors } from '@/theme';
 import type { FriendShareSetting, LocationShareLevel } from '@/types/models';
@@ -25,6 +26,7 @@ export default function FriendShareScreen() {
   const save = useSaveShareSetting();
 
   const [draft, setDraft] = useState<FriendShareSetting | null>(null);
+  const [reporting, setReporting] = useState<ReportTarget | null>(null);
   useEffect(() => {
     if (saved) setDraft(saved);
   }, [saved]);
@@ -121,9 +123,16 @@ export default function FriendShareScreen() {
 
             {/* 이 친구의 어떤 소식을 받을지는 따로 정합니다 (피그마 2026-09-28) */}
             <MenuItem label={t('friendShare.alerts')} onPress={() => router.push(`/settings/friend-alerts/${friendId}`)} />
+            {/* 친구 프로필 › 차단 (보완 4.11) */}
+            <MenuItem
+              label={t('friendRequestDetail.blockAndReport')}
+              color={colors.danger}
+              onPress={() => friend && setReporting({ userId: friend.id, nickname: friend.nickname, kind: 'profile' })}
+            />
           </View>
         </View>
       )}
+      <ReportSheet target={reporting} onClose={() => setReporting(null)} onDone={(blocked) => blocked && router.dismissTo('/people')} />
     </Screen>
   );
 }

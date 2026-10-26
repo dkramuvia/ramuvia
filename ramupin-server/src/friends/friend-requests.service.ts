@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type { Transaction } from 'kysely';
 
 import { appError } from '../common/app-error.js';
+import { isBlockedBetween } from '../common/blocks.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { MainDatabase, ShareLevel } from '../database/main.schema.js';
 import { PushService } from '../push/push.service.js';
@@ -31,6 +32,17 @@ const DEFAULT_SHARE = { location_level: 'exact' as ShareLevel, show_status: true
 const SENIOR_AGE = 75;
 /** 스팸 방지: 24시간 동안 보낼 수 있는 친구 요청 수 */
 const DAILY_REQUEST_LIMIT = 50;
+
+/** 고른 공개 수준을 표 규칙에 맞게 (흐림이면 경로 끔, 비공개면 전부 끔) */
+function shareRow(share: { locationLevel: ShareLevel; shareRoute: boolean; shareBattery: boolean }) {
+  const hidden = share.locationLevel === 'hidden';
+  return {
+    location_level: share.locationLevel,
+    show_status: !hidden,
+    share_route: share.locationLevel === 'exact' && share.shareRoute,
+    share_battery: !hidden && share.shareBattery,
+  };
+}
 
 const notFound = () => appError(HttpStatus.NOT_FOUND, 'REQUEST_NOT_FOUND', '친구 요청이 없습니다');
 
@@ -87,6 +99,8 @@ export class FriendRequestsService {
 
     const target = await this.db.selectFrom('member.users').select('status').where('id', '=', targetId).executeTakeFirst();
     if (!target || target.status !== 'active') throw appError(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', '사용자가 없습니다');
+    // 차단한 사이면 없는 사용자처럼 답합니다 (막힌 쪽에 차단 사실을 알리지 않음, 보완 4.11)
+    if (await isBlockedBetween(this.db, me, targetId)) throw appError(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', '사용자가 없습니다');
 
     const friendship = await this.db
       .selectFrom('social.friendships')
@@ -141,7 +155,14 @@ export class FriendRequestsService {
   }
 
   /** 받은 요청 수락: 양방향 친구 + 기본 공유 설정 */
-  async accept(me: string, requestId: string): Promise<{ singleHouseholdReleasable: boolean }> {
+  /**
+   * @param myShare 수락하는 사람이 처음 고른 공개 수준 (보완 4.3). 없으면 기본값(정확·경로 끔·배터리 켬, C5)
+   */
+  async accept(
+    me: string,
+    requestId: string,
+    myShare?: { locationLevel: ShareLevel; shareRoute: boolean; shareBattery: boolean },
+  ): Promise<{ singleHouseholdReleasable: boolean }> {
     const { friendId, ...result } = await this.db.transaction().execute(async (trx) => {
       const request = await this.lockPending(trx, requestId, (r) => r.to_user_id === me);
       const friendId = request.from_user_id;
@@ -168,7 +189,7 @@ export class FriendRequestsService {
       await trx
         .insertInto('social.friend_share_settings')
         .values([
-          { owner_id: me, friend_id: friendId, ...DEFAULT_SHARE },
+          { owner_id: me, friend_id: friendId, ...(myShare ? shareRow(myShare) : DEFAULT_SHARE) },
           { owner_id: friendId, friend_id: me, ...DEFAULT_SHARE },
         ])
         .onConflict((oc) => oc.doNothing())

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button } from '@/components/ui';
 import { AppMapView } from '@/features/map/AppMapView';
@@ -17,10 +17,12 @@ interface MessageItemProps {
   showSender: boolean;
   /** 연달아 보낸 마지막 메시지면 시간 표시 */
   showTime: boolean;
+  /** 길게 누르기 (상대 메시지 신고, 보완 4.11) */
+  onLongPress?: () => void;
 }
 
 /** 피그마: 채팅방 말풍선 (283:34973), 위치 공유 카드 (283:35894) */
-export function MessageItem({ message, isMine, sender, showSender, showTime }: MessageItemProps) {
+export function MessageItem({ message, isMine, sender, showSender, showTime, onLongPress }: MessageItemProps) {
   const styles = useStyles();
   if (message.type === 'system') {
     return (
@@ -51,7 +53,13 @@ export function MessageItem({ message, isMine, sender, showSender, showTime }: M
         </View>
       ) : null}
       <View style={[styles.content, isMine && styles.contentMine]}>
-        {body}
+        {onLongPress ? (
+          <Pressable onLongPress={onLongPress} delayLongPress={500}>
+            {body}
+          </Pressable>
+        ) : (
+          body
+        )}
         {showTime ? (
           <AppText variant="caption" color="#8593A8">
             {formatRelativeTime(message.createdAt)}

@@ -218,7 +218,7 @@ export interface SosContactsTable {
   user_id: string;
   name: string;
   phone_encrypted: Buffer;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 /** SOS 문자 한 건 (보낸 사람이 결과 화면에서 확인) */
@@ -231,7 +231,29 @@ export interface SosSmsDeliveriesTable {
   status: Generated<'sending' | 'sent' | 'failed' | 'skipped'>;
   reason: string | null;
   sent_at: NullableTimestamp;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
+}
+
+/** 차단 (보완 4.11). 한쪽이 막으면 양쪽 모두 위치·대화·친구 요청이 끊깁니다 */
+export interface BlocksTable {
+  blocker_id: string;
+  blocked_id: string;
+  created_at: Timestamp;
+}
+
+/** 신고 (보완 4.11). 운영자 검토 대기열 */
+export interface ReportsTable {
+  id: Generated<string>;
+  reporter_id: string;
+  target_user_id: string;
+  target_kind: 'message' | 'photo' | 'profile';
+  target_id: string | null;
+  reason: 'spam' | 'harassment' | 'tracking' | 'inappropriate' | 'other';
+  detail: string | null;
+  preview: string | null;
+  status: Generated<'pending' | 'reviewed' | 'dismissed'>;
+  created_at: Timestamp;
+  reviewed_at: NullableTimestamp;
 }
 
 /** SOS 를 받을 사람 (친구 한 명 또는 그룹방 전체) */
@@ -562,6 +584,8 @@ export interface MainDatabase {
   'member.sos_events': SosEventsTable;
   'member.sos_deliveries': SosDeliveriesTable;
   'member.sos_contacts': SosContactsTable;
+  'social.blocks': BlocksTable;
+  'member.reports': ReportsTable;
   'member.sos_sms_deliveries': SosSmsDeliveriesTable;
   'media.assets': MediaAssetsTable;
   'media.posts': MediaPostsTable;

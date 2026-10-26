@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { friendsApi } from '@/api';
-import { friendErrorCode, type FriendErrorCode } from '@/api/endpoints/friends';
+import { friendErrorCode, type FriendErrorCode, type InitialShare } from '@/api/endpoints/friends';
 import { isLive } from '@/config/env';
 import i18n from '@/i18n';
 import type { FriendShareSetting } from '@/types/models';
@@ -39,7 +39,7 @@ export function useFriendRequest(requestId: string) {
 export function useRespondFriendRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ requestId, accept }: { requestId: string; accept: boolean }) => friendsApi.respond(requestId, accept),
+    mutationFn: ({ requestId, accept, myShare }: { requestId: string; accept: boolean; myShare?: InitialShare }) => friendsApi.respond(requestId, accept, myShare),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: friendKeys.list, exact: true });
       queryClient.invalidateQueries({ queryKey: friendKeys.requests, exact: true });

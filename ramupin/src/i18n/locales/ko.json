@@ -278,7 +278,11 @@
     "singleOffTitle": "1인 가구 모드를 해제됩니다.",
     "singleOffSubtitle": "첫 번째 안전 메이트가 생겼습니다!",
     "singleOffMessage": "이제 서로의 위치와 상태를 공유할 수 있도록 1인 가구 전용 안전 모드를 해제하고 기본 소셜 모드로 전환합니다.",
-    "singleOffConfirm": "해제하기"
+    "singleOffConfirm": "해제하기",
+    "warning": "수락하면 서로의 위치를 볼 수 있어요. 아는 사람이 아니면 거절해 주세요.",
+    "myLevel": "{{name}}님에게 내 위치를 이렇게 보여줄게요",
+    "levelNote": "처음 수락할 때는 '정확'이 기본이에요. 나중에 바꿀 수 있어요.",
+    "blockAndReport": "차단하고 신고하기"
   },
   "friendRequests": {
     "received": "받은 요청",
@@ -893,5 +897,29 @@
     "recordTitle": "SOS 때 10초 녹음",
     "recordDesc": "일부 국가·지역은 주변 사람 녹음에 동의가 필요해요. 해당 지역에서는 끄는 것을 권해요.",
     "saved": "긴급전화 · SOS 문자 설정을 저장했어요."
+  },
+  "report": {
+    "titleMessage": "이 메시지를 신고할까요?",
+    "titlePhoto": "이 사진을 신고할까요?",
+    "titleProfile": "{{name}}님을 신고할까요?",
+    "photoMenu": "더보기",
+    "reason": {
+      "spam": "스팸·사기",
+      "harassment": "괴롭힘·위협",
+      "tracking": "원치 않는 위치 추적",
+      "inappropriate": "부적절한 사진·콘텐츠",
+      "other": "기타"
+    },
+    "block": "{{name}} 차단하기",
+    "blockDesc": "위치 공유와 대화가 바로 끊겨요. 상대에게 알리지 않아요.",
+    "note": "신고는 24시간 안에 검토해요. 신고 내용은 상대에게 공개되지 않아요.",
+    "submit": "신고하기",
+    "done": "신고했어요. 24시간 안에 검토할게요.",
+    "guideTitle": "안전 가이드",
+    "guideMessage": "원치 않게 위치가 추적되고 있다고 느끼면\n\n1. 설정 › 숨기기 모드로 내 위치를 바로 숨기세요.\n2. 위치를 공유 중인 친구 목록을 확인하고 모르는 사람은 차단하세요.\n3. 위험하다고 느끼면 SOS 나 긴급전화(112)를 이용하세요.",
+    "unblock": "차단 풀기",
+    "blockedTitle": "차단한 사람",
+    "blockedEmpty": "차단한 사람이 없어요.",
+    "unblocked": "차단을 풀었어요."
   }
 }

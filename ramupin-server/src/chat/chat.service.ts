@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import { z } from 'zod';
 
 import { appError } from '../common/app-error.js';
+import { isBlockedBetween } from '../common/blocks.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { SharedPlace } from '../database/main.schema.js';
 import { GroupsService } from '../groups/groups.service.js';
@@ -150,6 +151,7 @@ export class ChatService {
 
   async send(me: string, roomId: string, input: SendMessageInput): Promise<ChatMessageResponse> {
     await this.groups.assertMember(roomId, me);
+    await this.assertNotBlocked(me, roomId);
     const row = await this.db.transaction().execute(async (trx) => {
       const inserted = await trx
         .insertInto('chat.messages')
@@ -173,6 +175,24 @@ export class ChatService {
       return inserted;
     });
     return toMessage(row);
+  }
+
+  /**
+   * 1:1 대화방에서 차단한 사이면 보내지 않습니다 (보완 4.11: 차단 즉시 대화 중단).
+   * 그룹방은 여러 사람이 함께 쓰므로 막지 않습니다.
+   */
+  private async assertNotBlocked(me: string, roomId: string) {
+    const other = await this.db
+      .selectFrom('social.groups as g')
+      .innerJoin('social.group_members as m', 'm.group_id', 'g.id')
+      .select('m.user_id')
+      .where('g.id', '=', roomId)
+      .where('g.is_direct', '=', true)
+      .where('m.user_id', '!=', me)
+      .executeTakeFirst();
+    if (other && (await isBlockedBetween(this.db, me, other.user_id))) {
+      throw appError(HttpStatus.FORBIDDEN, 'BLOCKED', '대화할 수 없는 상대예요');
+    }
   }
 
   async markRead(me: string, roomId: string) {

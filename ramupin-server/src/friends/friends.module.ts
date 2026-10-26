@@ -25,6 +25,7 @@ import { NearbyService } from './nearby.service.js';
 import { PushModule } from '../push/push.module.js';
 import { QrTokenService } from './qr-token.service.js';
 import { summaryWithRelation } from '../users/relation.js';
+import { BlocksService, reportBody } from './blocks.service.js';
 import { ShareSettingsService, shareSettingBody } from './share-settings.service.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { ShareLevel } from '../database/main.schema.js';
@@ -168,6 +169,12 @@ const sendRequestBody = z
     message: z.string().max(100).nullish(),
   })
   .refine((v) => !!v.userId || !!v.qrToken, { message: 'userId 또는 qrToken 이 필요합니다' });
+const acceptBody = z.object({
+  locationLevel: z.enum(['exact', 'blurred', 'hidden']).optional(),
+  shareRoute: z.boolean().optional(),
+  shareBattery: z.boolean().optional(),
+});
+
 const qrQuery = z.object({ token: z.string().min(10).max(100) });
 /** 근처 찾기에 나를 드러낼지 (WBS 12.9) */
 const discoverableBody = z.object({ discoverable: z.boolean() });
@@ -353,8 +360,13 @@ class FriendsController {
 
   @Post('requests/:requestId/accept')
   @HttpCode(HttpStatus.OK)
-  accept(@CurrentUser() user: AuthUser, @Param('requestId', ParseUUIDPipe) requestId: string) {
-    return this.requests.accept(user.id, requestId);
+  accept(@CurrentUser() user: AuthUser, @Param('requestId', ParseUUIDPipe) requestId: string, @Body() body: unknown) {
+    // 수락 화면에서 고른 내 공개 수준 (보완 4.3). 예전 앱은 본문 없이 보냅니다
+    const input = parseInput(acceptBody, body ?? {});
+    const myShare = input.locationLevel
+      ? { locationLevel: input.locationLevel, shareRoute: input.shareRoute ?? false, shareBattery: input.shareBattery ?? true }
+      : undefined;
+    return this.requests.accept(user.id, requestId, myShare);
   }
 
   @Post('requests/:requestId/reject')
@@ -381,9 +393,42 @@ class FriendsController {
   }
 }
 
+/** 신고 · 차단 (보완 4.11) */
+@Controller()
+@UseGuards(AuthGuard)
+class BlocksController {
+  constructor(
+    private readonly blocks: BlocksService,
+    private readonly friends: FriendsService,
+  ) {}
+
+  @Post('reports')
+  @HttpCode(HttpStatus.OK)
+  report(@CurrentUser() user: AuthUser, @Body() body: unknown) {
+    return this.blocks.report(user.id, parseInput(reportBody, body), (me, friendId) => this.friends.remove(me, friendId));
+  }
+
+  @Get('blocks')
+  list(@CurrentUser() user: AuthUser) {
+    return this.blocks.list(user.id);
+  }
+
+  @Post('blocks/:userId')
+  @HttpCode(HttpStatus.OK)
+  block(@CurrentUser() user: AuthUser, @Param('userId', ParseUUIDPipe) userId: string) {
+    return this.blocks.block(user.id, userId, (me, friendId) => this.friends.remove(me, friendId));
+  }
+
+  @Delete('blocks/:userId')
+  @HttpCode(HttpStatus.OK)
+  unblock(@CurrentUser() user: AuthUser, @Param('userId', ParseUUIDPipe) userId: string) {
+    return this.blocks.unblock(user.id, userId);
+  }
+}
+
 @Module({
   imports: [LocationModule, PushModule],
-  controllers: [FriendsController],
-  providers: [FriendsService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService, ContactsService],
+  controllers: [FriendsController, BlocksController],
+  providers: [FriendsService, BlocksService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService, ContactsService],
 })
 export class FriendsModule {}

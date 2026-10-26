@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button, Card, CountActionBar, Popup, Screen, SearchField } from '@/components/ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { friendsApi } from '@/api/endpoints/friends';
+import { reportsApi } from '@/api/endpoints/reports';
 import { friendKeys, useFriends } from '@/features/friends/queries';
 import { useColors } from '@/theme';
 import type { Friend } from '@/types/models';
@@ -21,6 +22,18 @@ export default function FriendSettingsScreen() {
   const [removing, setRemoving] = useState<Friend | null>(null);
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  // 차단한 사람 (보완 4.11). 여기서 풀 수 있습니다
+  const { data: blocked = [], refetch: refetchBlocked } = useQuery({ queryKey: ['blocks'], queryFn: reportsApi.blocked });
+
+  const unblock = async (userId: string) => {
+    try {
+      await reportsApi.unblock(userId);
+      await refetchBlocked();
+      showToast(t('report.unblocked'));
+    } catch {
+      showToast(t('common.requestFailed'));
+    }
+  };
 
   const visible = friends.filter((f) => f.nickname.toLowerCase().includes(query.trim().toLowerCase()));
 
@@ -62,6 +75,23 @@ export default function FriendSettingsScreen() {
           </Card>
         ))}
       </View>
+
+      {blocked.length > 0 ? (
+        <View style={styles.list}>
+          <AppText variant="label1" color={colors.textTertiary}>
+            {t('report.blockedTitle')}
+          </AppText>
+          {blocked.map((b) => (
+            <Card key={b.id} style={styles.row}>
+              <Avatar name={b.nickname} imageUrl={b.avatarUrl ?? undefined} />
+              <AppText variant="listTitle" style={styles.flex} numberOfLines={1}>
+                {b.nickname}
+              </AppText>
+              <Button label={t('report.unblock')} variant="neutral" size="xs" shape="square" onPress={() => void unblock(b.id)} />
+            </Card>
+          ))}
+        </View>
+      ) : null}
 
       <Popup
         visible={!!removing}

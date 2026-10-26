@@ -10,7 +10,7 @@ import {
   mockUsers,
 } from '../mock/data';
 import { isLive } from '@/config/env';
-import type { FoundUser, Friend, FriendRequest, FriendShareSetting, FriendSuggestion, UserSummary } from '@/types/models';
+import type { FoundUser, Friend, FriendRequest, FriendShareSetting, FriendSuggestion, LocationShareLevel, UserSummary } from '@/types/models';
 
 /** 한 번에 보내는 주소록 번호 개수 (서버 `MAX_NUMBERS` 와 같아야 합니다) */
 const CONTACT_BATCH = 500;
@@ -48,6 +48,13 @@ function toUserSummary(u: UserSummaryResponse): UserSummary {
 
 function toFriendRequest(r: FriendRequestResponse): FriendRequest {
   return { ...r, message: r.message ?? undefined, from: toUserSummary(r.from), to: toUserSummary(r.to) };
+}
+
+/** 친구 요청을 수락하며 처음 고르는 내 공개 수준 (보완 4.3) */
+export interface InitialShare {
+  locationLevel: LocationShareLevel;
+  shareRoute: boolean;
+  shareBattery: boolean;
 }
 
 export type SendRequestResult = { requestId: string; status: 'pending' } | { requestId: string; status: 'accepted'; singleHouseholdReleasable: boolean };
@@ -178,13 +185,14 @@ export const friendsApi = {
    * 친구 요청 수락/거절.
    * 서버는 첫 친구가 생겨 1인 가구 모드 해제 대상이면 알려줍니다 (WBS 4: 75세 이상은 해제하지 않음)
    */
-  async respond(requestId: string, accept: boolean): Promise<{ singleHouseholdReleasable: boolean }> {
+  async respond(requestId: string, accept: boolean, myShare?: InitialShare): Promise<{ singleHouseholdReleasable: boolean }> {
     if (!isLive('friends')) {
       const index = mockFriendRequests.findIndex((r) => r.id === requestId);
       if (index >= 0) mockFriendRequests.splice(index, 1);
       return mockResponse({ singleHouseholdReleasable: false });
     }
-    const { data } = await apiClient.post(`/friends/requests/${requestId}/${accept ? 'accept' : 'reject'}`);
+    // 수락할 때 고른 내 공개 수준을 함께 보냅니다 (보완 4.3)
+    const { data } = await apiClient.post(`/friends/requests/${requestId}/${accept ? 'accept' : 'reject'}`, accept ? (myShare ?? {}) : {});
     return data;
   },
 

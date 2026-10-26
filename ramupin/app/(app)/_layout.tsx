@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { AlertPopupHost } from '@/features/alerts/AlertPopupHost';
 import { InAppCardHost } from '@/features/alerts/InAppCardHost';
-import { useDeviceRestoreStore } from '@/features/auth/deviceRestore';
+import { useDeviceRestoreStore, usePostSignupStore } from '@/features/auth/deviceRestore';
 import { useSharingReminder } from '@/features/safety/sharingReminder';
 import { useColors } from '@/theme';
 
@@ -15,6 +15,12 @@ export default function AppLayout() {
   useEffect(() => {
     if (replaced) setTimeout(() => router.push('/device-restore'), 0);
   }, [replaced]);
+  const openSolo = usePostSignupStore((s) => s.openSolo);
+  useEffect(() => {
+    if (!openSolo) return;
+    usePostSignupStore.getState().set(false);
+    setTimeout(() => router.push('/settings/solo-mode'), 0);
+  }, [openSolo]);
   // 30일마다 + 새 공유가 시작된 다음 날 "지금 내 위치를 N명이 보고 있어요" (보완 4.12). 새 기기 화면을 먼저 봅니다
   useSharingReminder(!replaced);
   return (

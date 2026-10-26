@@ -241,6 +241,23 @@ export interface SosSmsDeliveriesTable {
   created_at: Timestamp;
 }
 
+/** 1인 가구 안심 모드 설정 (보완 4.2) */
+export interface SoloSettingsTable {
+  user_id: string;
+  inactivity_hours: Generated<12 | 24 | 48>;
+  consented_at: NullableTimestamp;
+  updated_at: Timestamp;
+}
+
+/** 1인 가구 안심 모드 기관 연락처 */
+export interface SoloAgenciesTable {
+  id: Generated<string>;
+  user_id: string;
+  name: string;
+  phone_encrypted: Buffer;
+  created_at: Timestamp;
+}
+
 /** 개인정보 센터 동의 (보완 4.13) */
 export interface PrivacyConsentsTable {
   user_id: string;
@@ -620,6 +637,8 @@ export interface MainDatabase {
   'member.sos_contacts': SosContactsTable;
   'social.blocks': BlocksTable;
   'member.privacy_consents': PrivacyConsentsTable;
+  'member.solo_settings': SoloSettingsTable;
+  'member.solo_agencies': SoloAgenciesTable;
   'member.reports': ReportsTable;
   'member.sos_sms_deliveries': SosSmsDeliveriesTable;
   'media.assets': MediaAssetsTable;

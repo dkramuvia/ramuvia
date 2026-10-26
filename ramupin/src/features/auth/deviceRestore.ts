@@ -14,3 +14,9 @@ export const useDeviceRestoreStore = create<{ replaced: ReplacedDevice | null; s
   replaced: null,
   set: (replaced) => set({ replaced }),
 }));
+
+/** 가입 때 "1인 가구 모드를 활성화 할게요" 를 골랐으면 들어가자마자 안심 모드 설정을 엽니다 (보완 4.2) */
+export const usePostSignupStore = create<{ openSolo: boolean; set: (openSolo: boolean) => void }>((set) => ({
+  openSolo: false,
+  set: (openSolo) => set({ openSolo }),
+}));

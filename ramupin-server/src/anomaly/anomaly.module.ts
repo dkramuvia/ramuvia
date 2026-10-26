@@ -3,13 +3,14 @@ import { Inject, Logger, Module, type OnApplicationShutdown, type OnModuleInit }
 import { RealtimeModule } from '../chat/chat.gateway.js';
 import { LocationModule } from '../location/location.module.js';
 import { PushModule } from '../push/push.module.js';
+import { SoloModule } from '../solo/solo.module.js';
 import { AnomalyService } from './anomaly.service.js';
 
 /** 감시를 몇 분마다 돌릴지. 가장 짧은 단계가 30분이라 5분이면 충분합니다 */
 const SWEEP_INTERVAL_MS = 5 * 60_000;
 
 @Module({
-  imports: [LocationModule, RealtimeModule, PushModule],
+  imports: [LocationModule, RealtimeModule, PushModule, SoloModule],
   // 모니터링 사이트 API 는 관리자 로그인으로 막아야 해서 admin/monitoring.controller.ts 에 있습니다.
   // 남의 실시간 위치가 보이는 화면이라 앱 사용자 아무나 볼 수 있으면 안 됩니다
   providers: [AnomalyService],

@@ -28,8 +28,6 @@ export interface FriendRequestResponse {
  * 이동 경로(지난 기록)는 더 민감해서 기본으로 열지 않습니다. 각자 친구별 공유 설정에서 켭니다.
  */
 const DEFAULT_SHARE = { location_level: 'exact' as ShareLevel, show_status: true, share_battery: true, share_route: false };
-/** WBS 3.7·4: 이 나이 이상은 1인 가구 모드를 해제하지 않음. TODO(정책): 70/75 확정 후 정책값으로 */
-const SENIOR_AGE = 75;
 /** 스팸 방지: 24시간 동안 보낼 수 있는 친구 요청 수 */
 const DAILY_REQUEST_LIMIT = 50;
 
@@ -46,15 +44,6 @@ function shareRow(share: { locationLevel: ShareLevel; shareRoute: boolean; share
 
 const notFound = () => appError(HttpStatus.NOT_FOUND, 'REQUEST_NOT_FOUND', '친구 요청이 없습니다');
 
-function ageOf(birthDate: string | null): number | null {
-  if (!birthDate) return null;
-  const birth = new Date(birthDate);
-  if (Number.isNaN(birth.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age -= 1;
-  return age;
-}
 
 /**
  * 친구 요청 → 수락/거절/취소.
@@ -195,19 +184,9 @@ export class FriendRequestsService {
         .onConflict((oc) => oc.doNothing())
         .execute();
 
-      // 첫 친구면 1인 가구 모드 해제 안내 대상인지 (75세 이상 제외)
-      const user = await trx
-        .selectFrom('member.users')
-        .select(['single_household', 'birth_date'])
-        .where('id', '=', me)
-        .executeTakeFirstOrThrow();
-      const { count } = await trx
-        .selectFrom('social.friendships')
-        .select((eb) => eb.fn.countAll<string>().as('count'))
-        .where('user_id', '=', me)
-        .executeTakeFirstOrThrow();
-      const age = ageOf(user.birth_date);
-      const singleHouseholdReleasable = user.single_household && Number(count) === 1 && (age === null || age < SENIOR_AGE);
+      // 보완 4.2: 친구를 추가해도 1인 가구 안심 모드는 유지합니다 (예전 "첫 친구가 생기면 해제" 규칙 폐기).
+      // 앱이 해제 안내를 띄우지 않게 늘 false 를 돌려줍니다. 해제는 설정 › 안전 & SOS 에서 합니다
+      const singleHouseholdReleasable = false;
       return { friendId, singleHouseholdReleasable };
     });
     await this.notify(friendId, me, (name) => `${name}님이 친구 요청을 수락했어요`, '/people');

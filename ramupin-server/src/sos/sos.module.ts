@@ -7,6 +7,7 @@ import { parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationModule } from '../location/location.module.js';
 import { PushModule } from '../push/push.module.js';
+import { SoloModule } from '../solo/solo.module.js';
 import { SosSmsService } from './sos-sms.service.js';
 import { SosService } from './sos.service.js';
 
@@ -203,7 +204,7 @@ class SafetyController {
 
 @Module({
   // SOS 로 위치를 넘긴 기록을 남기려고 (위치정보 이용·제공사실 확인자료)
-  imports: [RealtimeModule, PushModule, LocationModule],
+  imports: [RealtimeModule, PushModule, LocationModule, SoloModule],
   controllers: [SosController, SafetyController],
   providers: [SosService, SosSmsService],
   exports: [SosService],

@@ -6,6 +6,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { authApi, authErrorOf } from '@/api/endpoints/auth';
 import { Button } from '@/components/ui';
 import { getDeviceInput } from '@/features/auth/device';
+import { usePostSignupStore } from '@/features/auth/deviceRestore';
 import { applyLoginResult } from '@/features/auth/session';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
@@ -44,6 +45,8 @@ export default function SingleHouseholdScreen() {
         singleHousehold,
         device: await getDeviceInput(),
       });
+      // 1인 가구를 골랐으면 들어가자마자 안심 모드(기관 연락처) 설정을 엽니다 (보완 4.2)
+      usePostSignupStore.getState().set(singleHousehold);
       // 가입 완료 → 로그인 상태가 되어 루트 레이아웃이 (app) 으로 전환
       await applyLoginResult(result);
     } catch (e) {

@@ -174,6 +174,8 @@ export default function SafetyScreen() {
       />
 
       <MenuItem label={t('safety.emergencyMenu')} onPress={() => router.push('/settings/emergency')} />
+      {/* 보완 4.2: 안전 & SOS 에서도 1인 가구 안심 모드 설정·해제 */}
+      <MenuItem label={t('screens.soloMode')} onPress={() => router.push('/settings/solo-mode')} />
 
       <AppText variant="caption" color={colors.textTertiary}>
         {t('safety.sentContent')}

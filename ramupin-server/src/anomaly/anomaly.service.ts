@@ -4,6 +4,7 @@ import { ChatGateway } from '../chat/chat.gateway.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { PushService } from '../push/push.service.js';
+import { SoloService } from '../solo/solo.module.js';
 import { ANOMALY_RULES, detect, type AnomalyTarget, type AnomalyTrack, type Detection } from './anomaly.rules.js';
 
 /**
@@ -39,6 +40,7 @@ export class AnomalyService {
     private readonly location: LocationService,
     private readonly gateway: ChatGateway,
     private readonly push: PushService,
+    private readonly solo: SoloService,
   ) {}
 
   /** 한 바퀴 돌립니다. 배치(스케줄러)와 테스트에서 부릅니다 */
@@ -135,6 +137,22 @@ export class AnomalyService {
         .catch((error: unknown) => this.logger.error(`푸시 실패: ${String(error)}`));
     }
     // monitoring 은 따로 보내지 않습니다. 모니터링 사이트가 이 표를 읽어 보여 주고, 전화는 사람이 합니다
+    if (target === 'monitoring') await this.notifySoloAgencies(userId, nickname, detection);
+  }
+
+  /**
+   * 1인 가구 안심 모드: 기관 연락처에 알림만 (위치는 보내지 않음, 보완 4.2).
+   *   움직임 없음 = 사용자가 고른 시간(12·24·48시간) 단계에서 한 번
+   *   배터리 10% 이하 = 한 번
+   */
+  private async notifySoloAgencies(userId: string, nickname: string, detection: Detection) {
+    const inactive = ['gps_fixed', 'fixed_battery_zero', 'fixed_charging'].includes(detection.track);
+    if (inactive && detection.stage === (await this.solo.inactivityStage(userId))) {
+      const hours = detection.stage.replace('h', '');
+      await this.solo.notifyAgencies(userId, `[라무핀] ${nickname}님이 ${hours}시간 동안 움직임이 없어요. 안부를 확인해 주세요.`, '움직임 없음 기관');
+    } else if (detection.track === 'battery' && detection.stage === 'low') {
+      await this.solo.notifyAgencies(userId, `[라무핀] ${nickname}님의 휴대폰 배터리가 ${ANOMALY_RULES.lowBatteryPercent}% 이하예요. 곧 연락이 끊길 수 있어요.`, '배터리 기관');
+    }
   }
 
   /** 나를 친구로 등록한 사람들 (내 이상징후를 받아야 할 사람) */

@@ -7,7 +7,8 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { PushService } from '../push/push.service.js';
 import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
-import { SosSmsService } from './sos-sms.service.js';
+import { SoloService } from '../solo/solo.module.js';
+import { SosSmsService, sosSmsText } from './sos-sms.service.js';
 
 /**
  * SOS (WBS 7.9 / 8.3 / 9.3 / 10.8).
@@ -38,6 +39,7 @@ export class SosService {
     private readonly push: PushService,
     private readonly location: LocationService,
     private readonly sms: SosSmsService,
+    private readonly solo: SoloService,
   ) {}
 
   async send(userId: string, input: SosInput) {
@@ -96,6 +98,9 @@ export class SosService {
         this.logger.error(`SOS 문자 준비 실패: ${String(error)}`);
         return 0;
       });
+
+    // 1인 가구 안심 모드: 적어 둔 기관 연락처에도 위치 링크 문자 (인원 한도와 별도, 보완 4.2). 기다리지 않습니다
+    void this.solo.notifyAgencies(userId, sosSmsText(me.nickname, { ...input }), 'SOS 기관');
 
     return { sosId: event.id, recipientCount: recipients.length, smsCount, toMonitoring };
   }

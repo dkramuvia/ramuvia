@@ -909,7 +909,8 @@
     "myPlan": "내 플랜",
     "emergency": "긴급전화 · SOS 문자",
     "languageRegion": "언어 · 지역",
-    "privacyCenter": "개인정보 센터"
+    "privacyCenter": "개인정보 센터",
+    "soloMode": "1인 가구 안심 모드"
   },
   "locationSettings": {
     "background": "앱을 꺼도 위치 알리기",
@@ -1115,5 +1116,30 @@
     "rangeWeek": "최근 7일",
     "rangeAll": "전체",
     "deleted": "위치 기록 {{count}}건을 지웠어요."
+  },
+  "solo": {
+    "desc": "친구를 등록하지 않아도, 위급할 때 내가 적은 기관 연락처로 라무핀이 문자를 보내요.",
+    "agencies": "연계기관 연락처",
+    "agencyName": "기관 이름 (예: 주민센터)",
+    "addAgency": "연락처 추가",
+    "agencyHint": "주민센터·복지관 등 주요 기관에서 문자를 받을 수 있는 휴대폰 번호를 직접 적어 주세요. 최대 3곳.",
+    "sentTitle": "기관에 전달되는 정보",
+    "rowSos": "SOS 요청",
+    "rowSosValue": "정확한 위치 링크",
+    "rowInactive": "움직임 없음 알림",
+    "rowBattery": "배터리 10% 이하",
+    "rowLive": "평소 실시간 위치",
+    "alertOnly": "알림만",
+    "notSent": "전달 안 함",
+    "inactiveTitle": "움직임이 없으면 알릴 시간",
+    "hours": "{{count}}시간",
+    "consent": "[필수] 위 정보를 연계 기관에 제공하는 데 동의합니다.",
+    "keepNote": "나중에 친구를 추가해도 안심 모드는 유지돼요. 해제는 설정 › 안전 & SOS 에서 할 수 있어요.",
+    "later": "나중에",
+    "start": "안심 모드 시작",
+    "save": "저장",
+    "stop": "안심 모드 끄기",
+    "started": "안심 모드를 시작했어요.",
+    "stopped": "안심 모드를 껐어요."
   }
 }

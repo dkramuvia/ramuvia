@@ -14,6 +14,7 @@ interface MeResponse {
   statusMessage: string | null;
   plan: PlanId;
   singleHouseholdMode: boolean;
+  accountStatus?: 'active' | 'pending_guardian';
 }
 
 export const usersApi = {
@@ -30,6 +31,7 @@ export const usersApi = {
       statusMessage: data.statusMessage ?? undefined,
       plan: data.plan,
       singleHouseholdMode: data.singleHouseholdMode,
+      accountStatus: data.accountStatus ?? 'active',
       // TODO: 내 배터리는 기기에서 직접 읽기 (expo-battery)
       batteryLevel: mockMe.batteryLevel,
     };

@@ -34,6 +34,9 @@ function providerLabel(provider: string): string {
   return { kakao: '카카오', naver: '네이버', google: '구글', x: 'X' }[provider] ?? provider;
 }
 
+/** 보호자 동의가 필요한 나이 (국내 만 14세. 나라별 기준은 서버 guardian.service.ts) */
+const GUARDIAN_CONSENT_AGE = 14;
+
 function ageOf(birth: Date) {
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
@@ -76,7 +79,8 @@ export default function ProfileSetupScreen() {
     if (!birthDate || !gender) return;
     const iso = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`;
     signUp.set({ nickname, gender, birthDate: iso, avatarUrl: avatarKey ?? '' });
-    router.push('/phone-verify');
+    // 만 14세 미만은 보호자 동의를 먼저 받습니다 (보완 4.1, 기준은 서버도 같은 값으로 다시 확인)
+    router.push(ageOf(birthDate) < GUARDIAN_CONSENT_AGE ? '/guardian-consent' : '/phone-verify');
   };
 
   /**

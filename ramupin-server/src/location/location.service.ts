@@ -378,6 +378,12 @@ export class LocationService {
     return stats;
   }
 
+  /** 보호자 동의를 기다리는 계정인지 (위치를 받지 않음, 보완 4.1) */
+  async isPendingGuardian(userId: string): Promise<boolean> {
+    const row = await this.mainDb.selectFrom('member.users').select('status').where('id', '=', userId).executeTakeFirst();
+    return row?.status === 'pending_guardian';
+  }
+
   /** 내 위치 기록 내려받기 (보완 4.13 개인정보 센터). 보관 기간 안의 것만 있습니다 */
   async exportHistory(userId: string, limit = 100_000) {
     const rows = await this.db

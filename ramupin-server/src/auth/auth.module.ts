@@ -33,6 +33,8 @@ import { FacebookService } from './facebook.service.js';
 import { XService } from './x.service.js';
 import { SignUpService, type SocialIdentity } from './sign-up.service.js';
 import { PushModule } from '../push/push.module.js';
+import { GuardianConsentPageController, GuardianMeController } from './guardian.controller.js';
+import { GuardianService } from './guardian.service.js';
 import { SessionService, type DeviceInfo, type NewSession, type TokenPair } from './session.service.js';
 import { SmsService } from './sms.service.js';
 
@@ -120,6 +122,8 @@ const signUpBody = z.object({
     .optional(),
   agreedTerms: z.array(z.string().max(30)).max(10),
   singleHousehold: z.boolean(),
+  /** 만 14세 미만이면 보호자 (보완 4.1). 국내 휴대폰 번호 */
+  guardian: z.object({ name: z.string().trim().min(1).max(20), phone: z.string().max(20), sosLink: z.boolean().default(false) }).optional(),
   device: deviceSchema,
 });
 const nicknameQuery = z.object({ nickname: z.string().min(1).max(20) });
@@ -158,7 +162,8 @@ export class LoginService {
 
   async login(userId: string, { deviceKey, ...device }: DeviceInput, authMethod: string): Promise<LoginResult> {
     const user = await this.db.selectFrom('member.users').select('status').where('id', '=', userId).executeTakeFirst();
-    if (!user || user.status !== 'active') throw authError(HttpStatus.FORBIDDEN, 'ACCOUNT_INACTIVE');
+    // 보호자 동의 대기(만 14세 미만)는 로그인해서 대기 화면을 봅니다 (보완 4.1)
+    if (!user || (user.status !== 'active' && user.status !== 'pending_guardian')) throw authError(HttpStatus.FORBIDDEN, 'ACCOUNT_INACTIVE');
 
     if (await this.sessions.needsDeviceVerification(userId, device.installationId, deviceKey)) {
       return { status: 'device_verification_required', ...(await this.verification.start(userId, device, authMethod)) };
@@ -375,7 +380,7 @@ class AuthController {
 @Module({
   // PushModule: 다른 기기에서 로그인되면 끊긴 기기에 바로 알림 (보완 4.21)
   imports: [JwtModule.register({ secret: env.JWT_SECRET, signOptions: { expiresIn: env.JWT_EXPIRES_IN as never } }), PushModule],
-  controllers: [AuthController],
+  controllers: [AuthController, GuardianMeController, GuardianConsentPageController],
   providers: [
     AuthGuard,
     SessionService,
@@ -388,6 +393,7 @@ class AuthController {
     FacebookService,
     GoogleService,
     SignUpService,
+    GuardianService,
   ],
   exports: [AuthGuard, JwtModule, SessionService, LoginService, SmsService],
 })

@@ -27,6 +27,8 @@ interface SignUpState {
   /** 문자 인증을 통과했는지 */
   phoneVerified: boolean;
   agreedTerms: string[];
+  /** 만 14세 미만이면 보호자 (보완 4.1). 가입을 마칠 때 서버가 보호자에게 동의 링크 문자를 보냅니다 */
+  guardian: { name: string; phone: string; sosLink: boolean } | null;
   set: (patch: Partial<Omit<SignUpState, 'set' | 'reset'>>) => void;
   reset: () => void;
 }
@@ -42,6 +44,7 @@ const initial = {
   phone: '',
   phoneVerified: false,
   agreedTerms: [],
+  guardian: null,
 };
 
 export const useSignUpStore = create<SignUpState>((set) => ({

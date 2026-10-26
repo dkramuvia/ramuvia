@@ -19,7 +19,8 @@ export interface UsersTable {
   status_message: string | null;
   plan: Generated<string>;
   single_household: Generated<boolean>;
-  status: Generated<'active' | 'suspended' | 'withdrawn'>;
+  /** pending_guardian = 만 14세 미만, 보호자 동의 대기 (보완 4.1). 위치를 받지 않음 */
+  status: Generated<'active' | 'suspended' | 'withdrawn' | 'pending_guardian'>;
   /** 나이를 소셜(카카오·네이버)이 확인해 줬는지. false 면 본인이 적은 값 (WBS 3.6) */
   age_verified: Generated<boolean>;
   /** 숨김 모드: 지금은 아무에게도 내 위치를 보이지 않기 (WBS 9.5) */
@@ -239,6 +240,21 @@ export interface SosSmsDeliveriesTable {
   reason: string | null;
   sent_at: NullableTimestamp;
   created_at: Timestamp;
+}
+
+/** 보호자 동의 (만 14세 미만, 보완 4.1) */
+export interface GuardianConsentsTable {
+  user_id: string;
+  guardian_name: string;
+  phone_encrypted: Buffer;
+  sos_link: Generated<boolean>;
+  token: string;
+  requested_at: Generated<Date>;
+  resend_count: Generated<number>;
+  expires_at: Date;
+  consented_at: Date | null;
+  consent_ip: string | null;
+  consent_agent: string | null;
 }
 
 /** 1인 가구 안심 모드 설정 (보완 4.2) */
@@ -638,6 +654,7 @@ export interface MainDatabase {
   'social.blocks': BlocksTable;
   'member.privacy_consents': PrivacyConsentsTable;
   'member.solo_settings': SoloSettingsTable;
+  'member.guardian_consents': GuardianConsentsTable;
   'member.solo_agencies': SoloAgenciesTable;
   'member.reports': ReportsTable;
   'member.sos_sms_deliveries': SosSmsDeliveriesTable;

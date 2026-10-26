@@ -72,6 +72,8 @@ class LocationController {
   async upload(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const parsed = uploadBody.safeParse(body);
     if (!parsed.success) throw new BadRequestException(z.prettifyError(parsed.error));
+    // 만 14세 미만 보호자 동의 대기 중에는 위치를 받지 않습니다 (보완 4.1)
+    if (await this.location.isPendingGuardian(user.id)) return { received: 0, dropped: parsed.data.points.length, queued: false };
     const points = acceptable(parsed.data.points);
     const dropped = parsed.data.points.length - points.length;
     // 전부 버려졌어도 200 으로 답합니다. 앱은 이 점들을 다시 보내지 않아야 합니다

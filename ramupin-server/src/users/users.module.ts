@@ -49,7 +49,7 @@ class MeController {
   async me(@CurrentUser() user: AuthUser) {
     const row = await this.db
       .selectFrom('member.users')
-      .select(['id', 'public_id', 'nickname', 'gender', 'birth_date', 'avatar_url', 'status_message', 'plan', 'single_household'])
+      .select(['id', 'public_id', 'nickname', 'gender', 'birth_date', 'avatar_url', 'status_message', 'plan', 'single_household', 'status'])
       .where('id', '=', user.id)
       .executeTakeFirst();
     if (!row) throw new NotFoundException();
@@ -63,6 +63,8 @@ class MeController {
       statusMessage: row.status_message,
       plan: row.plan,
       singleHouseholdMode: row.single_household,
+      // pending_guardian = 만 14세 미만, 보호자 동의 대기 (앱은 대기 화면만 보여 줌, 보완 4.1)
+      accountStatus: row.status,
     };
   }
 

@@ -22,6 +22,8 @@ export interface User {
   plan: PlanId;
   singleHouseholdMode: boolean;
   batteryLevel?: number;
+  /** pending_guardian = 만 14세 미만, 보호자 동의 대기 (보완 4.1). 대기 화면만 보입니다 */
+  accountStatus?: 'active' | 'pending_guardian';
 }
 
 export interface ChatRoom {

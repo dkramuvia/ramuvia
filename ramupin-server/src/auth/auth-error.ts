@@ -25,6 +25,7 @@ const MESSAGES = {
   PHONE_NOT_VERIFIED: '휴대폰 인증을 먼저 완료하세요',
   SIGN_UP_TOKEN_INVALID: '가입 정보가 만료되었습니다. 처음부터 다시 진행하세요',
   NICKNAME_TAKEN: '이미 사용 중인 닉네임입니다',
+  GUARDIAN_REQUIRED: '만 14세 미만은 보호자 동의가 필요합니다',
 } as const;
 
 export type AuthErrorCode = keyof typeof MESSAGES;

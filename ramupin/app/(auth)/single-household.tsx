@@ -43,6 +43,7 @@ export default function SingleHouseholdScreen() {
         ...(signUp.avatarUrl ? { avatarUrl: signUp.avatarUrl } : {}),
         agreedTerms: signUp.agreedTerms,
         singleHousehold,
+        ...(signUp.guardian ? { guardian: signUp.guardian } : {}),
         device: await getDeviceInput(),
       });
       // 1인 가구를 골랐으면 들어가자마자 안심 모드(기관 연락처) 설정을 엽니다 (보완 4.2)

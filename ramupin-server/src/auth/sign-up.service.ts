@@ -10,6 +10,7 @@ import { PhoneService } from '../phone/phone.module.js';
 import { REDIS } from '../redis/redis.module.js';
 import { authError } from './auth-error.js';
 import { SessionService, type DeviceInfo, type NewSession } from './session.service.js';
+import { GuardianService, type GuardianInput } from './guardian.service.js';
 import { SmsService } from './sms.service.js';
 
 /** 가입 진행 상태 (Redis 에만 보관, 가입이 끝나면 삭제) */
@@ -56,6 +57,8 @@ export interface SignUpProfile {
   avatarUrl?: string;
   agreedTerms: string[];
   singleHousehold: boolean;
+  /** 만 14세 미만이면 보호자 (보완 4.1) */
+  guardian?: GuardianInput;
 }
 
 const stateKey = (id: string) => `auth:sign-up:${id}`;
@@ -84,6 +87,7 @@ export class SignUpService {
     private readonly sms: SmsService,
     private readonly phones: PhoneService,
     private readonly sessions: SessionService,
+    private readonly guardian: GuardianService,
   ) {}
 
   /** 소셜 로그인 후 신규 회원이면 가입 토큰 발급 */
@@ -191,6 +195,9 @@ export class SignUpService {
     }
     const { plan } = decision;
     const verified = state.verifiedBirthYear;
+    // 만 14세 미만(나라별 기준)은 보호자 동의 전까지 대기 계정 (보완 4.1)
+    const needsGuardian = this.guardian.needsConsent(profile.birthDate, state.country);
+    if (needsGuardian && !profile.guardian) throw authError(HttpStatus.BAD_REQUEST, 'GUARDIAN_REQUIRED');
 
     const user = await this.db.transaction().execute(async (trx) => {
       const created = await trx
@@ -207,6 +214,7 @@ export class SignUpService {
           // 휴대폰 인증 화면에서 고른 국가. 없으면 KR (지금 가입자는 전부 국내입니다)
           country: state.country ?? 'KR',
           last_active_at: new Date(),
+          ...(needsGuardian ? { status: 'pending_guardian' as const } : {}),
         })
         .returning(['id', 'public_id'])
         .executeTakeFirstOrThrow();
@@ -226,8 +234,11 @@ export class SignUpService {
       }
 
       await this.phones.save(created.id, state.verifiedPhone!, trx);
+      if (needsGuardian) await this.guardian.create(trx, created.id, profile.guardian!);
       return created;
     });
+    // 동의 링크 문자는 계정이 만들어진 뒤에 보냅니다. 실패해도 대기 화면에서 다시 보낼 수 있습니다
+    if (needsGuardian) await this.guardian.send(user.id).catch(() => undefined);
 
     await this.redis.del(stateKey(id));
     // TODO(WBS 4): 1인 가구인데 친구가 없으면 회사 계정(RamuVia)을 친구로 추가

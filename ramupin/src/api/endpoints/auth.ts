@@ -211,7 +211,14 @@ export const authApi = {
 
   /** 가입 완료 → 회원 생성 + 로그인 토큰 */
   async completeSignUp(
-    input: SignUpProfile & { signUpToken: string; agreedTerms: string[]; singleHousehold: boolean; device: DeviceInput },
+    input: SignUpProfile & {
+      signUpToken: string;
+      agreedTerms: string[];
+      singleHousehold: boolean;
+      device: DeviceInput;
+      /** 만 14세 미만이면 보호자 (보완 4.1) */
+      guardian?: { name: string; phone: string; sosLink: boolean };
+    },
   ): Promise<LoginResult> {
     if (!isLive('auth')) {
       Object.assign(mockMe, { nickname: input.nickname, gender: input.gender, birthDate: input.birthDate, singleHouseholdMode: input.singleHousehold });

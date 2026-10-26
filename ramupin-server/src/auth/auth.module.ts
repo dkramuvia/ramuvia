@@ -379,6 +379,6 @@ class AuthController {
     GoogleService,
     SignUpService,
   ],
-  exports: [AuthGuard, JwtModule, SessionService, LoginService],
+  exports: [AuthGuard, JwtModule, SessionService, LoginService, SmsService],
 })
 export class AuthModule {}

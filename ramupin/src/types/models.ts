@@ -244,18 +244,30 @@ export interface HideModeSetting {
   until: string | null;
 }
 
-export interface EmergencyAgency {
-  id: string;
+/** SOS 를 문자로 받을 비회원 연락처 (서버가 알리고로 발송, 국내 휴대폰 번호만) */
+export interface SosContact {
+  /** 저장 전에는 없습니다 */
+  id?: string;
   name: string;
   phone: string;
+  maskedPhone?: string;
 }
 
 export interface SafetySetting {
   sosEnabled: boolean;
   recipientFriendIds: string[];
   recipientGroupIds: string[];
-  /** 관공서 연락처 (WBS 8.4: 비워 두고 준비만) */
-  agencies: EmergencyAgency[];
+  /** 비회원 연락처 (보완 4.4, C6). 플래티넘부터 */
+  contacts: SosContact[];
+  /** 사용자가 직접 등록한 긴급전화 (보완 4.6). 없으면 null */
+  emergencyName: string | null;
+  emergencyNumber: string | null;
+  /** SOS 때 비회원 연락처에 문자도 보내기 */
+  smsEnabled: boolean;
+  /** SOS 때 10초 녹음 */
+  recordEnabled: boolean;
+  /** 2초 길게 눌러야 SOS 시작 (오작동 방지) */
+  longPressStart: boolean;
 }
 
 /** 알림 설정 (WBS 8.1). 앱 [설정 > 알림] 화면 */

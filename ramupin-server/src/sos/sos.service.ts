@@ -7,6 +7,7 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { PushService } from '../push/push.service.js';
 import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
+import { SosSmsService } from './sos-sms.service.js';
 
 /**
  * SOS (WBS 7.9 / 8.3 / 9.3 / 10.8).
@@ -36,20 +37,21 @@ export class SosService {
     private readonly gateway: ChatGateway,
     private readonly push: PushService,
     private readonly location: LocationService,
+    private readonly sms: SosSmsService,
   ) {}
 
   async send(userId: string, input: SosInput) {
     const me = await this.db
       .selectFrom('member.users as u')
       .leftJoin('member.safety_settings as s', 's.user_id', 'u.id')
-      .select(['u.nickname', 's.sos_enabled as sosEnabled'])
+      .select(['u.nickname', 's.sos_enabled as sosEnabled', 's.sms_enabled as smsEnabled'])
       .where('u.id', '=', userId)
       .executeTakeFirst();
     if (!me) throw appError(404, 'USER_NOT_FOUND', '사용자를 찾을 수 없습니다');
     // 설정이 없으면 켜진 것으로 봅니다. 안전 기능은 꺼 달라고 해야 꺼집니다
     if (me.sosEnabled === false) throw appError(403, 'SOS_DISABLED', 'SOS 기능이 꺼져 있습니다');
 
-    const recipients = await this.resolveRecipients(userId);
+    const { recipients, limit } = await this.resolveRecipients(userId);
     const toMonitoring = recipients.length === 0;
 
     const event = await this.db
@@ -81,7 +83,21 @@ export class SosService {
       this.logger.warn(`SOS 수신인 없음 → 모니터링 (user ${userId})`);
     }
 
-    return { sosId: event.id, recipientCount: recipients.length, toMonitoring };
+    // 비회원 연락처에는 서버가 문자로 (C1). 친구에게 쓰고 남은 수신인 자리만큼, 기다리지 않고 뒤에서 보냅니다
+    const smsCount = await this.sms
+      .startForSos(
+        userId,
+        event.id,
+        me.nickname,
+        { ...input },
+        { smsEnabled: me.smsEnabled !== false, capacity: limit - recipients.length },
+      )
+      .catch((error: unknown) => {
+        this.logger.error(`SOS 문자 준비 실패: ${String(error)}`);
+        return 0;
+      });
+
+    return { sosId: event.id, recipientCount: recipients.length, smsCount, toMonitoring };
   }
 
   /** 카운트다운 중 취소. 이미 보낸 건도 "취소됨"으로 바꿔 수신인에게 알립니다 */
@@ -173,13 +189,17 @@ export class SosService {
    * 받을 사람을 정합니다.
    * 직접 고른 친구 + 고른 그룹방의 멤버를 합치고, 나 자신과 중복은 뺍니다.
    */
-  private async resolveRecipients(userId: string): Promise<string[]> {
+  private async resolveRecipients(userId: string): Promise<{ recipients: string[]; limit: number }> {
+    // 등급별 수신인 수 제한 (WBS 2.1). 관리자 화면에서 조정합니다. 비회원 문자도 이 안에 셉니다 (보완 4.4)
+    const policy = await resolvePolicy(this.db, userId);
+    const limit = policyNumber(policy, 'sosRecipientLimit', 1);
+
     const rows = await this.db
       .selectFrom('member.sos_recipients')
       .select(['kind', 'target_id'])
       .where('user_id', '=', userId)
       .execute();
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return { recipients: [], limit };
 
     const friendIds = rows.filter((r) => r.kind === 'friend').map((r) => r.target_id);
     const groupIds = rows.filter((r) => r.kind === 'group').map((r) => r.target_id);
@@ -204,10 +224,7 @@ export class SosService {
       for (const row of members) ids.add(row.user_id);
     }
     ids.delete(userId);
-
-    // 등급별 수신인 수 제한 (WBS 2.1). 관리자 화면에서 조정합니다
-    const policy = await resolvePolicy(this.db, userId);
-    return [...ids].slice(0, policyNumber(policy, 'sosRecipientLimit', 1));
+    return { recipients: [...ids].slice(0, limit), limit };
   }
 
   private async deliveredTo(sosId: string): Promise<string[]> {

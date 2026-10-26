@@ -67,6 +67,8 @@ export interface PlanPolicy {
     trafficWeather: boolean;
     speedingAlert: boolean;
     governmentEmergency: boolean;
+    /** SOS 때 비회원 연락처에 서버가 문자 발송 (보완 4.4, 플래티넘부터) */
+    sosSms: boolean;
   };
 }
 
@@ -84,7 +86,7 @@ const base = {
   photoStorageMb: 300,
   locationRetentionDays: 7,
   ads: 'banner+fullscreen',
-  features: { premiumMap: false, overseasMap: false, trafficWeather: false, speedingAlert: false, governmentEmergency: false },
+  features: { premiumMap: false, overseasMap: false, trafficWeather: false, speedingAlert: false, governmentEmergency: false, sosSms: false },
 } satisfies Omit<PlanPolicy, 'planId'>;
 
 export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
@@ -100,7 +102,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     photoStorageMb: 1024,
     locationRetentionDays: 15,
     ads: 'none',
-    features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
+    features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true, sosSms: true },
   },
   trinity: {
     planId: 'trinity',
@@ -113,7 +115,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     photoStorageMb: 5120,
     locationRetentionDays: 30,
     ads: 'none',
-    features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
+    features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true, sosSms: true },
   },
   care: {
     planId: 'care',
@@ -125,7 +127,7 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     sosRecipientLimit: 5,
     locationRetentionDays: 15,
     ads: 'none',
-    features: { premiumMap: false, overseasMap: false, trafficWeather: true, speedingAlert: false, governmentEmergency: true },
+    features: { premiumMap: false, overseasMap: false, trafficWeather: true, speedingAlert: false, governmentEmergency: true, sosSms: false },
   },
   guardian: {
     planId: 'guardian',
@@ -147,4 +149,5 @@ export const FEATURE_MIN_PLAN: Record<keyof PlanPolicy['features'], PlanId> = {
   trafficWeather: 'platinum',
   speedingAlert: 'platinum',
   governmentEmergency: 'care',
+  sosSms: 'platinum',
 };

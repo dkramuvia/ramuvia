@@ -62,14 +62,17 @@ export class SmsService {
     await this.send(phone, text, label);
   }
 
-  async send(phone: string | null, text: string, label: string): Promise<void> {
+  /**
+   * @param type SMS = 90바이트까지(인증번호) / LMS = 긴 문자(SOS 위치 링크처럼 90바이트를 넘는 것)
+   */
+  async send(phone: string | null, text: string, label: string, type: 'SMS' | 'LMS' = 'SMS'): Promise<void> {
     if (env.SMS_PROVIDER === 'dev') {
       // 개발 중에는 실제로 보내지 않고 로그로만 확인합니다 (번호 원문은 남기지 않음)
       this.logger.log(`[dev 문자] ${label} → ${phone ? maskPhone(phone) : '번호 없음'} : ${text.replace(/\n/g, ' ')}`);
       return;
     }
     if (!phone) throw new Error('문자를 보낼 번호가 없습니다');
-    await this.sendViaAligo(phone, text, label);
+    await this.sendViaAligo(phone, text, label, type);
   }
 
   /**
@@ -77,7 +80,7 @@ export class SmsService {
    *
    * **로그에 번호 원문과 키를 남기지 않습니다.** 서버 로그는 여러 사람이 보고 오래 남습니다.
    */
-  private async sendViaAligo(phone: string, text: string, label: string): Promise<void> {
+  private async sendViaAligo(phone: string, text: string, label: string, type: 'SMS' | 'LMS'): Promise<void> {
     const receiver = normalizePhone(phone);
     if (env.NODE_ENV !== 'production' && 자리표시_번호.has(receiver)) {
       throw new Error(`자리표시 번호로는 보내지 않습니다 (${maskPhone(phone)}) — 실제 쓰는 사람이 있을 수 있습니다`);
@@ -99,8 +102,9 @@ export class SmsService {
       // 알리고는 숫자만 받습니다 ("010-1234-5678" → "01012345678")
       receiver,
       msg: text,
-      // 90바이트가 넘으면 LMS 라 요금이 다릅니다. 인증번호는 짧아 SMS 로 충분합니다
-      msg_type: 'SMS',
+      // 90바이트가 넘으면 LMS 라 요금이 다릅니다. 인증번호는 짧아 SMS 로 충분하고, SOS 는 위치 링크 때문에 LMS 입니다
+      msg_type: type,
+      ...(type === 'LMS' ? { title: '라무핀' } : {}),
       testmode_yn: env.ALIGO_TEST_MODE,
     });
 

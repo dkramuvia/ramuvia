@@ -138,6 +138,22 @@ export const POLICY_FIELDS: PolicyField[] = [
   { key: 'features.trafficWeather', label: '교통·날씨', help: '', group: '기능', type: 'switch' },
   { key: 'features.speedingAlert', label: '과속 경고', help: '', group: '기능', type: 'switch' },
   { key: 'features.governmentEmergency', label: '재난 문자', help: '', group: '기능', type: 'switch' },
+  {
+    key: 'features.sosSms',
+    label: 'SOS 비회원 문자',
+    help: 'SOS 때 비회원 연락처에 서버가 문자(알리고)로 위치 링크를 보냅니다. 문자 요금이 나갑니다. 국내 휴대폰 번호만.',
+    group: '기능',
+    type: 'switch',
+  },
+  {
+    key: 'sosSmsMaxPerEvent',
+    label: 'SOS 한 번에 보낼 문자 수',
+    help: '문자 비용 한도입니다. SOS 수신인 수 안에서 이만큼까지만 보냅니다.',
+    group: '제한',
+    type: 'count',
+    min: 0,
+    max: 20,
+  },
 ];
 
 const FIELD_BY_KEY = new Map(POLICY_FIELDS.map((f) => [f.key, f]));

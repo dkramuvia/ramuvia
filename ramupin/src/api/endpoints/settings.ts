@@ -102,9 +102,8 @@ export const hideModeApi = {
 export const safetyApi = {
   async get(): Promise<SafetySetting> {
     if (!isLive('sos')) return mockResponse(clone(mockSafety));
-    const { data } = await apiClient.get<Omit<SafetySetting, 'agencies'>>('/me/safety');
-    // 관공서 연락처는 아직 서버에 두지 않았습니다 (WBS 8.4: 비워 두고 준비만)
-    return { ...data, agencies: [] };
+    const { data } = await apiClient.get<SafetySetting>('/me/safety');
+    return data;
   },
   async save(setting: SafetySetting): Promise<void> {
     if (!isLive('sos')) {
@@ -115,6 +114,12 @@ export const safetyApi = {
       sosEnabled: setting.sosEnabled,
       recipientFriendIds: setting.recipientFriendIds,
       recipientGroupIds: setting.recipientGroupIds,
+      contacts: setting.contacts.map((c) => ({ name: c.name, phone: c.phone })),
+      emergencyName: setting.emergencyName,
+      emergencyNumber: setting.emergencyNumber,
+      smsEnabled: setting.smsEnabled,
+      recordEnabled: setting.recordEnabled,
+      longPressStart: setting.longPressStart,
     });
   },
 };

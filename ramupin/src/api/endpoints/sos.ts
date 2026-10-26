@@ -17,6 +17,8 @@ export interface SendSosResult {
   sosId: string;
   /** 알림을 받은 사람 수 */
   recipientCount: number;
+  /** 서버가 문자를 보내는 비회원 연락처 수 */
+  smsCount: number;
   /** 지정한 수신인이 없어 회사(관제)가 받은 경우 (WBS 9.3) */
   toMonitoring: boolean;
 }
@@ -32,7 +34,7 @@ export const sosApi = {
   async send(input: SendSosInput): Promise<SendSosResult> {
     if (!isLive('sos')) {
       const count = mockSafety.recipientFriendIds.length + mockSafety.recipientGroupIds.length;
-      return mockResponse({ sosId: `sos${Date.now()}`, recipientCount: count, toMonitoring: count === 0 }, 900);
+      return mockResponse({ sosId: `sos${Date.now()}`, recipientCount: count, smsCount: mockSafety.contacts.length, toMonitoring: count === 0 }, 900);
     }
 
     // 녹음이 있으면 먼저 저장소에 올립니다. 실패해도 SOS 는 보냅니다 — 위치가 더 급합니다
@@ -67,12 +69,39 @@ export const sosApi = {
     await apiClient.post(`/sos/${sosId}/resolve`);
   },
 
+  /** 보낸 SOS 가 누구에게 어떻게 갔는지 (결과 화면, 보완 4.5) */
+  async deliveries(sosId: string): Promise<SosDeliveries> {
+    if (!isLive('sos')) {
+      return mockResponse({
+        status: 'sent',
+        app: [],
+        sms: mockSafety.contacts.map((c, i) => ({ id: `d${i}`, name: c.name, maskedPhone: c.maskedPhone ?? c.phone, status: 'sent', reason: null, sentAt: new Date().toISOString() })),
+      });
+    }
+    const { data } = await apiClient.get<SosDeliveries>(`/sos/${sosId}/deliveries`);
+    return data;
+  },
+
+  /** 실패한 문자 한 건 다시 보내기 */
+  async resendSms(sosId: string, deliveryId: string): Promise<void> {
+    if (!isLive('sos')) return mockResponse(undefined);
+    await apiClient.post(`/sos/${sosId}/sms/${deliveryId}/resend`);
+  },
+
   async received(): Promise<ReceivedSos[]> {
     if (!isLive('sos')) return mockResponse([]);
     const { data } = await apiClient.get<ReceivedSos[]>('/sos/received');
     return data;
   },
 };
+
+export interface SosDeliveries {
+  status: 'sent' | 'cancelled' | 'resolved';
+  /** 앱 알림을 받은 친구. readAt = 확인한 시각 */
+  app: { id: string; nickname: string; avatarUrl: string | null; readAt: string | null }[];
+  /** 서버가 보낸 문자. skipped = 등급·한도·설정 때문에 안 보냄 */
+  sms: { id: string; name: string; maskedPhone: string; status: 'sending' | 'sent' | 'failed' | 'skipped'; reason: string | null; sentAt: string | null }[];
+}
 
 export interface ReceivedSos {
   id: string;

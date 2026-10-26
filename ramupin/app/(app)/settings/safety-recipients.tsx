@@ -9,6 +9,8 @@ import { useFriends } from '@/features/friends/queries';
 import { useMyGroups } from '@/features/groups/queries';
 import { usePlan } from '@/features/policy/usePlan';
 import { useSafetySetting, useSaveSafetySetting } from '@/features/settings/queries';
+import { countSosRecipients } from '@/features/sos/recipientCount';
+import { useAuthStore } from '@/stores/authStore';
 import { useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
 
@@ -28,6 +30,7 @@ export default function SafetyRecipientsScreen() {
   const { data: groups = [] } = useMyGroups();
   const { limit } = usePlan();
   const recipientLimit = limit('sosRecipientLimit');
+  const myId = useAuthStore((s) => s.user?.id);
 
   const [mode, setMode] = useState<Mode>('friends');
   const [query, setQuery] = useState('');
@@ -42,7 +45,14 @@ export default function SafetyRecipientsScreen() {
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
     if (list.includes(id)) return set(list.filter((x) => x !== id));
-    if (recipientLimit && friendIds.length + groupIds.length >= recipientLimit) {
+    // 그룹은 멤버 수만큼, 비회원 연락처도 함께 셉니다 (보완 4.4)
+    const next = list === friendIds ? { friendIds: [...friendIds, id], groupIds } : { friendIds, groupIds: [...groupIds, id] };
+    const count = countSosRecipients(
+      { recipientFriendIds: next.friendIds, recipientGroupIds: next.groupIds, contacts: setting?.contacts ?? [] },
+      groups,
+      myId,
+    );
+    if (recipientLimit && count > recipientLimit) {
       showToast(t('safety.limit', { limit: recipientLimit }));
       return;
     }

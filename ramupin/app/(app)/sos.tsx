@@ -3,24 +3,31 @@ import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, 
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import { useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Easing, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sosApi } from '@/api/endpoints/sos';
+import { sosApi, type SosDeliveries } from '@/api/endpoints/sos';
 import { AppText, Button, ThemedStatusBar } from '@/components/ui';
 import { describePlace } from '@/features/location/address';
 import { setSosMode } from '@/features/location/sosMode';
 import { useSafetySetting } from '@/features/settings/queries';
 import { SlideToCancel } from '@/features/sos/SlideToCancel';
+import { openOfflineSosSms } from '@/features/sos/sosContactsSnapshot';
+import { useAuthStore } from '@/stores/authStore';
+import { showToast } from '@/utils/toast';
 import { makeStyles, radius, useColors } from '@/theme';
 
 // TODO(정책): 카운트다운·녹음 시간은 서버 정책값 (WBS 7.9: 10초)
 const COUNTDOWN_SECONDS = 10;
 const RECORD_SECONDS = 10;
+/** 길게 눌러 시작할 때 누르고 있어야 하는 시간 (보완 4.4: 2초, 오작동 방지) */
+const LONG_PRESS_MS = 2000;
 
 type Phase = 'idle' | 'countdown' | 'recording' | 'sending' | 'sent';
 
@@ -45,13 +52,17 @@ export default function SosScreen() {
   const colors = useColors();
   const { t } = useTranslation();
   const { data: safety } = useSafetySetting();
+  const nickname = useAuthStore((s) => s.user?.nickname ?? '');
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
   const [cancelledBanner, setCancelledBanner] = useState(false);
   const [recipientCount, setRecipientCount] = useState(0);
-  const sosId = useRef<string | null>(null);
+  const [toMonitoring, setToMonitoring] = useState(false);
+  /** 인터넷이 끊겨 서버에 못 보내고 문자 창을 연 경우 (C1) */
+  const [offline, setOffline] = useState(false);
+  const [sosId, setSosId] = useState<string | null>(null);
   /** 전송 완료 화면에 "무엇을 보냈는지" 를 그대로 보여 줍니다 (피그마 2026-09-28) */
   const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
   const [micDenied, setMicDenied] = useState(false);
@@ -103,7 +114,9 @@ export default function SosScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       if (left <= 0) {
         clearTimer();
-        startRecording();
+        // 녹음을 끈 사람은 카운트다운이 끝나면 바로 보냅니다 (보완 4.6)
+        if (safety?.recordEnabled === false) void finish(false);
+        else void startRecording();
       }
     }, 1000);
   };
@@ -132,15 +145,30 @@ export default function SosScreen() {
     setPhase('sending');
     if (recorded) await recorder.stop();
     const position = await locationPromise.current;
-    const place = position ? await describePlace({ latitude: position.coords.latitude, longitude: position.coords.longitude }) : null;
-    const result = await sosApi.send({
-      place,
-      altitude: position?.coords.altitude ?? null,
-      audioUri: recorded ? recorder.uri : null,
-      startedAt: startedAt.current,
-    });
-    setRecipientCount(result.recipientCount);
-    sosId.current = result.sosId;
+    const coords = position ? { latitude: position.coords.latitude, longitude: position.coords.longitude } : null;
+    const place = coords ? await describePlace(coords).catch(() => null) : null;
+    try {
+      const result = await sosApi.send({
+        place,
+        altitude: position?.coords.altitude ?? null,
+        audioUri: recorded ? recorder.uri : null,
+        startedAt: startedAt.current,
+      });
+      setRecipientCount(result.recipientCount);
+      setToMonitoring(result.toMonitoring);
+      setSosId(result.sosId);
+    } catch (error) {
+      // 서버에 닿지 못했을 때만(인터넷 끊김) 문자 창을 엽니다. 사용자가 [보내기]를 눌러야 갑니다 (C1·C9)
+      if (isAxiosError(error) && !error.response) {
+        setOffline(true);
+        const opened = await openOfflineSosSms(nickname, coords);
+        if (!opened) showToast(t('sos.offlineNoContacts'));
+      } else {
+        showToast(t('sos.sendFailed'));
+        setPhase('idle');
+        return;
+      }
+    }
     setSentInfo({
       address: place?.address ?? null,
       latitude: position?.coords.latitude ?? null,
@@ -159,7 +187,7 @@ export default function SosScreen() {
    */
   const resolve = async () => {
     await setSosMode(false);
-    if (sosId.current) await sosApi.resolve(sosId.current).catch(() => undefined);
+    if (sosId) await sosApi.resolve(sosId).catch(() => undefined);
     router.back();
   };
 
@@ -175,6 +203,8 @@ export default function SosScreen() {
     setPhase('idle');
     setCancelledBanner(true);
   };
+
+  const longPress = safety?.longPressStart !== false;
 
   if (phase === 'idle') {
     return (
@@ -209,17 +239,19 @@ export default function SosScreen() {
           ) : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t('sos.tapToSend')}
-              onPress={start}
+              accessibilityLabel={t(longPress ? 'sos.holdToSend' : 'sos.tapToSend')}
+              // 길게 눌러 시작을 켜 두면(기본) 2초를 누르고 있어야 합니다. 주머니 속 오작동을 막습니다 (보완 4.4)
+              onPress={longPress ? () => showToast(t('sos.holdHint')) : start}
               onLongPress={start}
+              delayLongPress={longPress ? LONG_PRESS_MS : undefined}
               style={({ pressed }) => [styles.halo, pressed && styles.pressed]}
             >
               <View style={styles.sosButton}>
                 <AppText variant="title2" color={colors.white} align="center">
-                  {t('sos.tapToSend')}
+                  {t(longPress ? 'sos.holdToSend' : 'sos.tapToSend')}
                 </AppText>
                 <AppText variant="caption" color={colors.white}>
-                  {t('sos.orLongPress')}
+                  {t(longPress ? 'sos.holdSeconds' : 'sos.orLongPress')}
                 </AppText>
               </View>
             </Pressable>
@@ -237,37 +269,16 @@ export default function SosScreen() {
       </AppText>
 
       {phase === 'sent' ? (
-        <View style={styles.sentBody}>
-          <View style={styles.sentBadge}>
-            <AppText variant="title4" color={colors.white}>
-              {t('sos.sentBadge')}
-            </AppText>
-          </View>
-
-          <AppText variant="title1" color={colors.white}>
-            {t('sos.sentTitle')}
-          </AppText>
-          <AppText variant="body1Bold" color="#D0D0D0">
-            {recipientCount > 0
-              ? t('sos.sentDesc', { count: recipientCount, seconds: sentInfo?.recorded ? RECORD_SECONDS : 0 })
-              : t('sos.sentNoRecipients')}
-          </AppText>
-
-          {/* 무엇을 보냈는지 그대로 보여 줍니다. 급한 상황에서 "정말 갔나" 를 확인할 수 있어야 합니다 */}
-          <View style={styles.sentFacts}>
-            {sentInfo?.address ? <Fact label={t('sos.factPlace')} value={sentInfo.address} /> : null}
-            {sentInfo?.latitude != null && sentInfo.longitude != null ? (
-              <Fact label={t('sos.factCoords')} value={`${sentInfo.latitude.toFixed(4)}, ${sentInfo.longitude.toFixed(4)}`} />
-            ) : null}
-            {sentInfo?.altitude != null ? <Fact label={t('sos.factAltitude')} value={`${Math.round(sentInfo.altitude)} m`} /> : null}
-            {sentInfo ? <Fact label={t('sos.factSentAt')} value={sentInfo.sentAt.toLocaleString('ko-KR')} /> : null}
-          </View>
-
-          <View style={styles.sentActions}>
-            <Button label={t('sos.call112')} variant="danger" onPress={() => Linking.openURL('tel:112')} />
-            <Button label={t('sos.resolve')} variant="white" onPress={() => void resolve()} />
-          </View>
-        </View>
+        <SentView
+          sosId={sosId}
+          offline={offline}
+          toMonitoring={toMonitoring}
+          recipientCount={recipientCount}
+          sentInfo={sentInfo}
+          emergencyName={safety?.emergencyName ?? null}
+          emergencyNumber={safety?.emergencyNumber ?? null}
+          onResolve={() => void resolve()}
+        />
       ) : (
         <>
           <View style={styles.darkTexts}>
@@ -327,6 +338,180 @@ export default function SosScreen() {
   );
 }
 
+/**
+ * SOS 전송 결과 (보완 화면 설계 4.5, 피그마 v2.4 1015:46425, 수정 반영본 C8).
+ * 받은 사람별로 어떻게 갔는지 보여 줍니다: 앱 알림 = 확인한 시각 / 문자 = 전송됨·실패(다시 보내기).
+ * 긴급전화 버튼은 사용자가 등록한 번호로 겁니다. 등록하지 않았으면 [긴급전화 등록하기].
+ */
+function SentView({
+  sosId,
+  offline,
+  toMonitoring,
+  recipientCount,
+  sentInfo,
+  emergencyName,
+  emergencyNumber,
+  onResolve,
+}: {
+  sosId: string | null;
+  offline: boolean;
+  toMonitoring: boolean;
+  recipientCount: number;
+  sentInfo: SentInfo | null;
+  emergencyName: string | null;
+  emergencyNumber: string | null;
+  onResolve: () => void;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  // 친구가 확인하거나 문자가 나가면 바뀌므로 몇 초마다 다시 받습니다
+  const { data: deliveries, refetch } = useQuery({
+    queryKey: ['sos', 'deliveries', sosId],
+    queryFn: () => sosApi.deliveries(sosId!),
+    enabled: !!sosId,
+    refetchInterval: 4000,
+  });
+  const time = (iso: string | Date) => new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+
+  const resend = async (deliveryId: string) => {
+    if (!sosId) return;
+    await sosApi.resendSms(sosId, deliveryId).catch(() => showToast(t('sos.sendFailed')));
+    void refetch();
+  };
+
+  const sentAt = sentInfo?.sentAt ?? new Date();
+  const hasRows = (deliveries?.app.length ?? 0) + (deliveries?.sms.length ?? 0) > 0;
+
+  return (
+    <ScrollView contentContainerStyle={styles.sentBody}>
+      <View style={styles.sentBadge}>
+        <AppText variant="label1Bold" color={colors.white}>
+          {t('sos.sentBadgeAt', { time: time(sentAt) })}
+        </AppText>
+      </View>
+
+      <AppText variant="title1" color={colors.white}>
+        {t('sos.sentTitle')}
+      </AppText>
+      <AppText variant="body1Bold" color="#D0D0D0">
+        {offline
+          ? t('sos.sentOffline')
+          : t(sentInfo?.recorded ? 'sos.sentDescRecorded' : 'sos.sentDescNoAudio', { seconds: RECORD_SECONDS })}
+      </AppText>
+
+      {/* 전달 상태 (NEW) */}
+      {!offline ? (
+        <View style={styles.deliveryCard}>
+          <AppText variant="label2" color={FACT_COLOR}>
+            {t('sos.deliveryTitle')}
+          </AppText>
+          {deliveries?.app.map((a) => (
+            <DeliveryRow
+              key={a.id}
+              name={a.nickname}
+              channel={t('sos.channelApp')}
+              status={a.readAt ? t('sos.statusRead', { time: time(a.readAt) }) : t('sos.statusDelivered')}
+              tone={a.readAt ? 'ok' : 'normal'}
+            />
+          ))}
+          {deliveries?.sms.map((m) => (
+            <DeliveryRow
+              key={m.id}
+              name={`${m.name} (${m.maskedPhone})`}
+              channel={t('sos.channelSms')}
+              status={smsStatusText(m, t)}
+              tone={m.status === 'sent' ? 'ok' : m.status === 'failed' ? 'bad' : 'normal'}
+              onRetry={m.status === 'failed' ? () => void resend(m.id) : undefined}
+            />
+          ))}
+          {toMonitoring ? <DeliveryRow name={t('sos.monitoringName')} channel={t('sos.channelMonitoring')} status={t('sos.statusReceived')} tone="ok" /> : null}
+          {!hasRows && !toMonitoring ? (
+            <AppText variant="label2" color={FACT_COLOR}>
+              {recipientCount > 0 ? t('sos.statusLoading') : t('sos.sentNoRecipients')}
+            </AppText>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* 보낸 위치 정보 */}
+      <View style={styles.sentFacts}>
+        {sentInfo?.address ? <Fact label={t('sos.factPlace')} value={sentInfo.address} /> : null}
+        {sentInfo?.latitude != null && sentInfo.longitude != null ? (
+          <Fact label={t('sos.factCoords')} value={`${sentInfo.latitude.toFixed(4)}, ${sentInfo.longitude.toFixed(4)}`} />
+        ) : null}
+        {sentInfo?.altitude != null ? <Fact label={t('sos.factAltitude')} value={`${Math.round(sentInfo.altitude)} m`} /> : null}
+        <Fact label={t('sos.factSentAt')} value={sentAt.toLocaleString('ko-KR')} />
+      </View>
+
+      <View style={styles.sentActions}>
+        {emergencyNumber ? (
+          <Button
+            label={t('sos.callEmergency', { name: emergencyName ?? t('emergency.defaultName'), number: emergencyNumber })}
+            variant="danger"
+            onPress={() => Linking.openURL(`tel:${emergencyNumber.replace(/[^0-9+*#]/g, '')}`)}
+          />
+        ) : (
+          <Button label={t('sos.registerEmergency')} variant="danger" onPress={() => router.push('/settings/emergency')} />
+        )}
+        <Button label={t('sos.resolve')} variant="white" onPress={onResolve} />
+        <AppText variant="caption" color={FACT_COLOR} align="center">
+          {t('sos.resolveNote')}
+        </AppText>
+      </View>
+    </ScrollView>
+  );
+}
+
+function smsStatusText(m: SosDeliveries['sms'][number], t: (key: string, options?: Record<string, unknown>) => string): string {
+  if (m.status === 'sent') return t('sos.statusSent');
+  if (m.status === 'failed') return t('sos.statusFailed');
+  if (m.status === 'skipped') return t('sos.statusSkipped', { reason: m.reason ?? '' });
+  return t('sos.statusSending');
+}
+
+function DeliveryRow({
+  name,
+  channel,
+  status,
+  tone,
+  onRetry,
+}: {
+  name: string;
+  channel: string;
+  status: string;
+  tone: 'ok' | 'bad' | 'normal';
+  onRetry?: () => void;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  return (
+    <View style={styles.deliveryRow}>
+      <View style={styles.flex}>
+        <AppText variant="body2Bold" color={colors.white} numberOfLines={1}>
+          {name}
+        </AppText>
+        <AppText variant="caption" color={FACT_COLOR}>
+          {channel}
+        </AppText>
+      </View>
+      <View style={styles.deliveryStatus}>
+        <AppText variant="label2" color={tone === 'ok' ? '#5CD67A' : tone === 'bad' ? '#FF8A7A' : FACT_COLOR}>
+          {status}
+        </AppText>
+        {onRetry ? (
+          <Pressable accessibilityRole="button" onPress={onRetry} hitSlop={8}>
+            <AppText variant="label2" color={colors.white} style={styles.underline}>
+              {t('sos.retry')}
+            </AppText>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 interface SentInfo {
   address: string | null;
   latitude: number | null;
@@ -370,7 +555,11 @@ const useStyles = makeStyles((colors) => ({
   recordRing: { width: 214, height: 214, borderRadius: 107, borderWidth: 4, borderColor: '#AEB5BC', alignItems: 'center', justifyContent: 'center' },
   micBig: { width: 114, height: 114, borderRadius: 57, backgroundColor: '#E84133', alignItems: 'center', justifyContent: 'center' },
   slide: { paddingHorizontal: 46, paddingBottom: 100 },
-  sentBody: { flex: 1, paddingHorizontal: 24, gap: 12, justifyContent: 'center' },
+  sentBody: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 24, gap: 12, justifyContent: 'center' },
+  deliveryCard: { gap: 12, marginTop: 8, padding: 16, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.06)' },
+  deliveryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  deliveryStatus: { alignItems: 'flex-end', gap: 2 },
+  underline: { textDecorationLine: 'underline' },
   sentBadge: { alignSelf: 'flex-start', borderRadius: radius.full, backgroundColor: colors.danger, paddingHorizontal: 14, paddingVertical: 4 },
   sentFacts: { gap: 4, marginTop: 8 },
   sentActions: { marginTop: 24, gap: 10 },

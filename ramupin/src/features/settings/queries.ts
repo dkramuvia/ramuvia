@@ -15,6 +15,7 @@ import i18n from '@/i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { showToast } from '@/utils/toast';
 import { saveGeofenceSnapshot } from '@/features/location/geofenceSnapshot';
+import { saveSosContactsSnapshot } from '@/features/sos/sosContactsSnapshot';
 import type { Geofence, HideModeSetting, HistoryCategory, NotificationSettings, SafetySetting, ScheduledMessage, User } from '@/types/models';
 
 const keys = {
@@ -47,12 +48,27 @@ export function useSaveNotificationSettings() {
   });
 }
 
-export const useSafetySetting = () => useQuery({ queryKey: keys.safety, queryFn: safetyApi.get });
+export const useSafetySetting = () =>
+  useQuery({
+    queryKey: keys.safety,
+    queryFn: async () => {
+      const setting = await safetyApi.get();
+      // 인터넷이 끊긴 SOS 때 문자 창에 쓸 연락처 사본 (C1)
+      void saveSosContactsSnapshot(setting.contacts, setting.smsEnabled);
+      return setting;
+    },
+  });
 export function useSaveSafetySetting() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (setting: SafetySetting) => safetyApi.save(setting),
-    onSuccess: (_d, setting) => queryClient.setQueryData(keys.safety, setting),
+    onSuccess: (_d, setting) => {
+      queryClient.setQueryData(keys.safety, setting);
+      // 새 연락처의 가린 번호·id 와 기기 사본을 서버 기준으로 다시 받습니다
+      void queryClient.invalidateQueries({ queryKey: keys.safety });
+    },
+    // 국내 휴대폰 번호가 아니면 서버가 이유를 문장으로 보냅니다
+    onError: (error) => showToast(serverMessage(error) ?? i18n.t('common.requestFailed')),
   });
 }
 
@@ -71,10 +87,7 @@ export function useSaveGeofence() {
     mutationFn: (geofence: Omit<Geofence, 'id'> & { id?: string }) => geofencesApi.save(geofence),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.geofences }),
     // 등급 한도(장소 수·알림 켠 장소 수)에 걸리면 서버가 이유를 문장으로 보냅니다
-    onError: (error) => {
-      const message = isAxiosError<{ message?: unknown }>(error) ? error.response?.data?.message : undefined;
-      showToast(typeof message === 'string' ? message : i18n.t('common.requestFailed'));
-    },
+    onError: (error) => showToast(serverMessage(error) ?? i18n.t('common.requestFailed')),
   });
 }
 export function useRemoveGeofence() {
@@ -113,4 +126,10 @@ export function useUpdateProfile() {
     mutationFn: (patch: Pick<Partial<User>, 'nickname' | 'avatarUrl' | 'gender' | 'statusMessage'>) => profileApi.update(patch),
     onSuccess: (user) => updateUser(user),
   });
+}
+
+/** 서버가 보낸 거절 이유 (문장). 없으면 null */
+function serverMessage(error: unknown): string | null {
+  const message = isAxiosError<{ message?: unknown }>(error) ? error.response?.data?.message : undefined;
+  return typeof message === 'string' ? message : null;
 }

@@ -20,10 +20,12 @@ export const mockSafety: SafetySetting = {
   sosEnabled: true,
   recipientFriendIds: ['f2'],
   recipientGroupIds: ['room3'],
-  agencies: [
-    { id: 'a1', name: '응급 병원', phone: '' },
-    { id: 'a2', name: '경찰서', phone: '' },
-  ],
+  contacts: [{ id: 'c1', name: '엄마', phone: '01012345678', maskedPhone: '010-****-5678' }],
+  emergencyName: null,
+  emergencyNumber: null,
+  smsEnabled: true,
+  recordEnabled: true,
+  longPressStart: true,
 };
 
 export const mockGeofences: Geofence[] = [

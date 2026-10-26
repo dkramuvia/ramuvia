@@ -200,7 +200,38 @@ export interface UserPolicyOverridesTable {
 export interface SafetySettingsTable {
   user_id: string;
   sos_enabled: Generated<boolean>;
+  /** 사용자가 직접 등록한 긴급전화 (보완 4.6). 없으면 결과 화면에 [긴급전화 등록하기] */
+  emergency_name: Generated<string | null>;
+  emergency_number: Generated<string | null>;
+  /** 비회원 연락처에 SOS 문자도 보낼지 */
+  sms_enabled: Generated<boolean>;
+  /** SOS 때 10초 녹음 */
+  record_enabled: Generated<boolean>;
+  /** 2초 길게 눌러야 SOS 시작 */
+  long_press_start: Generated<boolean>;
   updated_at: Timestamp;
+}
+
+/** SOS 를 문자로 받을 비회원 연락처 (번호는 common/phone.ts 로 암호화) */
+export interface SosContactsTable {
+  id: Generated<string>;
+  user_id: string;
+  name: string;
+  phone_encrypted: Buffer;
+  created_at: Generated<Timestamp>;
+}
+
+/** SOS 문자 한 건 (보낸 사람이 결과 화면에서 확인) */
+export interface SosSmsDeliveriesTable {
+  id: Generated<string>;
+  sos_id: string;
+  contact_id: string | null;
+  name: string;
+  phone_encrypted: Buffer;
+  status: Generated<'sending' | 'sent' | 'failed' | 'skipped'>;
+  reason: string | null;
+  sent_at: NullableTimestamp;
+  created_at: Generated<Timestamp>;
 }
 
 /** SOS 를 받을 사람 (친구 한 명 또는 그룹방 전체) */
@@ -530,6 +561,8 @@ export interface MainDatabase {
   'member.sos_recipients': SosRecipientsTable;
   'member.sos_events': SosEventsTable;
   'member.sos_deliveries': SosDeliveriesTable;
+  'member.sos_contacts': SosContactsTable;
+  'member.sos_sms_deliveries': SosSmsDeliveriesTable;
   'media.assets': MediaAssetsTable;
   'media.posts': MediaPostsTable;
   'media.post_assets': MediaPostAssetsTable;

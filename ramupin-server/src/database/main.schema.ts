@@ -143,9 +143,11 @@ export interface ChatMessagesTable {
   id: Generated<string>;
   room_id: string;
   sender_id: string | null;
-  type: 'text' | 'location' | 'system';
+  type: 'text' | 'location' | 'system' | 'photo';
   text: string | null;
   place: ColumnType<SharedPlace | null, string | null, string | null>;
+  /** 사진 메시지의 파일 (보완 4.18) */
+  asset_id: string | null;
   created_at: Timestamp;
 }
 

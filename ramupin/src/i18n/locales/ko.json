@@ -110,7 +110,16 @@
     "inviteMessage": "라무핀 '{{name}}' 그룹에 초대합니다.\n{{link}}",
     "createdAt": "{{date}}",
     "sending": "전송 중",
-    "archivedNotice": "나간 대화방이에요. 지난 대화는 이 기기에서만 볼 수 있어요."
+    "archivedNotice": "나간 대화방이에요. 지난 대화는 이 기기에서만 볼 수 있어요.",
+    "photo": "사진",
+    "camera": "카메라",
+    "failed": "전송 실패",
+    "failedRetry": "전송 실패 · 눌러서 다시 보내기",
+    "read": "읽음",
+    "photoUnavailable": "사진을 볼 수 없어요",
+    "withLocation": "위치 포함",
+    "photoSendTitle": "사진을 보낼까요?",
+    "includeLocation": "찍은 곳(현재 위치)도 함께 보내기"
   },
   "gallery": {
     "allGroups": "전체그룹방 ({{count}})",

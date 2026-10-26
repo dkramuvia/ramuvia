@@ -27,16 +27,26 @@ const toMessage = (row: MessageRow): ChatMessage => {
     senderId: row.sender_id,
     type,
     createdAt: row.created_at,
-    ...(type === 'location' ? { place: JSON.parse(row.body) as SharedPlace } : { text: row.body }),
+    ...(type === 'location'
+      ? { place: JSON.parse(row.body) as SharedPlace }
+      : type === 'photo'
+        ? (JSON.parse(row.body) as Pick<ChatMessage, 'photo' | 'place'>)
+        : { text: row.body }),
   };
 };
 
-const bodyOf = (message: ChatMessage) => (message.type === 'location' ? JSON.stringify(message.place ?? null) : (message.text ?? ''));
+/** 사진은 주소(잠깐 쓰는 서명 주소)와 위치를 함께 둡니다. 주소가 만료되면 서버에서 다시 받을 때 바뀝니다 */
+const bodyOf = (message: ChatMessage) =>
+  message.type === 'location'
+    ? JSON.stringify(message.place ?? null)
+    : message.type === 'photo'
+      ? JSON.stringify({ photo: message.photo, place: message.place })
+      : (message.text ?? '');
 
 export const messageStore = {
   /** 서버에서 받은 메시지를 기기에 저장 (같은 id 는 덮어씀). 전송 중인 것은 저장하지 않습니다 */
   save(messages: ChatMessage[]): void {
-    const saved = messages.filter((m) => !m.pending);
+    const saved = messages.filter((m) => !m.pending && !m.failed);
     if (saved.length === 0) return;
     const db = getDb();
     db.withTransactionSync(() => {

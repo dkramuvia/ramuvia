@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, Button } from '@/components/ui';
 import { AppMapView } from '@/features/map/AppMapView';
@@ -19,11 +20,17 @@ interface MessageItemProps {
   showTime: boolean;
   /** 길게 누르기 (상대 메시지 신고, 보완 4.11) */
   onLongPress?: () => void;
+  /** 1:1 에서 상대가 읽은 내 메시지 (보완 4.18) */
+  read?: boolean;
+  /** 전송 실패한 내 메시지 다시 보내기 */
+  onRetry?: () => void;
 }
 
 /** 피그마: 채팅방 말풍선 (283:34973), 위치 공유 카드 (283:35894) */
-export function MessageItem({ message, isMine, sender, showSender, showTime, onLongPress }: MessageItemProps) {
+export function MessageItem({ message, isMine, sender, showSender, showTime, onLongPress, read, onRetry }: MessageItemProps) {
   const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
   if (message.type === 'system') {
     return (
       <View style={styles.systemRow}>
@@ -36,7 +43,14 @@ export function MessageItem({ message, isMine, sender, showSender, showTime, onL
     );
   }
 
-  const body = message.type === 'location' && message.place ? <LocationCard message={message} /> : <TextBubble message={message} isMine={isMine} />;
+  const body =
+    message.type === 'location' && message.place ? (
+      <LocationCard message={message} />
+    ) : message.type === 'photo' ? (
+      <PhotoBubble message={message} />
+    ) : (
+      <TextBubble message={message} isMine={isMine} />
+    );
 
   return (
     <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther, message.pending && styles.pending]}>
@@ -60,12 +74,56 @@ export function MessageItem({ message, isMine, sender, showSender, showTime, onL
         ) : (
           body
         )}
-        {showTime ? (
+        {message.failed ? (
+          // 전송 실패: 빨간 ! 와 다시 보내기 (보완 4.18)
+          <Pressable accessibilityRole="button" onPress={onRetry} disabled={!onRetry} style={styles.failedRow} hitSlop={8}>
+            <Ionicons name="alert-circle" size={18} color={colors.danger} />
+            <AppText variant="caption" color={colors.danger}>
+              {t(onRetry ? 'chat.failedRetry' : 'chat.failed')}
+            </AppText>
+          </Pressable>
+        ) : isMine && (read || showTime) ? (
+          <AppText variant="caption" color="#8593A8">
+            {read ? `${t('chat.read')} · ` : ''}
+            {formatRelativeTime(message.createdAt)}
+          </AppText>
+        ) : showTime ? (
           <AppText variant="caption" color="#8593A8">
             {formatRelativeTime(message.createdAt)}
           </AppText>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/** 사진 메시지 (보완 4.18). 위치를 포함해 보냈으면 "장소 · 위치 포함" 라벨 */
+function PhotoBubble({ message }: { message: ChatMessage }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  const [broken, setBroken] = useState(false);
+  const photo = message.photo;
+  const ratio = photo?.width && photo?.height ? photo.width / photo.height : 4 / 3;
+  const width = 200;
+  return (
+    <View style={styles.photoWrap}>
+      {photo?.uri && !broken ? (
+        <Image source={{ uri: photo.uri }} style={{ width, height: Math.min(320, width / ratio), borderRadius: radius.md }} onError={() => setBroken(true)} />
+      ) : (
+        <View style={[styles.photoMissing, { width, height: width * 0.75 }]}>
+          <AppText variant="caption" color={colors.textMuted}>
+            {t('chat.photoUnavailable')}
+          </AppText>
+        </View>
+      )}
+      {message.place ? (
+        <View style={styles.photoLabel}>
+          <AppText variant="micro" color={colors.white}>
+            {message.place.placeName ?? message.place.address} · {t('chat.withLocation')}
+          </AppText>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -147,5 +205,9 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'center',
   },
   locationBody: { paddingTop: 12, paddingHorizontal: 20, paddingBottom: 20, gap: 20 },
+  failedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  photoWrap: { borderRadius: radius.md, overflow: 'hidden' },
+  photoMissing: { borderRadius: radius.md, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
+  photoLabel: { position: 'absolute', left: 8, bottom: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, backgroundColor: 'rgba(0,0,0,0.55)' },
   locationTexts: { gap: 8 },
 }));

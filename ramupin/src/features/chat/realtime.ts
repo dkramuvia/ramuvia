@@ -38,6 +38,7 @@ interface ServerMessage {
   type: ChatMessage['type'];
   text?: string;
   place?: ChatMessage['place'];
+  photo?: ChatMessage['photo'];
   createdAt: string;
 }
 
@@ -60,6 +61,10 @@ function connect(token: string) {
 
   socket.on('connect_error', (error) => __DEV__ && console.log('[realtime] 연결 오류', String(error)));
   socket.on('message', (payload: ServerMessage) => addMessage(toChatMessage(payload)));
+  // 상대가 방을 읽으면 내 메시지의 "읽음" 을 바로 바꿉니다 (보완 4.18)
+  socket.on('read', ({ roomId }: { roomId: string }) => {
+    queryClient.invalidateQueries({ queryKey: chatKeys.readState(roomId) });
+  });
   // 누가 내 지도를 보기 시작/그만두면 서버가 알려 줍니다 (GPS 보고서 2-1 6번)
   socket.on('watch-mode', ({ on }: { on: boolean }) => {
     void setWatchMode(on);

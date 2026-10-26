@@ -10,10 +10,12 @@ interface ChatInputProps {
   onSend: (text: string) => void;
   onSharePlace: () => void;
   onShareCurrentLocation: () => void;
+  /** 사진 보내기: 앨범 / 카메라 (보완 4.18) */
+  onPickPhoto: (source: 'library' | 'camera') => void;
 }
 
 /** 피그마: 채팅 입력창 + 왼쪽 + 버튼의 공유 메뉴 (283:35631) */
-export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation }: ChatInputProps) {
+export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation, onPickPhoto }: ChatInputProps) {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
@@ -36,6 +38,9 @@ export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation }: Chat
     <View style={styles.wrap}>
       {menuOpen ? (
         <View style={styles.menu}>
+          {/* 첨부 메뉴: 사진 / 카메라 / 장소 공유 / 현재 위치 (보완 4.18) */}
+          <MenuAction icon="image" label={t('chat.photo')} onPress={() => pick(() => onPickPhoto('library'))} />
+          <MenuAction icon="camera" label={t('chat.camera')} onPress={() => pick(() => onPickPhoto('camera'))} />
           <MenuAction icon="location" label={t('chat.sharePlace')} onPress={() => pick(onSharePlace)} />
           <MenuAction icon="locate" label={t('chat.shareCurrent')} onPress={() => pick(onShareCurrentLocation)} />
         </View>
@@ -66,7 +71,7 @@ export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation }: Chat
   );
 }
 
-function MenuAction({ icon, label, onPress }: { icon: 'location' | 'locate'; label: string; onPress: () => void }) {
+function MenuAction({ icon, label, onPress }: { icon: 'location' | 'locate' | 'image' | 'camera'; label: string; onPress: () => void }) {
   const styles = useStyles();
   const colors = useColors();
   return (

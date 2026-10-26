@@ -218,6 +218,11 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
     this.server?.to(room).emit('message', message);
   }
 
+  /** 누가 방을 읽었는지 (1:1 "읽음" 표시, 보완 4.18) */
+  emitRead(roomId: string, userId: string, at: string) {
+    this.server?.to(`room:${roomId}`).emit('read', { roomId, userId, at });
+  }
+
   /** 방 목록이 바뀐 사람에게 알림 (초대·나가기) */
   emitRoomsChanged(userIds: string[]) {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('rooms-changed', {});

@@ -42,7 +42,7 @@ export interface SharedPlace extends LatLng {
   address: string;
 }
 
-export type ChatMessageType = 'text' | 'location' | 'system';
+export type ChatMessageType = 'text' | 'location' | 'system' | 'photo';
 
 export interface ChatMessage {
   id: string;
@@ -51,9 +51,13 @@ export interface ChatMessage {
   type: ChatMessageType;
   text?: string;
   place?: SharedPlace;
+  /** 사진 메시지 (보완 4.18). 보내는 중에는 폰 안의 파일 주소 */
+  photo?: { uri: string; width: number | null; height: number | null };
   createdAt: string;
   /** 전송 중 (낙관적 업데이트) */
   pending?: boolean;
+  /** 전송 실패. 눌러서 다시 보내기 (보완 4.18) */
+  failed?: boolean;
 }
 
 export interface MediaAsset {

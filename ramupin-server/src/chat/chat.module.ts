@@ -5,6 +5,7 @@ import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { parseInput } from '../common/app-error.js';
 import { GroupsModule } from '../groups/groups.module.js';
 import { GroupsService } from '../groups/groups.service.js';
+import { MediaModule } from '../media/media.module.js';
 import { ChatGateway, RealtimeModule } from './chat.gateway.js';
 import { ChatService, sendMessageBody, type ChatMessageResponse } from './chat.service.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
@@ -62,7 +63,7 @@ class ChatController {
       this.db.selectFrom('social.groups').select(['name', 'is_direct']).where('id', '=', message.roomId).executeTakeFirst(),
     ]);
     const nickname = sender?.nickname ?? '알 수 없음';
-    const preview = message.type === 'location' ? '위치를 공유했어요.' : (message.text ?? '').slice(0, 100);
+    const preview = message.type === 'location' ? '위치를 공유했어요.' : message.type === 'photo' ? '사진을 보냈어요.' : (message.text ?? '').slice(0, 100);
     await this.push.sendToUsers(recipients, {
       channel: 'chat',
       // 1:1 은 보낸 사람 이름이 제목, 그룹은 방 이름이 제목이고 본문 앞에 보낸 사람
@@ -75,8 +76,16 @@ class ChatController {
 
   @Post('rooms/:roomId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
-  read(@CurrentUser() user: AuthUser, @Param('roomId', ParseUUIDPipe) roomId: string) {
-    return this.chat.markRead(user.id, roomId);
+  async read(@CurrentUser() user: AuthUser, @Param('roomId', ParseUUIDPipe) roomId: string) {
+    await this.chat.markRead(user.id, roomId);
+    // 상대 화면의 "읽음" 을 바로 바꿉니다 (보완 4.18)
+    this.gateway.emitRead(roomId, user.id, new Date().toISOString());
+  }
+
+  /** 방 사람들이 어디까지 읽었는지 (1:1 읽음 표시) */
+  @Get('rooms/:roomId/read-state')
+  readState(@CurrentUser() user: AuthUser, @Param('roomId', ParseUUIDPipe) roomId: string) {
+    return this.chat.readState(user.id, roomId);
   }
 
   /** 서버 대화만 삭제 (기기 보관함은 그대로, WBS 7.6) */
@@ -88,7 +97,7 @@ class ChatController {
 }
 
 @Module({
-  imports: [GroupsModule, RealtimeModule, PushModule],
+  imports: [GroupsModule, RealtimeModule, PushModule, MediaModule],
   controllers: [ChatController],
   providers: [ChatService],
 })

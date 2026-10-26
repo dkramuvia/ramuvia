@@ -7,18 +7,20 @@ import { isBlockedBetween } from '../common/blocks.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { SharedPlace } from '../database/main.schema.js';
 import { GroupsService } from '../groups/groups.service.js';
+import { StorageService } from '../media/storage.service.js';
+
+const placeSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  address: z.string().max(200),
+  placeName: z.string().max(100).optional(),
+});
 
 export const sendMessageBody = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string().min(1).max(1000) }),
-  z.object({
-    type: z.literal('location'),
-    place: z.object({
-      latitude: z.number().min(-90).max(90),
-      longitude: z.number().min(-180).max(180),
-      address: z.string().max(200),
-      placeName: z.string().max(100).optional(),
-    }),
-  }),
+  /** 사진 (보완 4.18). 갤러리와 같은 방식으로 먼저 올린 뒤 그 id. 위치 포함을 골랐을 때만 place */
+  z.object({ type: z.literal('photo'), assetId: z.uuid(), place: placeSchema.nullish() }),
+  z.object({ type: z.literal('location'), place: placeSchema }),
 ]);
 
 export type SendMessageInput = z.infer<typeof sendMessageBody>;
@@ -28,9 +30,11 @@ export interface ChatMessageResponse {
   id: string;
   roomId: string;
   senderId: string | null;
-  type: 'text' | 'location' | 'system';
+  type: 'text' | 'location' | 'system' | 'photo';
   text?: string;
   place?: SharedPlace;
+  /** 사진 메시지. 파일이 지워졌으면 uri 가 빈 문자열 */
+  photo?: { uri: string; width: number | null; height: number | null };
   createdAt: string;
 }
 
@@ -55,6 +59,7 @@ export class ChatService {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly groups: GroupsService,
+    private readonly storage: StorageService,
   ) {}
 
   /** 채팅방 목록 (마지막 메시지와 안 읽은 수) */
@@ -111,7 +116,7 @@ export class ChatService {
       id: row.id,
       name: row.is_direct ? (row.other_nickname ?? '') : row.name,
       memberCount: Number(row.member_count ?? 0),
-      lastMessage: row.last_type === 'location' ? '위치를 공유했어요.' : (row.last_text ?? undefined),
+      lastMessage: row.last_type === 'location' ? '위치를 공유했어요.' : row.last_type === 'photo' ? '사진을 보냈어요.' : (row.last_text ?? undefined),
       updatedAt: new Date(row.updated_at).toISOString(),
       unreadCount: Number(row.unread_count ?? 0),
     }));
@@ -138,7 +143,7 @@ export class ChatService {
       .as('page');
     const rows = await this.db
       .selectFrom('chat.messages')
-      .select(['id', 'room_id', 'sender_id', 'type', 'text', 'place', 'created_at'])
+      .select(['id', 'room_id', 'sender_id', 'type', 'text', 'place', 'asset_id', 'created_at'])
       .where('room_id', '=', roomId)
       .$if(!!beforeAt, (qb) => qb.where('created_at', '<', beforeAt!))
       // 페이지에서 가장 오래된 메시지의 밀리초 시작부터 (같은 밀리초 메시지를 다 담기 위해)
@@ -146,12 +151,13 @@ export class ChatService {
       .orderBy('created_at', 'desc')
       .orderBy('id', 'desc')
       .execute();
-    return rows.reverse().map((row) => toMessage(row));
+    return this.withPhotos(rows.reverse());
   }
 
   async send(me: string, roomId: string, input: SendMessageInput): Promise<ChatMessageResponse> {
     await this.groups.assertMember(roomId, me);
     await this.assertNotBlocked(me, roomId);
+    if (input.type === 'photo') await this.claimPhoto(me, input.assetId);
     const row = await this.db.transaction().execute(async (trx) => {
       const inserted = await trx
         .insertInto('chat.messages')
@@ -160,9 +166,10 @@ export class ChatService {
           sender_id: me,
           type: input.type,
           text: input.type === 'text' ? input.text : null,
-          place: input.type === 'location' ? JSON.stringify(input.place) : null,
+          place: input.type === 'location' ? JSON.stringify(input.place) : input.type === 'photo' && input.place ? JSON.stringify(input.place) : null,
+          asset_id: input.type === 'photo' ? input.assetId : null,
         })
-        .returning(['id', 'room_id', 'sender_id', 'type', 'text', 'place', 'created_at'])
+        .returning(['id', 'room_id', 'sender_id', 'type', 'text', 'place', 'asset_id', 'created_at'])
         .executeTakeFirstOrThrow();
       await trx.updateTable('social.groups').set({ updated_at: new Date() }).where('id', '=', roomId).execute();
       // 보낸 사람은 읽은 것으로
@@ -174,7 +181,53 @@ export class ChatService {
         .execute();
       return inserted;
     });
-    return toMessage(row);
+    return (await this.withPhotos([row]))[0];
+  }
+
+  /**
+   * 사진 메시지에 붙일 파일이 내 것이고 실제로 올라왔는지 확인합니다 (갤러리 게시물과 같은 규칙).
+   * 앱이 "다 올렸다"고 해도 믿지 않고 저장소에 직접 물어보고, 실제 크기로 고쳐 둡니다 (용량 계산).
+   */
+  private async claimPhoto(me: string, assetId: string) {
+    const asset = await this.db
+      .selectFrom('media.assets')
+      .select(['object_key', 'kind', 'uploaded_at'])
+      .where('id', '=', assetId)
+      .where('owner_id', '=', me)
+      .executeTakeFirst();
+    if (!asset || asset.kind !== 'image') throw appError(HttpStatus.BAD_REQUEST, 'ASSET_MISSING', '올라가지 않은 사진입니다');
+    if (asset.uploaded_at) return;
+    const real = await this.storage.verifyUpload(asset.object_key);
+    if (!real) throw appError(HttpStatus.BAD_REQUEST, 'ASSET_MISSING', '올라가지 않은 사진입니다');
+    await this.db.updateTable('media.assets').set({ uploaded_at: new Date(), bytes: real.bytes }).where('id', '=', assetId).execute();
+  }
+
+  /** 메시지에 사진 주소를 붙입니다. 주소는 잠깐만 쓰는 서명 주소라 읽을 때마다 새로 만듭니다 */
+  private async withPhotos(rows: MessageRow[]): Promise<ChatMessageResponse[]> {
+    const ids = [...new Set(rows.map((r) => r.asset_id).filter((id): id is string => !!id))];
+    const assets = ids.length
+      ? await this.db.selectFrom('media.assets').select(['id', 'object_key', 'width', 'height']).where('id', 'in', ids).execute()
+      : [];
+    const urls = new Map(
+      await Promise.all(assets.map(async (a) => [a.id, { uri: (await this.storage.viewUrl(a.object_key)) ?? '', width: a.width, height: a.height }] as const)),
+    );
+    return rows.map((row) => {
+      const message = toMessage(row);
+      if (row.type === 'photo') message.photo = (row.asset_id && urls.get(row.asset_id)) || { uri: '', width: null, height: null };
+      return message;
+    });
+  }
+
+  /** 1:1 읽음 표시용: 방 사람들이 어디까지 읽었는지 (보완 4.18, 상대가 방을 연 시점 기준) */
+  async readState(me: string, roomId: string) {
+    await this.groups.assertMember(roomId, me);
+    const rows = await this.db
+      .selectFrom('social.group_members')
+      .select(['user_id', 'last_read_at'])
+      .where('group_id', '=', roomId)
+      .where('user_id', '!=', me)
+      .execute();
+    return rows.map((r) => ({ userId: r.user_id, lastReadAt: r.last_read_at ? new Date(r.last_read_at).toISOString() : null }));
   }
 
   /**
@@ -217,9 +270,10 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  type: 'text' | 'location' | 'system';
+  type: 'text' | 'location' | 'system' | 'photo';
   text: string | null;
   place: SharedPlace | null;
+  asset_id: string | null;
   created_at: Date;
 };
 

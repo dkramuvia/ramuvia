@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -7,10 +8,10 @@ import { FlatList, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { groupsApi } from '@/api/endpoints/groups';
-import { AppText, Header } from '@/components/ui';
+import { AppText, Header, Popup } from '@/components/ui';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageItem } from '@/features/chat/MessageItem';
-import { useChatMessages, useChatRooms, useSendMessage } from '@/features/chat/queries';
+import { retryInput, useChatMessages, useChatRooms, useReadState, useSendMessage } from '@/features/chat/queries';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
 import { ReportSheet, type ReportTarget } from '@/features/safety/ReportSheet';
@@ -36,6 +37,10 @@ export default function ChatRoomScreen() {
   const { data: messages = [] } = useChatMessages(roomId);
   const { data: rooms = [] } = useChatRooms();
   const send = useSendMessage(roomId);
+  const { data: readState = [] } = useReadState(roomId);
+  /** 보낼 사진과 "위치 포함" 선택 (보완 4.18: 기본은 포함 안 함) */
+  const [photoDraft, setPhotoDraft] = useState<{ uri: string; width: number; height: number } | null>(null);
+  const [withLocation, setWithLocation] = useState(false);
 
   // 그룹을 나가면 서버에는 방이 없고 기기에만 대화가 남습니다. 읽기만 가능 (WBS 7.6)
   const room = rooms.find((r) => r.id === roomId);
@@ -47,6 +52,31 @@ export default function ChatRoomScreen() {
   // 인버티드 리스트: 최신 메시지가 0번
   const reversed = useMemo(() => [...messages].reverse(), [messages]);
   const isGroupRoom = (group?.memberCount ?? 0) > 2;
+  // 1:1 읽음 표시: 상대가 이 방을 연 시각보다 먼저 보낸 내 메시지는 읽은 것 (보완 4.18)
+  const otherReadAt = !isGroupRoom ? readState[0]?.lastReadAt ?? null : null;
+
+  const pickPhoto = async (source: 'library' | 'camera') => {
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setWithLocation(false);
+    setPhotoDraft({ uri: asset.uri, width: asset.width, height: asset.height });
+  };
+
+  const sendPhoto = async () => {
+    const draft = photoDraft;
+    setPhotoDraft(null);
+    if (!draft) return;
+    let place;
+    if (withLocation) {
+      const position = await Location.getLastKnownPositionAsync({ maxAge: RECENT_LOCATION_MS }).catch(() => null);
+      if (position) place = await describePlace({ latitude: position.coords.latitude, longitude: position.coords.longitude }).catch(() => undefined);
+    }
+    send.mutate({ type: 'photo', localUri: draft.uri, width: draft.width, height: draft.height, place });
+  };
 
   const shareCurrentLocation = async () => {
     const { granted } = await Location.requestForegroundPermissionsAsync();
@@ -131,7 +161,20 @@ export default function ChatRoomScreen() {
             const sameAsNewer = newer && newer.type !== 'system' && newer.senderId === item.senderId;
             const isMine = isMe(item.senderId);
             const member = members.get(item.senderId);
+            // 날짜가 바뀌는 곳에 구분선 (보완 4.18). 인버티드라 위(더 과거)와 날짜를 비교합니다
+            const day = new Date(item.createdAt).toDateString();
+            const newDay = !older || new Date(older.createdAt).toDateString() !== day;
             return (
+              <View>
+                {newDay ? (
+                  <View style={styles.dateDivider}>
+                    <View style={styles.dateLine} />
+                    <AppText variant="caption" color="#8593A8">
+                      {new Date(item.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                    </AppText>
+                    <View style={styles.dateLine} />
+                  </View>
+                ) : null}
               <MessageItem
                 message={item}
                 isMine={isMine}
@@ -150,7 +193,17 @@ export default function ChatRoomScreen() {
                         })
                     : undefined
                 }
+                read={isMine && !item.pending && !item.failed && !!otherReadAt && otherReadAt >= item.createdAt}
+                onRetry={
+                  item.failed
+                    ? () => {
+                        const input = retryInput(item.id);
+                        if (input) send.mutate(input);
+                      }
+                    : undefined
+                }
               />
+              </View>
             );
           }}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -167,9 +220,25 @@ export default function ChatRoomScreen() {
             onSend={(text) => send.mutate({ type: 'text', text })}
             onSharePlace={() => router.push({ pathname: '/place-picker', params: { mode: 'share', roomId } })}
             onShareCurrentLocation={shareCurrentLocation}
+            onPickPhoto={(source) => void pickPhoto(source)}
           />
         )}
       </View>
+      {/* 사진 보내기 전에 위치를 함께 보낼지 고릅니다 (기본: 포함 안 함) */}
+      <Popup
+        visible={!!photoDraft}
+        title={t('chat.photoSendTitle')}
+        confirmLabel={t('chat.send')}
+        onConfirm={() => void sendPhoto()}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setPhotoDraft(null)}
+        onDismiss={() => setPhotoDraft(null)}
+      >
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: withLocation }} onPress={() => setWithLocation(!withLocation)} style={styles.locationToggle}>
+          <Ionicons name={withLocation ? 'checkbox' : 'square-outline'} size={22} color={withLocation ? colors.brown : colors.textMuted} />
+          <AppText variant="body2">{t('chat.includeLocation')}</AppText>
+        </Pressable>
+      </Popup>
       <ReportSheet target={reporting} onClose={() => setReporting(null)} onDone={(blocked) => blocked && room?.memberCount === 2 && router.back()} />
     </SafeAreaView>
   );
@@ -193,6 +262,9 @@ const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.chatBackground },
   flex: { flex: 1 },
   list: { paddingVertical: 16 },
+  dateDivider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12 },
+  dateLine: { flex: 1, height: 1, backgroundColor: 'rgba(133,147,168,0.25)' },
+  locationToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   separator: { height: 10 },
   intro: { alignItems: 'center', gap: 8, paddingTop: 48, paddingBottom: 24 },
   introActions: { flexDirection: 'row', gap: 40, marginTop: 20 },

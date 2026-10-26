@@ -16,6 +16,8 @@ const MENU: { key: string; href: Href; danger?: boolean }[] = [
   { key: 'safety', href: '/settings/safety', danger: true },
   { key: 'sosReceived', href: '/sos-received', danger: true },
   { key: 'map', href: '/settings/map' },
+  // 보완 4.14: 설정 메뉴에 언어 · 지역 추가
+  { key: 'languageRegion', href: '/settings/language' },
   { key: 'location', href: '/settings/location' },
   { key: 'account', href: '/settings/account' },
 ];

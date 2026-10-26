@@ -1,3 +1,5 @@
+import { getLocales } from 'expo-localization';
+
 import type { LatLng } from '@/types/models';
 
 /**
@@ -40,6 +42,8 @@ export interface MapChoiceInput {
   premium: boolean;
   /** 해외에서 Mapbox 를 쓸 수 있는 등급인가 (features.overseasMap) */
   overseas: boolean;
+  /** 기기 언어가 한국어인가. 네이버 지도는 이때만 고를 수 있습니다 (대표 확정 방침, 보완 4.15) */
+  koreanSystem?: boolean;
   /**
    * 시연용 — 등급도 지역도 따지지 않고 **고른 지도를 그대로** 띄웁니다.
    * 국내에서도 Mapbox 를 볼 수 있습니다 (`DEMO_UNLOCK_MAPS`).
@@ -48,22 +52,24 @@ export interface MapChoiceInput {
 }
 
 /**
- * 규칙
+ * 규칙 (보완 4.15, 대표 확정 방침: 한국 지도(네이버)는 시스템이 한국어일 때만, 그 외에는 등급에 따라 기본 지도 또는 MapBox)
  *
- * | 위치 | 등급 | 지도 |
- * |---|---|---|
- * | 해외 | 해외 지도 가능 | **Mapbox** |
- * | 해외 | 그 외 | 구글 |
- * | 국내 | 유료 + 네이버 선택 | 네이버 |
- * | 국내 | 그 외 | 구글 |
- *
- * 해외에서는 네이버를 쓰지 않습니다. 유료 등급이 네이버를 골라 뒀더라도, 나가면 지도가 비어 버립니다.
+ * | 고른 지도 | 등급 | 위치 | 지도 |
+ * |---|---|---|---|
+ * | MapBox | 유료 | 어디든 | **Mapbox** |
+ * | 네이버 | 유료 + 기기 한국어 | 국내 | 네이버 |
+ * | 네이버·기본 | 해외 지도 가능 | 해외 | Mapbox (네이버는 해외가 비어 있음) |
+ * | 그 외 | | | 구글 (기기 기본) |
  */
-export function resolveMapProvider({ center, preferred, premium, overseas, unlocked }: MapChoiceInput): MapProvider {
+export function resolveMapProvider({ center, preferred, premium, overseas, koreanSystem = true, unlocked }: MapChoiceInput): MapProvider {
   // 시연용: 고른 지도를 그대로. 세 지도를 다 보여 줘야 해서 규칙을 건너뜁니다
   if (unlocked) return preferred;
-  // 평소에는 Mapbox 를 사용자가 직접 고를 수 없습니다 — 해외에서 자동으로만 뜹니다
-  if (preferred === 'mapbox') return 'google';
+  if (preferred === 'mapbox') return premium ? 'mapbox' : 'google';
   if (!isInKorea(center)) return overseas ? 'mapbox' : 'google';
-  return preferred === 'naver' && premium ? 'naver' : 'google';
+  return preferred === 'naver' && premium && koreanSystem ? 'naver' : 'google';
+}
+
+/** 기기 언어가 한국어인가 (앱 언어 설정과 별개로, 네이버 지도 노출 기준) */
+export function isKoreanSystem(): boolean {
+  return getLocales()[0]?.languageCode === 'ko';
 }

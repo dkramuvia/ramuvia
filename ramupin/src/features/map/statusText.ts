@@ -1,4 +1,5 @@
 import i18n from '@/i18n';
+import { formatSpeed, usePreferencesStore } from '@/stores/preferencesStore';
 
 /**
  * 지도 마커에 띄울 상태 한 줄 (피그마 지도 메인, 2026-09-28판).
@@ -62,7 +63,7 @@ export function statusText({ activity, speedKmh, stayedSince }: StatusInput): Mo
   if (walking) return { text: i18n.t('map.statusWalking'), kind: 'walking' };
   if (riding || (!activity && movingBySpeed)) {
     // 속도를 모르면 숫자 없이 "이동중" 만
-    const text = speed != null ? i18n.t('map.statusMoving', { speed: Math.round(speed) }) : i18n.t('map.statusMovingPlain');
+    const text = speed != null ? i18n.t('map.statusMoving', { speed: formatSpeed(speed, usePreferencesStore.getState().speedUnit) }) : i18n.t('map.statusMovingPlain');
     // 활동 인식이 "자전거" 라고 해도 그림은 속도로 고릅니다 — 자전거로 60km 는 없습니다
     return { text, kind: activity === 'bicycle' && speed == null ? 'bicycle' : kindForSpeed(speed) };
   }

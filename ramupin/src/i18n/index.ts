@@ -23,3 +23,6 @@ i18n.use(initReactI18next).init({
 });
 
 export default i18n;
+
+/** 기기 언어 (설정 › 언어·지역 "기기 설정 따름") */
+export const deviceAppLanguage = (): Language => initialLanguage;

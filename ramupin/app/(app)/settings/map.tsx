@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, ChipTabs, Screen, SegmentButtons, ToggleRow } from '@/components/ui';
 import { AppMapView } from '@/features/map/AppMapView';
+import { isKoreanSystem } from '@/features/map/region';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { usePreferencesStore, type Preferences } from '@/stores/preferencesStore';
@@ -22,6 +25,7 @@ export default function MapSettingsScreen() {
   const { can, minPlanFor } = usePlan();
 
   const premiumMap = can('premiumMap');
+  const koreanSystem = isKoreanSystem();
 
   const locked = (feature: 'premiumMap' | 'trafficWeather') =>
     showToast(t('mapSettings.premiumOnly', { plan: PLAN_NAMES[minPlanFor(feature)] }));
@@ -86,24 +90,38 @@ export default function MapSettingsScreen() {
           </View>
         </View>
 
-        {/* 지도 제공사는 폭이 넓어 미리보기 아래에 따로 (피그마는 지도 위, 폰 폭에서는 겹침) */}
-        <View style={styles.providerRow}>
-          <ChipTabs
-            tone="dark"
-            value={prefs.mapProvider}
-            onChange={setProvider}
-            options={[
-              { value: 'os', label: t('mapSettings.os') },
-              { value: 'naver', label: t('mapSettings.naver') },
-              { value: 'mapbox', label: t('mapSettings.mapbox') },
-            ]}
+      </View>
+
+      {/* 지도 제공 (보완 4.15): 기기 기본(모든 플랜) / 네이버(기기 언어가 한국어일 때만) / MapBox(유료) */}
+      <View style={styles.section}>
+        <AppText variant="title4">{t('mapSettings.provider')}</AppText>
+        <ProviderOption
+          selected={prefs.mapProvider === 'os'}
+          title={t('mapSettings.os')}
+          description={t('mapSettings.osDesc')}
+          onPress={() => setProvider('os')}
+        />
+        {koreanSystem ? (
+          <ProviderOption
+            selected={prefs.mapProvider === 'naver'}
+            title={t('mapSettings.naver')}
+            description={t('mapSettings.naverDesc')}
+            lockLabel={premiumMap ? undefined : PLAN_NAMES[minPlanFor('premiumMap')]}
+            onPress={() => setProvider('naver')}
           />
-        </View>
-        {!premiumMap ? (
-          <AppText variant="label2" color={colors.primary}>
-            {t('mapSettings.premiumOnly', { plan: PLAN_NAMES[minPlanFor('premiumMap')] })}
-          </AppText>
         ) : null}
+        <ProviderOption
+          selected={prefs.mapProvider === 'mapbox'}
+          title={t('mapSettings.mapboxPremium')}
+          description={t('mapSettings.mapboxDesc')}
+          lockLabel={premiumMap ? undefined : PLAN_NAMES[minPlanFor('premiumMap')]}
+          onPress={() => setProvider('mapbox')}
+        />
+        <View style={styles.noteBox}>
+          <AppText variant="caption" color={colors.textTertiary}>
+            {t('mapSettings.naverNote')}
+          </AppText>
+        </View>
       </View>
 
       {/* 교통은 각 지도에 들어 있는 교통 정보라 따로 드는 비용이 없어 우선 누구나 켤 수 있게 둡니다.
@@ -121,30 +139,57 @@ export default function MapSettingsScreen() {
         onValueChange={(fitAllFriends) => prefs.set({ fitAllFriends })}
       />
 
-      <View style={styles.unitRow}>
-        <View style={styles.flex}>
-          <AppText variant="headline">{t('mapSettings.unit')}</AppText>
-          <AppText variant="label2" color={colors.textSecondary}>
-            {t('mapSettings.unitDesc')}
-          </AppText>
-        </View>
-        <View style={styles.unitChips}>
-          <ChipTabs
-            tone="dark"
-            value={prefs.distanceUnit}
-            onChange={(distanceUnit) => prefs.set({ distanceUnit })}
-            options={[
-              { value: 'km', label: 'Km' },
-              { value: 'mile', label: 'Mile' },
-            ]}
-          />
-        </View>
-      </View>
+      {/* 거리 단위는 언어·지역 설정으로 옮겼습니다 (보완 4.14·4.15) */}
+      <Pressable accessibilityRole="button" onPress={() => router.push('/settings/language')} style={styles.noteBox}>
+        <AppText variant="caption" color={colors.textTertiary}>
+          {t('mapSettings.unitMoved')}
+        </AppText>
+      </Pressable>
     </Screen>
   );
 }
 
+/** 지도 제공 한 줄. 잠긴 지도는 "0000 플랜부터" 배지 */
+function ProviderOption({
+  selected,
+  title,
+  description,
+  lockLabel,
+  onPress,
+}: {
+  selected: boolean;
+  title: string;
+  description: string;
+  lockLabel?: string;
+  onPress: () => void;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable accessibilityRole="radio" accessibilityState={{ selected }} onPress={onPress} style={styles.option}>
+      <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={22} color={selected ? colors.brown : colors.textMuted} />
+      <View style={styles.flex}>
+        <AppText variant="body2Bold">{title}</AppText>
+        <AppText variant="caption" color={colors.textTertiary}>
+          {description}
+        </AppText>
+      </View>
+      {lockLabel ? (
+        <View style={styles.lock}>
+          <Ionicons name="lock-closed" size={12} color={colors.white} />
+          <AppText variant="micro" color={colors.white}>
+            {lockLabel}
+          </AppText>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
+  option: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, backgroundColor: colors.surface },
+  lock: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, backgroundColor: colors.sos },
+  noteBox: { padding: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderLight },
   content: { gap: 16 },
   flex: { flex: 1 },
   section: { gap: 12 },
@@ -153,7 +198,5 @@ const useStyles = makeStyles((colors) => ({
   topRight: { top: 12, right: 12 },
   // 피그마는 3D/2D 가 왼쪽 아래지만, 폰 폭에서는 지도 선택 칩과 겹쳐 왼쪽 위로 옮김
   topLeft: { top: 12, left: 12 },
-  providerRow: { alignSelf: 'flex-start', backgroundColor: colors.surfaceStrong, borderRadius: radius.full },
-  unitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  unitChips: { backgroundColor: colors.surfaceStrong, borderRadius: radius.full },
+
 }));

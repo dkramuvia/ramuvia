@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { GoogleMapImpl } from './GoogleMapImpl';
 import { NaverMapImpl } from './NaverMapImpl';
-import { resolveMapProvider } from './region';
+import { isKoreanSystem, resolveMapProvider } from './region';
 import type { MapImplHandle, MapImplProps } from './types';
 import { DEMO_UNLOCK_MAPS } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
@@ -69,6 +69,7 @@ export function useMapProvider(center: AppMapViewProps['initialCenter']) {
     preferred: mapProvider === 'os' ? 'google' : mapProvider,
     premium: can('premiumMap'),
     overseas: can('overseasMap'),
+    koreanSystem: isKoreanSystem(),
     unlocked: DEMO_UNLOCK_MAPS,
   });
 }

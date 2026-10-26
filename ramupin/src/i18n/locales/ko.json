@@ -45,7 +45,7 @@
     "profile": "나의 프로필",
     "streetView": "로드뷰",
     "statusWalking": "걸어서 이동중",
-    "statusMoving": "{{speed}}km로 이동중",
+    "statusMoving": "{{speed}}로 이동중",
     "statusMovingPlain": "이동중",
     "statusStaying": "같은 자리에서 {{duration}}",
     "statusStill": "머무는 중",
@@ -360,7 +360,8 @@
     "map": "지도",
     "account": "계정 관리",
     "location": "위치 수집",
-    "sosReceived": "받은 SOS"
+    "sosReceived": "받은 SOS",
+    "languageRegion": "언어 · 지역"
   },
   "myProfile": {
     "settings": "설정",
@@ -655,7 +656,7 @@
     "style": "지도 스타일",
     "light": "라이트",
     "dark": "다크",
-    "os": "OS",
+    "os": "기기 기본 지도",
     "naver": "네이버지도",
     "mapbox": "MapBox",
     "premiumOnly": "{{plan}} 플랜부터 이용가능",
@@ -668,11 +669,16 @@
     "weatherDesc": "현재 지역의 날씨 보기",
     "fitAll": "한 번에 모든 친구 보기",
     "fitAllDesc": "지도를 열면 모두가 보이도록 자동으로 축소돼요.",
-    "unit": "거리 단위",
-    "unitDesc": "지도 및 장소 정보에 표시되는 거리 단위입니다.",
     "appTheme": "앱 화면 색",
     "appThemeDesc": "기기 설정을 따라가거나, 직접 고를 수 있어요.",
-    "themeAuto": "기기 설정"
+    "themeAuto": "기기 설정",
+    "provider": "지도 제공",
+    "osDesc": "iPhone은 Apple 지도, Android는 Google 지도 · 모든 플랜",
+    "naverDesc": "국내 지도·로드뷰가 가장 정확해요",
+    "mapboxPremium": "프리미엄 지도 (MapBox)",
+    "mapboxDesc": "3D 건물·위성·다크 스타일",
+    "naverNote": "'네이버 지도'는 기기 언어가 한국어일 때만 목록에 나타나요.",
+    "unitMoved": "'거리 단위'는 언어·지역 설정으로 옮겼어요."
   },
   "account": {
     "logout": "로그아웃",
@@ -901,7 +907,8 @@
     "sosReceived": "받은 SOS",
     "friendAlerts": "친구별 맞춤 알림 설정",
     "myPlan": "내 플랜",
-    "emergency": "긴급전화 · SOS 문자"
+    "emergency": "긴급전화 · SOS 문자",
+    "languageRegion": "언어 · 지역"
   },
   "locationSettings": {
     "background": "앱을 꺼도 위치 알리기",
@@ -1039,5 +1046,30 @@
     "notMeConfirm": "로그아웃",
     "notMeRestored": "이 휴대폰에서 로그아웃했어요. 이전 휴대폰은 그대로 쓸 수 있어요. 휴대폰 인증을 다시 하고 고객센터에 알려 주세요.",
     "notMeDone": "이 휴대폰에서 로그아웃했어요. 이전 휴대폰에서 다시 로그인하고, 휴대폰 인증 후 고객센터에 알려 주세요."
+  },
+  "languageRegion": {
+    "language": "언어",
+    "appLanguage": "앱 언어",
+    "followDevice": "기기 설정 따름",
+    "units": "단위 · 형식",
+    "distance": "거리",
+    "speed": "속도",
+    "temperature": "온도",
+    "timeFormat": "시간 표기",
+    "h12": "12시간",
+    "h24": "24시간",
+    "dateFormat": "날짜 형식",
+    "timezone": "시간대",
+    "myTimezone": "내 시간대",
+    "auto": "자동",
+    "scheduleTime": "예약 메시지 기준 시간",
+    "scheduleTimeDesc": "받는 사람이 다른 나라에 있을 때",
+    "mine": "내 시간",
+    "recipient": "받는 사람",
+    "display": "화면 표시",
+    "fontSize": "글자 크기",
+    "normal": "보통",
+    "large": "크게",
+    "xlarge": "아주 크게"
   }
 }

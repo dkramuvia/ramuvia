@@ -17,6 +17,7 @@ import { SessionEndedPopup } from '@/features/auth/SessionEndedPopup';
 import { useDevServerSession } from '@/features/auth/useDevServerSession';
 import { useRealtime } from '@/features/chat/realtime';
 import { usePush } from '@/features/notifications/usePush';
+import { useAppLanguage } from '@/i18n/useAppLanguage';
 import { resumeBackgroundTrackingIfWanted } from '@/features/location/backgroundTask';
 import { selectIsSignedIn, useAuthStore } from '@/stores/authStore';
 import { fontAssets } from '@/theme';
@@ -34,6 +35,7 @@ export default function RootLayout() {
   const devSession = useDevServerSession();
   useRealtime();
   usePush();
+  useAppLanguage();
 
   // 강제 종료·앱 업데이트 뒤에는 안드로이드가 위치 수집을 되살려 주지 않아서, 앱이 켜질 때 직접 되살립니다.
   // 켜지는 순간 화면이 아직 앞에 없으면 안드로이드 12+ 가 거부하므로, 앞으로 올 때마다 다시 확인합니다 (10-19)

@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
+import { formatTemperature, usePreferencesStore } from '@/stores/preferencesStore';
 import { useMapOverlay } from '@/theme';
 import type { Weather, WeatherCondition } from './useWeather';
 
@@ -32,6 +33,7 @@ const ICON_COLORS: Record<WeatherCondition, string> = {
 export function WeatherBadge({ weather }: { weather?: Weather | null }) {
   // 지도 위 글자라 앱 화면 색이 아니라 지도 밝기를 따라갑니다
   const overlay = useMapOverlay();
+  const unit = usePreferencesStore((s) => s.temperatureUnit);
   if (!weather) return null;
   const condition = ICONS[weather.condition] ? weather.condition : 'clear';
 
@@ -39,7 +41,7 @@ export function WeatherBadge({ weather }: { weather?: Weather | null }) {
     <View style={styles.row}>
       <Ionicons name={ICONS[condition]} size={18} color={ICON_COLORS[condition]} />
       <AppText variant="microBold" color={overlay.text}>
-        {weather.temperature}°C
+        {formatTemperature(weather.temperature, unit)}
       </AppText>
     </View>
   );

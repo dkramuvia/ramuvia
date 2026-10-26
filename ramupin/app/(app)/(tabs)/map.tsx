@@ -83,7 +83,7 @@ export default function MapScreen() {
   const [activeId, setActiveId] = useState<string>('me');
 
   const { permission, location } = useMyLocation();
-  const { can, minPlanFor } = usePlan();
+  const { can, minPlanFor, policy } = usePlan();
   useLocationUpload(location);
   // 기기 배터리 (-1 = 알 수 없음 → 프로필 값 사용)
   const deviceBattery = Battery.useBatteryLevel();
@@ -330,12 +330,14 @@ export default function MapScreen() {
               </View>
             ) : null}
 
-            {/* TODO(7단계): AdMob 배너. 노인·유료 사용자는 표시하지 않음 */}
-            <View style={styles.adBanner}>
-              <AppText variant="label2" color={colors.textMuted}>
-                {t('map.adArea')}
-              </AppText>
-            </View>
+            {/* TODO(7단계): AdMob 배너. 광고 없는 등급(정책 ads = none: 유료·케어)은 표시하지 않습니다 */}
+            {policy && policy.ads !== 'none' ? (
+              <View style={styles.adBanner}>
+                <AppText variant="label2" color={colors.textMuted}>
+                  {t('map.adArea')}
+                </AppText>
+              </View>
+            ) : null}
           </>
         }
         header={

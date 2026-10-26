@@ -1,3 +1,4 @@
+import { PrivacyModule } from './privacy/privacy.module.js';
 import { Module } from '@nestjs/common';
 
 import { AdminModule } from './admin/admin.module.js';
@@ -23,6 +24,6 @@ import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, FeedModule, JourneyModule, WeatherModule, AnomalyModule, AdminModule, HealthModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, FeedModule, JourneyModule, WeatherModule, AnomalyModule, AdminModule, HealthModule, PrivacyModule],
 })
 export class AppModule {}

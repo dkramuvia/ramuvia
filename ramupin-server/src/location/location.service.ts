@@ -378,6 +378,38 @@ export class LocationService {
     return stats;
   }
 
+  /** 내 위치 기록 내려받기 (보완 4.13 개인정보 센터). 보관 기간 안의 것만 있습니다 */
+  async exportHistory(userId: string, limit = 100_000) {
+    const rows = await this.db
+      .selectFrom('location.location_points')
+      .select(['measured_at', 'latitude_enc', 'longitude_enc', 'accuracy', 'speed', 'battery'])
+      .where('user_id', '=', userId)
+      .orderBy('measured_at')
+      .limit(limit)
+      .execute();
+    return rows.map((r) => ({
+      measuredAt: new Date(r.measured_at).toISOString(),
+      ...readCoords(r.latitude_enc, r.longitude_enc),
+      accuracy: r.accuracy,
+      speed: r.speed,
+      battery: r.battery,
+    }));
+  }
+
+  /**
+   * 내 위치 기록 지우기 (보완 4.13). from 이후만, null 이면 전부.
+   * 지우지 않는 것: 이용·제공 사실 확인자료(법정 보관), 지금 위치 한 줄(user_status, 친구 지도에 쓰임)
+   */
+  async deleteHistory(userId: string, from: Date | null): Promise<number> {
+    const points = await sql`
+      DELETE FROM location.location_points WHERE user_id = ${userId} ${from ? sql`AND measured_at >= ${from}` : sql``}
+    `.execute(this.db);
+    const stays = await sql`
+      DELETE FROM location.stays WHERE user_id = ${userId} ${from ? sql`AND arrived_at >= ${from}` : sql``}
+    `.execute(this.db);
+    return Number(points.numAffectedRows ?? 0) + Number(stays.numAffectedRows ?? 0);
+  }
+
   async recentViewers(userId: string, since: Date, limit: number) {
     const rows = await this.db
       .selectFrom('location.location_access_logs')

@@ -241,6 +241,15 @@ export interface SosSmsDeliveriesTable {
   created_at: Timestamp;
 }
 
+/** 개인정보 센터 동의 (보완 4.13) */
+export interface PrivacyConsentsTable {
+  user_id: string;
+  ads_personalized: Generated<boolean>;
+  analytics: Generated<boolean>;
+  do_not_sell: Generated<boolean>;
+  updated_at: Timestamp;
+}
+
 /** 차단 (보완 4.11). 한쪽이 막으면 양쪽 모두 위치·대화·친구 요청이 끊깁니다 */
 export interface BlocksTable {
   blocker_id: string;
@@ -610,6 +619,7 @@ export interface MainDatabase {
   'member.sos_deliveries': SosDeliveriesTable;
   'member.sos_contacts': SosContactsTable;
   'social.blocks': BlocksTable;
+  'member.privacy_consents': PrivacyConsentsTable;
   'member.reports': ReportsTable;
   'member.sos_sms_deliveries': SosSmsDeliveriesTable;
   'media.assets': MediaAssetsTable;

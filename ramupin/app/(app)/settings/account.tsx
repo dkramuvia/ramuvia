@@ -15,6 +15,8 @@ export default function AccountScreen() {
   return (
     <Screen title={t('screens.account')} tab="map" contentStyle={styles.content}>
       <ProfileCard onPress={() => router.push('/settings/profile-edit')} />
+      {/* 보완 4.13: 계정 관리 아래 개인정보 센터 */}
+      <MenuItem label={t('screens.privacyCenter')} onPress={() => router.push('/settings/privacy')} />
       <MenuItem label={t('account.logout')} onPress={() => setConfirmLogout(true)} />
       <MenuItem label={t('account.withdraw')} onPress={() => router.push('/settings/withdraw')} />
 

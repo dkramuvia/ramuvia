@@ -908,7 +908,8 @@
     "friendAlerts": "친구별 맞춤 알림 설정",
     "myPlan": "내 플랜",
     "emergency": "긴급전화 · SOS 문자",
-    "languageRegion": "언어 · 지역"
+    "languageRegion": "언어 · 지역",
+    "privacyCenter": "개인정보 센터"
   },
   "locationSettings": {
     "background": "앱을 꺼도 위치 알리기",
@@ -1084,5 +1085,35 @@
     "note": "조회가 갑자기 많아지면 노란색으로 알려드려요. 공유를 멈춰도 상대에게 알림이 가지 않아요.",
     "allOk": "모두 괜찮아요",
     "help": "도움이 필요해요 (안전 가이드)"
+  },
+  "privacy": {
+    "myData": "내 데이터",
+    "export": "내 데이터 내려받기",
+    "exportDesc": "위치 기록·사진·대화를 파일로 받아요",
+    "exporting": "내 데이터를 만드는 중…",
+    "exportTitle": "라무핀 내 데이터",
+    "exportSaved": "내 데이터를 휴대폰에 저장했어요.",
+    "deleteHistory": "위치 기록 지우기",
+    "deleteHistoryDesc": "기간을 골라 이동 기록을 삭제해요",
+    "region": "데이터 보관 지역",
+    "auto": "자동",
+    "whoSees": "지금 내 위치를 보는 사람",
+    "consents": "동의 관리",
+    "ads": "맞춤 광고",
+    "adsDesc": "광고 회사와 기기 식별자 공유",
+    "analytics": "서비스 개선 분석",
+    "analyticsDesc": "오류·사용 통계 (위치 제외)",
+    "marketing": "마케팅 알림",
+    "marketingDesc": "할인·이벤트 소식",
+    "doNotSell": "내 개인정보 판매·공유 거부",
+    "doNotSellDesc": "캘리포니아 거주자 (CCPA)",
+    "contact": "문의: {{email}} ·",
+    "deleteTitle": "위치 기록을 지울까요?",
+    "deleteMessage": "고른 기간의 이동 경로와 머문 곳을 지워요. 지운 기록은 되살릴 수 없어요. (법으로 보관해야 하는 위치 이용 기록은 남아요)",
+    "deleteConfirm": "지우기",
+    "rangeToday": "오늘",
+    "rangeWeek": "최근 7일",
+    "rangeAll": "전체",
+    "deleted": "위치 기록 {{count}}건을 지웠어요."
   }
 }

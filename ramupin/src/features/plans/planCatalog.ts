@@ -2,7 +2,8 @@ import { MOCK_POLICIES } from '@/features/policy/policies';
 import type { PlanId } from '@/types/models';
 
 /**
- * 결제 플랜 화면 표시용 정보 (피그마 결제 플랜 283:40073 ~ 283:41302).
+ * 결제 플랜 화면 표시용 정보 (피그마 v2.1 결제 플랜 1015:49092 ~ 1015:50241, 10-26 대표님: 이 화면 기준).
+ * 숫자는 서버 등급 정책(migrations/main/0042)과 같아야 합니다.
  * 가격·스토어 상품 ID 는 기획 확정 전 → 서버/스토어에서 받도록 교체 (WBS 3, 3.4, 11.5)
  */
 export interface PlanDisplay {
@@ -47,7 +48,7 @@ export const PLANS: PlanDisplay[] = [
     name: '플래티넘',
     englishName: 'Platinum',
     free: false,
-    monthlyPrice: 4400,
+    monthlyPrice: 5500,
     popular: true,
     colors: ['#FF9A76', '#FF6A4D'],
     frame: '#8A5A4A',
@@ -76,13 +77,15 @@ export const PLANS: PlanDisplay[] = [
     productId: 'ramupin_trinity',
     bullets: [
       '광고 없는 쾌적한 환경',
-      '초정밀 GPS 위치 갱신 (10초 주기)',
+      'GPS 전송속도 HI',
       '프리미엄 지도 (Naver/MapBox) 제공',
-      '안심 장소 50개 / 위치 등록 100개',
-      '안심존 알림 (최대 30개)',
+      '장소 등록 50개',
+      '안심존 지정 알림 10개',
+      '예약 메시지 30명, SOS 전송 20명',
+      '관공서 연락 5건',
       '사진 공유 용량 5GB',
-      '교통 상황, 날씨, 운전 속도 경고 알림',
-      '위급시 관공서 긴급 전송',
+      '데이터 서버 저장 기간 30일',
+      '운전 속도 경고 기능',
     ],
   },
   {
@@ -96,9 +99,10 @@ export const PLANS: PlanDisplay[] = [
       '광고 없는 쾌적한 환경',
       '초정밀 GPS 위치 갱신 (10초 주기)',
       '기본 OS 지도 제공',
-      '안심 장소 20개 / 위치 등록 10개',
+      '장소 등록 10개',
+      '안심존 지정 알림 10개',
       '예약 메시지 3명 / SOS 전송 5명',
-      '안심존 알림 (최대 10개)',
+      '데이터 서버 저장 기간 15일',
       '가족에게만 배터리 잔량 전송',
       '위급 시 관공서 긴급 전송',
       '날씨 정보 제공 (사진 용량 300MB)',
@@ -115,30 +119,36 @@ export const PLANS: PlanDisplay[] = [
     bullets: [
       '광고 포함 (전체화면 광고 포함)',
       'GPS 위치 갱신 (20초 주기)',
-      '안심 장소 3개 / 위치 등록 10개',
+      '장소 등록 10개',
+      '안심존 지정 알림 3개',
       '예약 메시지 1명 / SOS 전송 1명',
-      '안심존 알림 (최대 3개)',
+      '데이터 서버 저장 기간 15일',
       '서버에서 직접 배터리 상태 관리',
       '위급시 관공서 긴급 전송',
     ],
   },
 ];
 
-/** 비교표 행 (피그마 플랜 카드 아래 표) */
+/** 피그마 표의 GPS 전송 속도. 실제 초는 관리자가 바꾸므로 화면에는 단계로만 적습니다 (docs/plan-limits-conflict.md 3) */
+const GPS_SPEED: Record<PlanId, string> = { basic: 'LOW', platinum: 'MID', trinity: 'HI', care: 'MID', guardian: 'LOW' };
+
+/** 관공서 연락 건수 (피그마 표). 관공서 연계가 붙기 전이라 서버 정책에는 아직 없습니다 */
+const GOVERNMENT_CONTACTS: Record<PlanId, number> = { basic: 1, platinum: 3, trinity: 5, care: 2, guardian: 1 };
+
+/** 비교표 행 (피그마 플랜 카드 아래 표와 같은 순서) */
 export const COMPARE_ROWS: { label: string; value: (id: PlanId) => string | boolean }[] = [
-  { label: '광고', value: (id) => (MOCK_POLICIES[id].ads === 'none' ? '제거' : '포함') },
+  { label: '광고', value: (id) => (MOCK_POLICIES[id].ads === 'none' ? '제거' : '광고 있음') },
   { label: '전체화면 광고', value: (id) => MOCK_POLICIES[id].ads === 'banner+fullscreen' },
-  { label: 'GPS 전송주기', value: (id) => `${MOCK_POLICIES[id].gpsIntervalMovingSec}초` },
-  { label: '장소 등록 개수', value: (id) => `${MOCK_POLICIES[id].safeZoneLimit}개` },
-  { label: '지도', value: (id) => (MOCK_POLICIES[id].features.premiumMap ? 'Naver/Mapbox' : 'OS') },
+  { label: 'GPS 전송 속도', value: (id) => GPS_SPEED[id] },
+  { label: '장소 등록 개수', value: (id) => `${MOCK_POLICIES[id].placeLimit}개` },
+  { label: '지도', value: (id) => (MOCK_POLICIES[id].features.premiumMap ? 'Naver/Mapbox' : 'OS맵') },
   { label: '예약 메시지 인원', value: (id) => `${MOCK_POLICIES[id].scheduledMessageRecipientLimit}명` },
   { label: 'SOS 전송 인원', value: (id) => `${MOCK_POLICIES[id].sosRecipientLimit}명` },
-  { label: '위치 등록 (단순)', value: (id) => `${MOCK_POLICIES[id].placeLimit}개` },
-  { label: '안심존 지정 알림 개수', value: (id) => (MOCK_POLICIES[id].geofenceAlertLimit ? `${MOCK_POLICIES[id].geofenceAlertLimit}개` : false) },
-  { label: '교통 상황·날씨', value: (id) => MOCK_POLICIES[id].features.trafficWeather },
+  { label: '관공서 연락', value: (id) => `${GOVERNMENT_CONTACTS[id]}건` },
+  { label: '지오펜스 지정 알림', value: (id) => (MOCK_POLICIES[id].geofenceAlertLimit ? `${MOCK_POLICIES[id].geofenceAlertLimit}개` : false) },
   { label: '사진 공유 용량', value: (id) => formatStorage(MOCK_POLICIES[id].photoStorageMb) },
   { label: '운전 속도 경고', value: (id) => MOCK_POLICIES[id].features.speedingAlert },
-  { label: '관공서 긴급 전송', value: (id) => MOCK_POLICIES[id].features.governmentEmergency },
+  { label: '데이터 서버 저장 기간', value: (id) => `${MOCK_POLICIES[id].locationRetentionDays}일` },
 ];
 
 function formatStorage(mb: number): string | boolean {
@@ -150,7 +160,7 @@ function formatStorage(mb: number): string | boolean {
  * 화면에 보여 줄 가격 (피그마 2026-09-28).
  *
  * 연간은 **10% 싼 값을 12개월로 나눈 월 가격**을 보여 줍니다
- * (피그마 플래티넘: 월 4,400원 → 연 47,520원).
+ * (피그마 v2.1 플래티넘: 월 5,500원).
  *
  * TODO(7단계): 스토어(구글 플레이)에 등록한 가격 문자열로 교체.
  *   나라마다 통화가 다르고, 스토어가 정한 값과 다르면 심사에서 문제가 됩니다.
@@ -165,7 +175,7 @@ export function priceText(plan: PlanDisplay, yearly: boolean): string {
 /** 연간 결제 할인. 피그마에 -20% 와 -10% 가 섞여 있어 확인이 필요합니다 (docs/plan-limits-conflict.md) */
 export const YEARLY_DISCOUNT = 0.1;
 
-/** 연간 결제 총액 (피그마: 47,520원) */
+/** 연간 결제 총액 */
 export function yearlyTotalText(plan: PlanDisplay): string | null {
   if (plan.free || !plan.monthlyPrice) return null;
   return `연 ${Math.round(plan.monthlyPrice * 12 * (1 - YEARLY_DISCOUNT)).toLocaleString('ko-KR')}원`;

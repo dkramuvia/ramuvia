@@ -7,7 +7,7 @@ import { ProfileCard } from '@/features/settings/ProfileCard';
 import { useColors } from '@/theme';
 
 const MENU: { key: string; href: Href; danger?: boolean }[] = [
-  { key: 'premium', href: '/plans' },
+  { key: 'premium', href: '/plans/my-plan' },
   { key: 'messages', href: '/settings/scheduled-messages' },
   { key: 'notifications', href: '/settings/notifications' },
   { key: 'friends', href: '/settings/friends' },

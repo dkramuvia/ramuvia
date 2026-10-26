@@ -1604,7 +1604,7 @@
             .map((c) => `<option value="${c.value}" ${shown === c.value ? 'selected' : ''}>${c.label}</option>`)
             .join('')}</select>`;
         } else {
-          const unit = field.type === 'seconds' ? '초' : field.type === 'megabytes' ? 'MB' : field.type === 'percent' ? '%' : field.type === 'meters' ? 'm' : '개';
+          const unit = field.type === 'seconds' ? '초' : field.type === 'megabytes' ? 'MB' : field.type === 'percent' ? '%' : field.type === 'meters' ? 'm' : field.type === 'days' ? '일' : '개';
           control = `<input type="number" data-key="${field.key}" value="${has ? value : ''}" placeholder="${placeholder}" min="${field.min ?? 0}" max="${field.max ?? ''}" /><span class="unit">${unit}</span>`;
         }
         return `<tr><td class="label">${field.label}${field.help ? `<span class="help">${field.help}</span>` : ''}</td><td>${control}</td></tr>`;
@@ -1821,7 +1821,7 @@
       }
 
       function unitOf(f) {
-        return f.type === 'seconds' ? '초' : f.type === 'megabytes' ? 'MB' : f.type === 'percent' ? '%' : f.type === 'meters' ? 'm' : '개';
+        return f.type === 'seconds' ? '초' : f.type === 'megabytes' ? 'MB' : f.type === 'percent' ? '%' : f.type === 'meters' ? 'm' : f.type === 'days' ? '일' : '개';
       }
       function shownValue(f, v) {
         if (v === undefined || v === null) return '-';

@@ -6,7 +6,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleS
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Button, ChipTabs, Popup, TextField } from '@/components/ui';
+import { AppText, Button, ChipTabs, Popup, Switch, TextField } from '@/components/ui';
 import { describePlace, searchPlace } from '@/features/location/address';
 import { useAreaName } from '@/features/location/useAreaName';
 import { useMyLocation } from '@/features/location/useMyLocation';
@@ -28,6 +28,9 @@ const NAME_MAX = 10;
  * 피그마: 지오펜스 등록 (125:58756 / 이름 입력 125:58789 / 추가됨 125:58855)
  * 기획: 장소를 꾹 누르면 위치핀, 핀을 옮기면 주소가 바뀜, 검색 가능, 이름 입력 후 등록
  * 지도 중앙 고정 핀 방식으로 구현 (장소 선택 지도와 같은 조작)
+ *
+ * 10-26 대표님: 장소(즐겨찾기)와 안심존을 한 한도로. "드나들 때 알림" 을 켠 장소가 안심존이고
+ * (geofenceAlertLimit 곳까지), 끈 장소는 즐겨찾기로만 저장됩니다.
  */
 export default function GeofenceEditScreen() {
   const styles = useStyles();
@@ -44,8 +47,11 @@ export default function GeofenceEditScreen() {
   const { location } = useMyLocation();
   const { data: friends = [] } = useFriends();
   const { limit } = usePlan();
-  // 0 이면 이 등급에서는 진입·이탈 알림을 쓸 수 없습니다 (서버도 같은 값으로 막습니다)
+  // 알림을 켤 수 있는 장소 수. 0 이면 이 등급에서는 진입·이탈 알림을 쓸 수 없습니다 (서버도 같은 값으로 막습니다)
   const alertLimit = limit('geofenceAlertLimit');
+  // 이 장소를 빼고 이미 알림을 켠 곳
+  const otherAlerts = geofences.filter((g) => g.enabled && g.id !== id).length;
+  const canAlert = otherAlerts < alertLimit;
 
   const [center, setCenter] = useState<LatLng | null>(existing?.center ?? null);
   const [address, setAddress] = useState('');
@@ -54,6 +60,12 @@ export default function GeofenceEditScreen() {
   const [query, setQuery] = useState('');
   const [added, setAdded] = useState<{ name: string; address: string } | null>(null);
   const [alertFriendIds, setAlertFriendIds] = useState<string[]>(existing?.recipientFriendIds ?? []);
+  // 새 장소는 알림을 켤 자리가 남아 있으면 켠 채로 시작합니다
+  const [alertOn, setAlertOn] = useState(existing ? existing.enabled : canAlert);
+  // 목록이 늦게 와서 자리가 없다는 것을 나중에 알면 끕니다 (새 장소만)
+  useEffect(() => {
+    if (!existing && !canAlert) setAlertOn(false);
+  }, [existing, canAlert]);
   const areaName = useAreaName(center);
 
   // 새로 등록할 때는 내 위치에서 시작
@@ -101,15 +113,15 @@ export default function GeofenceEditScreen() {
   };
 
   const toggleAlertFriend = (friendId: string) => {
-    if (alertFriendIds.includes(friendId)) {
-      setAlertFriendIds(alertFriendIds.filter((id) => id !== friendId));
+    setAlertFriendIds(alertFriendIds.includes(friendId) ? alertFriendIds.filter((id) => id !== friendId) : [...alertFriendIds, friendId]);
+  };
+
+  const changeAlert = (on: boolean) => {
+    if (on && !canAlert) {
+      showToast(alertLimit === 0 ? t('geofence.alertNotAllowed') : t('geofence.alertLimitReached', { limit: alertLimit }));
       return;
     }
-    if (alertFriendIds.length >= alertLimit) {
-      showToast(alertLimit === 0 ? t('geofence.alertNotAllowed') : t('safety.limit', { limit: alertLimit }));
-      return;
-    }
-    setAlertFriendIds([...alertFriendIds, friendId]);
+    setAlertOn(on);
   };
 
   const onSave = () => {
@@ -121,7 +133,7 @@ export default function GeofenceEditScreen() {
         address,
         center,
         radiusM: Number(radiusM),
-        enabled: existing?.enabled ?? true,
+        enabled: alertOn,
         recipientFriendIds: alertFriendIds,
       },
       { onSuccess: () => setAdded({ name: name.trim(), address }) },
@@ -196,7 +208,18 @@ export default function GeofenceEditScreen() {
             <ChipTabs tone="dark" value={radiusM} onChange={setRadiusM} options={RADII.map((r) => ({ value: r, label: `${r}m` }))} />
           </View>
         </View>
-        {alertLimit > 0 && friends.length > 0 ? (
+        <View style={styles.radiusRow}>
+          <View style={styles.flex}>
+            <AppText variant="label1" color={colors.textSecondary}>
+              {t('geofence.alertToggle')}
+            </AppText>
+            <AppText variant="caption" color={colors.textTertiary}>
+              {t(alertOn ? 'geofence.alertToggleOn' : 'geofence.alertToggleOff')}
+            </AppText>
+          </View>
+          <Switch value={alertOn} onValueChange={changeAlert} accessibilityLabel={t('geofence.alertToggle')} />
+        </View>
+        {alertOn && friends.length > 0 ? (
           <View style={styles.alertBlock}>
             <AppText variant="label1" color={colors.textSecondary}>
               {t('geofence.alertFriends')}

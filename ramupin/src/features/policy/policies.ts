@@ -49,16 +49,16 @@ export interface PlanPolicy {
   policyRefreshSec: number;
   /** 모아서 서버로 보내는 주기(초). 확인 주기와 분리해 서버 요청 수를 줄입니다. 09-18 대표 결정: 60초 */
   uploadIntervalSec: number;
-  /** 안심 장소(지오펜스) 등록 수 */
-  safeZoneLimit: number;
-  /** 단일 위치 등록 수 */
+  /** 장소 등록 수 — 즐겨찾기와 안심존을 합친 수 (10-26 대표님: 한도 통합) */
   placeLimit: number;
-  /** 지오펜스 진입·이탈 알림 대상 수 */
+  /** 그중 드나들 때 알림을 켤 수 있는 장소(=안심존) 수. 0 이면 알림을 못 씁니다 */
   geofenceAlertLimit: number;
   scheduledMessageRecipientLimit: number;
   sosRecipientLimit: number;
   /** 사진 공유 용량(MB), 0 = 불가 */
   photoStorageMb: number;
+  /** 위치 기록(이동 경로·머문 곳) 보관 일수. 지난 것은 서버가 매일 지웁니다 (10-26 대표님) */
+  locationRetentionDays: number;
   ads: 'none' | 'banner' | 'banner+fullscreen';
   features: {
     premiumMap: boolean;
@@ -77,12 +77,12 @@ const base = {
   lowBatteryPercent: 20,
   moveDistanceM: 75,
   policyRefreshSec: 120,
-  safeZoneLimit: 4,
-  placeLimit: 10,
-  geofenceAlertLimit: 0,
+  placeLimit: 5,
+  geofenceAlertLimit: 2,
   scheduledMessageRecipientLimit: 2,
   sosRecipientLimit: 1,
   photoStorageMb: 300,
+  locationRetentionDays: 7,
   ads: 'banner+fullscreen',
   features: { premiumMap: false, overseasMap: false, trafficWeather: false, speedingAlert: false, governmentEmergency: false },
 } satisfies Omit<PlanPolicy, 'planId'>;
@@ -93,12 +93,12 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     planId: 'platinum',
     ...base,
     gpsIntervalMovingSec: 15,
-    safeZoneLimit: 20,
-    placeLimit: 50,
-    geofenceAlertLimit: 10,
+    placeLimit: 20,
+    geofenceAlertLimit: 5,
     scheduledMessageRecipientLimit: 10,
-    sosRecipientLimit: 10,
+    sosRecipientLimit: 3,
     photoStorageMb: 1024,
+    locationRetentionDays: 15,
     ads: 'none',
     features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
   },
@@ -106,12 +106,12 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     planId: 'trinity',
     ...base,
     gpsIntervalMovingSec: 15,
-    safeZoneLimit: 50,
-    placeLimit: 100,
-    geofenceAlertLimit: 30,
+    placeLimit: 50,
+    geofenceAlertLimit: 10,
     scheduledMessageRecipientLimit: 30,
-    sosRecipientLimit: 30,
+    sosRecipientLimit: 20,
     photoStorageMb: 5120,
+    locationRetentionDays: 30,
     ads: 'none',
     features: { premiumMap: true, overseasMap: true, trafficWeather: true, speedingAlert: true, governmentEmergency: true },
   },
@@ -119,23 +119,23 @@ export const MOCK_POLICIES: Record<PlanId, PlanPolicy> = {
     planId: 'care',
     ...base,
     gpsIntervalMovingSec: 15,
-    safeZoneLimit: 20,
     placeLimit: 10,
     geofenceAlertLimit: 10,
     scheduledMessageRecipientLimit: 3,
     sosRecipientLimit: 5,
+    locationRetentionDays: 15,
     ads: 'none',
     features: { premiumMap: false, overseasMap: false, trafficWeather: true, speedingAlert: false, governmentEmergency: true },
   },
   guardian: {
     planId: 'guardian',
     ...base,
-    safeZoneLimit: 3,
     placeLimit: 10,
     geofenceAlertLimit: 3,
     scheduledMessageRecipientLimit: 1,
     sosRecipientLimit: 1,
     photoStorageMb: 0,
+    locationRetentionDays: 15,
     features: { ...base.features, governmentEmergency: true },
   },
 };

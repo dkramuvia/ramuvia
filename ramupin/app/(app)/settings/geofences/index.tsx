@@ -20,6 +20,9 @@ const SHEET_HEIGHT = 440;
 /**
  * 피그마: 지오펜스 설정 (125:56753) / 메뉴 (125:56811) / 삭제 확인 (125:56812)
  * 기획: 점 세 개 → 활성화·비활성화 / 수정하기 / 삭제, 수정하기에서 위치와 이름 변경
+ *
+ * 10-26 대표님: 장소(즐겨찾기)와 지오펜스 한도 통합. 장소는 placeLimit 까지 저장하고,
+ * 그중 드나들 때 알림을 켠 곳(=안심존)은 geofenceAlertLimit 까지입니다. 알림을 끈 장소는 즐겨찾기로 남습니다.
  */
 export default function GeofencesScreen() {
   const styles = useStyles();
@@ -43,8 +46,18 @@ export default function GeofencesScreen() {
     else mapRef.current?.fitTo(geofences.map((g) => g.center));
   }, [geofences]);
 
-  const zoneLimit = limit('safeZoneLimit');
-  const remaining = Math.max(0, zoneLimit - geofences.length);
+  const placeLimit = limit('placeLimit');
+  const remaining = Math.max(0, placeLimit - geofences.length);
+  const alertLimit = limit('geofenceAlertLimit');
+  const alertCount = geofences.filter((g) => g.enabled).length;
+
+  const toggleAlert = (g: Geofence) => {
+    if (!g.enabled && alertCount >= alertLimit) {
+      showToast(alertLimit === 0 ? t('geofence.alertNotAllowed') : t('geofence.alertLimitReached', { limit: alertLimit }));
+      return;
+    }
+    save.mutate({ ...g, enabled: !g.enabled });
+  };
 
   const markers = useMemo<MapMarkerItem[]>(
     () =>
@@ -91,7 +104,7 @@ export default function GeofencesScreen() {
         </View>
         <View style={styles.remaining}>
           <AppText variant="label1" color={colors.textSecondary}>
-            {t('geofence.remaining', { limit: zoneLimit, remaining })}
+            {t('geofence.remaining', { limit: placeLimit, remaining })} · {t('geofence.alertCount', { count: alertCount, limit: alertLimit })}
           </AppText>
         </View>
       </View>
@@ -133,7 +146,7 @@ export default function GeofencesScreen() {
                     label={t(g.enabled ? 'geofence.disable' : 'geofence.enable')}
                     onPress={() => {
                       setMenuId(null);
-                      save.mutate({ ...g, enabled: !g.enabled });
+                      toggleAlert(g);
                     }}
                   />
                   <MenuAction

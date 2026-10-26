@@ -8,7 +8,10 @@ import { PushService } from '../push/push.service.js';
 import { judgeCrossing, type Crossing } from './zone-crossing.js';
 
 /**
- * 안심장소(지오펜스)와 진입·이탈 알림 (WBS 8.8, 9.4).
+ * 장소(즐겨찾기)·안심장소(지오펜스)와 진입·이탈 알림 (WBS 8.8, 9.4).
+ *
+ * 장소와 안심장소는 같은 표입니다 (10-26 대표님: 한도 통합). 드나들 때 알림을 켠(enabled) 장소가 안심장소이고,
+ * 끈 장소는 즐겨찾기로만 남습니다. 판정은 켜진 장소만 합니다.
  *
  * **판정을 서버가 하는 이유**: 알림을 받는 사람이 본인이 아니라 친구입니다.
  * 폰이 혼자 알아차려도 결국 서버를 거쳐야 하고, 폰이 꺼져 있으면 아예 못 보냅니다.
@@ -87,17 +90,17 @@ export class SafeZoneService {
 
   async create(userId: string, input: ZoneInput) {
     const policy = await resolvePolicy(this.db, userId);
-    const limit = policyNumber(policy, 'safeZoneLimit', 0);
+    const limit = policyNumber(policy, 'placeLimit', 0);
     const count = await this.db
       .selectFrom('member.safe_zones')
       .select((eb) => eb.fn.countAll<string>().as('n'))
       .where('user_id', '=', userId)
       .executeTakeFirstOrThrow();
     if (Number(count.n) >= limit) {
-      throw new BadRequestException(`안심장소는 ${limit}개까지 등록할 수 있습니다 (지금 등급 기준)`);
+      throw new BadRequestException(`장소는 ${limit}개까지 등록할 수 있습니다 (지금 등급 기준)`);
     }
-    // 만들기 전에 먼저 막습니다. 넣고 나서 거절하면 이름만 있는 안심장소가 남습니다
-    this.assertCanAlert(policy, input.recipientFriendIds);
+    // 만들기 전에 먼저 막습니다. 넣고 나서 거절하면 이름만 있는 장소가 남습니다
+    if (input.enabled) await this.assertCanAlert(userId, policy, null);
 
     const row = await this.db
       .insertInto('member.safe_zones')
@@ -113,13 +116,13 @@ export class SafeZoneService {
       .returning('id')
       .executeTakeFirstOrThrow();
 
-    await this.replaceRecipients(userId, row.id, input.recipientFriendIds, policy);
+    await this.replaceRecipients(userId, row.id, input.recipientFriendIds);
     return this.one(userId, row.id);
   }
 
   async update(userId: string, zoneId: string, input: ZoneInput) {
     const policy = await resolvePolicy(this.db, userId);
-    this.assertCanAlert(policy, input.recipientFriendIds);
+    if (input.enabled) await this.assertCanAlert(userId, policy, zoneId);
     const updated = await this.db
       .updateTable('member.safe_zones')
       .set({
@@ -135,9 +138,9 @@ export class SafeZoneService {
       .where('user_id', '=', userId)
       .returning('id')
       .executeTakeFirst();
-    if (!updated) throw new NotFoundException('안심장소를 찾을 수 없습니다');
+    if (!updated) throw new NotFoundException('장소를 찾을 수 없습니다');
 
-    await this.replaceRecipients(userId, zoneId, input.recipientFriendIds, policy);
+    await this.replaceRecipients(userId, zoneId, input.recipientFriendIds);
     return this.one(userId, zoneId);
   }
 
@@ -148,7 +151,7 @@ export class SafeZoneService {
       .where('user_id', '=', userId)
       .returning('id')
       .executeTakeFirst();
-    if (!deleted) throw new NotFoundException('안심장소를 찾을 수 없습니다');
+    if (!deleted) throw new NotFoundException('장소를 찾을 수 없습니다');
     return { ok: true };
   }
 
@@ -273,38 +276,51 @@ export class SafeZoneService {
   }
 
   /** 알림 받을 친구를 통째로 다시 씁니다. 친구가 아닌 사람은 걸러 냅니다 */
-  private async replaceRecipients(userId: string, zoneId: string, friendIds: string[], policy: Policy) {
+  private async replaceRecipients(userId: string, zoneId: string, friendIds: string[]) {
     await this.db.deleteFrom('member.safe_zone_recipients').where('zone_id', '=', zoneId).execute();
     if (friendIds.length === 0) return;
 
-    const limit = policyNumber(policy, 'geofenceAlertLimit', 0);
     const friends = await this.db
       .selectFrom('social.friendships')
       .select('friend_id')
       .where('user_id', '=', userId)
       .where('friend_id', 'in', friendIds)
       .execute();
-    const allowed = friends.map((f) => f.friend_id).slice(0, limit);
-    if (allowed.length === 0) return;
+    if (friends.length === 0) return;
 
     await this.db
       .insertInto('member.safe_zone_recipients')
-      .values(allowed.map((friendId) => ({ zone_id: zoneId, friend_id: friendId })))
+      .values(friends.map((f) => ({ zone_id: zoneId, friend_id: f.friend_id })))
       .execute();
   }
 
-  /** 이 등급에서 진입·이탈 알림을 쓸 수 있는지. 만들기 전에 봅니다 */
-  private assertCanAlert(policy: Policy, friendIds: string[]) {
-    if (friendIds.length === 0) return;
-    if (policyNumber(policy, 'geofenceAlertLimit', 0) === 0) {
-      throw new BadRequestException('지금 등급에서는 진입·이탈 알림을 쓸 수 없습니다');
+  /**
+   * 알림을 켤 수 있는지 (10-26 대표님: 장소와 지오펜스 한도 통합).
+   * 장소는 placeLimit 까지 저장하고, 그중 드나들 때 알림을 켠 장소(=안심존)는 geofenceAlertLimit 까지입니다.
+   * 이미 켜져 있던 장소를 고칠 때는 자기 자신을 세지 않습니다(zoneId).
+   */
+  private async assertCanAlert(userId: string, policy: Policy, zoneId: string | null) {
+    const limit = policyNumber(policy, 'geofenceAlertLimit', 0);
+    let query = this.db
+      .selectFrom('member.safe_zones')
+      .select((eb) => eb.fn.countAll<string>().as('n'))
+      .where('user_id', '=', userId)
+      .where('enabled', '=', true);
+    if (zoneId) query = query.where('id', '!=', zoneId);
+    const count = await query.executeTakeFirstOrThrow();
+    if (Number(count.n) >= limit) {
+      throw new BadRequestException(
+        limit === 0
+          ? '지금 등급에서는 드나들 때 알림을 쓸 수 없습니다'
+          : `드나들 때 알림은 장소 ${limit}곳까지 켤 수 있습니다 (지금 등급 기준)`,
+      );
     }
   }
 
   private async one(userId: string, zoneId: string) {
     const zones = await this.list(userId);
     const found = zones.find((z) => z.id === zoneId);
-    if (!found) throw new NotFoundException('안심장소를 찾을 수 없습니다');
+    if (!found) throw new NotFoundException('장소를 찾을 수 없습니다');
     return found;
   }
 }

@@ -16,7 +16,7 @@ export interface PolicyField {
   /** 화면에 같이 보여 줄 설명 */
   help: string;
   group: string;
-  type: 'seconds' | 'count' | 'megabytes' | 'percent' | 'meters' | 'choice' | 'switch';
+  type: 'seconds' | 'count' | 'megabytes' | 'percent' | 'meters' | 'days' | 'choice' | 'switch';
   min?: number;
   max?: number;
   choices?: { value: string; label: string }[];
@@ -77,9 +77,24 @@ export const POLICY_FIELDS: PolicyField[] = [
     min: 0,
     max: 500,
   },
-  { key: 'safeZoneLimit', label: '안심 장소 등록 수', help: '', group: '제한', type: 'count', min: 0, max: 200 },
-  { key: 'placeLimit', label: '단일 위치 등록 수', help: '', group: '제한', type: 'count', min: 0, max: 500 },
-  { key: 'geofenceAlertLimit', label: '진입·이탈 알림 대상 수', help: '', group: '제한', type: 'count', min: 0, max: 200 },
+  {
+    key: 'placeLimit',
+    label: '장소 등록 수',
+    help: '즐겨찾기와 안심존을 합친 장소 수입니다.',
+    group: '제한',
+    type: 'count',
+    min: 0,
+    max: 500,
+  },
+  {
+    key: 'geofenceAlertLimit',
+    label: '안심존(드나들 때 알림) 수',
+    help: '등록한 장소 중 드나들 때 친구에게 알림을 켤 수 있는 곳의 수입니다. 0 이면 알림을 쓸 수 없습니다.',
+    group: '제한',
+    type: 'count',
+    min: 0,
+    max: 500,
+  },
   {
     key: 'scheduledMessageRecipientLimit',
     label: '예약 메시지 수신인 수',
@@ -91,6 +106,15 @@ export const POLICY_FIELDS: PolicyField[] = [
   },
   { key: 'sosRecipientLimit', label: 'SOS 수신인 수', help: '', group: '제한', type: 'count', min: 0, max: 200 },
   { key: 'photoStorageMb', label: '사진 공유 용량', help: '0 이면 사용할 수 없습니다.', group: '제한', type: 'megabytes', min: 0, max: 102400 },
+  {
+    key: 'locationRetentionDays',
+    label: '위치 기록 보관 기간',
+    help: '이동 경로와 머문 곳을 이 기간만 보관하고 지난 것은 매일 지웁니다. 지운 기록은 되살릴 수 없습니다. SOS·안심존 드나든 기록은 따로 남습니다.',
+    group: '제한',
+    type: 'days',
+    min: 1,
+    max: 365,
+  },
   {
     key: 'ads',
     label: '광고',

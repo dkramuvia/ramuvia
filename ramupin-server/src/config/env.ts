@@ -111,6 +111,15 @@ const schema = z.object({
    * 0 이면 파기 배치를 돌리지 않습니다 (개발 중 실수로 지우지 않도록).
    */
   LOCATION_KEEP_MONTHS: z.coerce.number().int().min(0).max(120).default(6),
+  /**
+   * 등급별 위치 기록 보관 (10-26 대표님: 베이직 7일 · 플래티넘 15일 · 트리니티 30일).
+   * 등급 정책의 locationRetentionDays 가 지난 기록을 매일 사람별로 지웁니다.
+   * 지운 기록은 되살릴 수 없어 **명시적으로 true 일 때만** 돕니다 (실서버에 배포만 해서는 지우지 않게).
+   */
+  LOCATION_PLAN_RETENTION: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
   PHONE_ENC_KEY: z.string().min(40),
   PHONE_HASH_KEY: z.string().min(40),
   /**

@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { AppText, Avatar, MenuItem, Popup, QueryState, Screen, Tag } from '@/components/ui';
 import { useGroup, useLeaveGroup } from '@/features/groups/queries';
 import { useAuthStore, useIsMe } from '@/stores/authStore';
-import { makeStyles, radius, useColors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 /** 피그마: 그룹 설정 - 방장 (283:39250) / 멤버 (283:36264) */
 export default function GroupSettingsScreen() {
@@ -50,25 +49,7 @@ export default function GroupSettingsScreen() {
           </View>
 
           <View style={styles.menu}>
-            {/* 기획: 그룹을 개설한 방장에게만 '그룹 프리미엄 기능' 가입하기 노출 */}
-            {isOwner ? (
-              <View style={styles.premiumCard}>
-                <View style={styles.premiumIcon}>
-                  <Ionicons name="chatbubble-ellipses" size={26} color={colors.white} />
-                </View>
-                <AppText variant="listTitle" style={styles.flex}>
-                  {t('groups.premium')}
-                </AppText>
-                <Pressable accessibilityRole="button" onPress={() => router.push(`/groups/${groupId}/premium`)}>
-                  <LinearGradient colors={['#F062D6', '#A07BFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.joinButton}>
-                    <AppText variant="headline" color={colors.backgroundWarm}>
-                      {t('groups.join')}
-                    </AppText>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            ) : null}
-
+            {/* 그룹 프리미엄은 없앴습니다 (10-26 대표님: 혜택은 개인 등급 플래티넘·트리니티만) */}
             <MenuItem
               variant="plain"
               label={t('groups.manageMembers')}
@@ -110,29 +91,8 @@ export default function GroupSettingsScreen() {
 
 const useStyles = makeStyles((colors) => ({
   content: { gap: 40, paddingTop: 38 },
-  flex: { flex: 1 },
   profile: { alignItems: 'center', gap: 4 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   menu: { gap: 12 },
-  premiumCard: {
-    height: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-    paddingLeft: 20,
-    paddingRight: 8,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceSoft,
-  },
-  premiumIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  joinButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md },
   divider: { height: 1, backgroundColor: 'rgba(133,147,168,0.2)' },
 }));

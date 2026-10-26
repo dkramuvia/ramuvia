@@ -1,9 +1,9 @@
 import { mockResponse } from '../client';
-import { mockGroups, mockMe } from '../mock/data';
+import { mockMe } from '../mock/data';
 import { env } from '@/config/env';
 import type { PlanId } from '@/types/models';
 
-export type PurchaseTarget = { kind: 'plan'; planId: PlanId; yearly: boolean } | { kind: 'groupPremium'; groupId: string; yearly: boolean } | { kind: 'freeTrial'; yearly: boolean };
+export type PurchaseTarget = { kind: 'plan'; planId: PlanId; yearly: boolean } | { kind: 'freeTrial'; yearly: boolean };
 
 /**
  * TODO(7단계): Google Play Billing / App Store 인앱결제 (RevenueCat 또는 react-native-iap)
@@ -17,12 +17,7 @@ export const billingApi = {
       mockMe.plan = target.planId;
       return mockResponse({ planId: target.planId }, 800);
     }
-    if (target.kind === 'freeTrial') {
-      mockMe.plan = 'platinum';
-      return mockResponse({ planId: 'platinum' }, 800);
-    }
-    const group = mockGroups.find((g) => g.id === target.groupId);
-    if (group) group.isPremium = true;
-    return mockResponse({}, 800);
+    mockMe.plan = 'platinum';
+    return mockResponse({ planId: 'platinum' }, 800);
   },
 };

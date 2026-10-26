@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { useEffect } from 'react';
 
 import {
@@ -10,7 +11,9 @@ import {
   safetyApi,
   scheduledMessagesApi,
 } from '@/api/endpoints/settings';
+import i18n from '@/i18n';
 import { useAuthStore } from '@/stores/authStore';
+import { showToast } from '@/utils/toast';
 import { saveGeofenceSnapshot } from '@/features/location/geofenceSnapshot';
 import type { Geofence, HideModeSetting, HistoryCategory, NotificationSettings, SafetySetting, ScheduledMessage, User } from '@/types/models';
 
@@ -67,6 +70,11 @@ export function useSaveGeofence() {
   return useMutation({
     mutationFn: (geofence: Omit<Geofence, 'id'> & { id?: string }) => geofencesApi.save(geofence),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.geofences }),
+    // 등급 한도(장소 수·알림 켠 장소 수)에 걸리면 서버가 이유를 문장으로 보냅니다
+    onError: (error) => {
+      const message = isAxiosError<{ message?: unknown }>(error) ? error.response?.data?.message : undefined;
+      showToast(typeof message === 'string' ? message : i18n.t('common.requestFailed'));
+    },
   });
 }
 export function useRemoveGeofence() {

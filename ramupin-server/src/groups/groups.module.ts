@@ -5,6 +5,9 @@ import { z } from 'zod';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { ChatGateway, RealtimeModule } from '../chat/chat.gateway.js';
 import { parseInput } from '../common/app-error.js';
+import { MediaModule } from '../media/media.module.js';
+import { PushModule } from '../push/push.module.js';
+import { GroupAdminService } from './group-admin.service.js';
 import { GroupInviteService } from './group-invite.service.js';
 import { GroupsService } from './groups.service.js';
 
@@ -13,6 +16,14 @@ const renameBody = z.object({ name: z.string().min(1).max(30) });
 const inviteBody = z.object({ memberIds: z.array(z.uuid()).min(1).max(20) });
 const pauseBody = z.object({ paused: z.boolean() });
 const directBody = z.object({ friendId: z.uuid() });
+const roleBody = z.object({ role: z.enum(['admin', 'member']) });
+const ownerBody = z.object({ userId: z.uuid() });
+const settingsBody = z.object({
+  invitePermission: z.enum(['all', 'admins']).optional(),
+  photoPermission: z.enum(['all', 'admins']).optional(),
+  defaultShareLevel: z.enum(['exact', 'blurred']).optional(),
+});
+const linkBody = z.object({ days: z.union([z.literal(1), z.literal(7), z.literal(30)]).optional(), renew: z.boolean().optional() });
 /** 초대 토큰 (base64url 18바이트 = 24자) */
 const inviteToken = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 
@@ -23,6 +34,7 @@ class GroupsController {
     private readonly groups: GroupsService,
     private readonly invites: GroupInviteService,
     private readonly gateway: ChatGateway,
+    private readonly admin: GroupAdminService,
   ) {}
 
   @Get()
@@ -82,11 +94,69 @@ class GroupsController {
     this.gateway.emitRoomsChanged(before);
   }
 
-  /** 초대 링크 만들기 (피그마 605 '초대 링크') */
+  /** 초대 링크 만들기 (피그마 605 '초대 링크'). renew = 새 링크 (기존 링크 막힘), days = 1·7·30일 (보완 4.20) */
   @Post(':groupId/invite-link')
   @HttpCode(HttpStatus.OK)
-  inviteLink(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string) {
-    return this.invites.create(user.id, groupId);
+  inviteLink(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string, @Body() body: unknown) {
+    return this.invites.create(user.id, groupId, parseInput(linkBody, body ?? {}));
+  }
+
+  /** 지금 살아 있는 초대 링크 (없으면 null) */
+  @Get(':groupId/invite-link')
+  currentInviteLink(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string) {
+    return this.invites.current(user.id, groupId);
+  }
+
+  /** 링크 끄기 */
+  @Delete(':groupId/invite-link')
+  @HttpCode(HttpStatus.OK)
+  revokeInviteLink(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string) {
+    return this.invites.revoke(user.id, groupId);
+  }
+
+  /** 관리자 지정·해제 (방장만, 보완 4.19) */
+  @Put(':groupId/members/:userId/role')
+  async setRole(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string, @Param('userId', ParseUUIDPipe) userId: string, @Body() body: unknown) {
+    const result = await this.admin.setRole(user.id, groupId, userId, parseInput(roleBody, body).role);
+    this.gateway.emitRoomsChanged(await this.groups.memberIds(groupId));
+    return result;
+  }
+
+  /** 방장 넘기기 (방장만) */
+  @Put(':groupId/owner')
+  async transferOwner(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string, @Body() body: unknown) {
+    const result = await this.admin.transferOwner(user.id, groupId, parseInput(ownerBody, body).userId);
+    this.gateway.emitRoomsChanged(await this.groups.memberIds(groupId));
+    return result;
+  }
+
+  /** 그룹에서 내보내기 (방장·관리자) */
+  @Delete(':groupId/members/:userId')
+  @HttpCode(HttpStatus.OK)
+  async kick(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string, @Param('userId', ParseUUIDPipe) userId: string) {
+    const result = await this.admin.kick(user.id, groupId, userId);
+    // 바로 대화방 실시간에서도 뺍니다
+    await this.gateway.leaveRoom([userId], groupId);
+    this.gateway.emitRoomsChanged([userId, ...(await this.groups.memberIds(groupId))]);
+    return result;
+  }
+
+  /** 그룹 설정: 초대·사진 권한, 그룹 기본 위치 공개 (방장만, 보완 4.20) */
+  @Put(':groupId/settings')
+  async updateSettings(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string, @Body() body: unknown) {
+    const result = await this.admin.updateSettings(user.id, groupId, parseInput(settingsBody, body));
+    this.gateway.emitRoomsChanged(await this.groups.memberIds(groupId));
+    return result;
+  }
+
+  /** 그룹 삭제: 사진·대화 모두 (방장만) */
+  @Delete(':groupId')
+  @HttpCode(HttpStatus.OK)
+  async remove(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string) {
+    const members = await this.admin.remove(user.id, groupId);
+    await this.gateway.leaveRoom(members, groupId);
+    this.gateway.emitRoomsChanged(members);
+    return { ok: true };
   }
 
   /** 초대 내용 보기 (피그마 738 '그룹방 초대') */
@@ -139,9 +209,9 @@ p{color:#6b7684;font-size:14px;line-height:1.6}</style></head>
 }
 
 @Module({
-  imports: [RealtimeModule],
+  imports: [RealtimeModule, MediaModule, PushModule],
   controllers: [GroupsController, InviteLandingController],
-  providers: [GroupsService, GroupInviteService],
+  providers: [GroupsService, GroupInviteService, GroupAdminService],
   exports: [GroupsService],
 })
 export class GroupsModule {}

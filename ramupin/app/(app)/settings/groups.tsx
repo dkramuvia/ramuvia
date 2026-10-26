@@ -7,6 +7,7 @@ import { AppText, Button, Card, CountActionBar, Popup, Screen } from '@/componen
 import { useLeaveGroup, useMyGroups } from '@/features/groups/queries';
 import { useIsMe } from '@/stores/authStore';
 import type { GroupDetail } from '@/types/models';
+import { showToast } from '@/utils/toast';
 
 /** 피그마: 그룹 설정 목록 (283:32075). 기획: 그룹을 떠나거나 그룹 만들기 */
 export default function GroupListScreen() {
@@ -34,23 +35,30 @@ export default function GroupListScreen() {
               </AppText>
               <AppText variant="label2">{t('groupSettings.members', { count: g.memberCount })}</AppText>
             </View>
-            <Button label={t('groupSettings.leave')} variant="primaryLight" size="xs" shape="square" onPress={() => setLeaving(g)} />
+            <Button
+              label={t('groupSettings.leave')}
+              variant="primaryLight"
+              size="xs"
+              shape="square"
+              // 방장은 다른 멤버에게 방장을 넘긴 뒤 나갈 수 있습니다 (보완 4.20)
+              onPress={() => (isMe(g.ownerId) && g.memberCount > 1 ? showToast(t('groups.transferFirst')) : setLeaving(g))}
+            />
           </Card>
         ))}
       </View>
-      {leaving ? <LeavePopup group={leaving} isOwner={isMe(leaving.ownerId)} onClose={() => setLeaving(null)} /> : null}
+      {leaving ? <LeavePopup group={leaving} onClose={() => setLeaving(null)} /> : null}
     </Screen>
   );
 }
 
-function LeavePopup({ group, isOwner, onClose }: { group: GroupDetail; isOwner: boolean; onClose: () => void }) {
+function LeavePopup({ group, onClose }: { group: GroupDetail; onClose: () => void }) {
   const { t } = useTranslation();
   const leave = useLeaveGroup(group.id);
   return (
     <Popup
       visible
       title={t('groups.leaveTitle')}
-      message={t(isOwner ? 'groups.leaveOwnerMessage' : 'groups.leaveMessage')}
+      message={t('groups.leaveMessage')}
       cancelLabel={t('common.cancel')}
       onCancel={onClose}
       onDismiss={onClose}

@@ -4,6 +4,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { appError } from '../common/app-error.js';
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import { GroupAdminService } from './group-admin.service.js';
 import { GroupsService } from './groups.service.js';
 
 /**
@@ -16,7 +17,7 @@ import { GroupsService } from './groups.service.js';
  *   - 1:1 대화방에는 만들 수 없습니다
  */
 
-/** 링크가 살아 있는 기간 */
+/** 링크가 살아 있는 기간 (기본 7일, 그룹 설정에서 1·7·30일, 보완 4.20) */
 const TTL_DAYS = 7;
 /** 주소에 들어가는 값의 길이(바이트). 18바이트 = 144비트, 맞혀서 열 수 없습니다 */
 const TOKEN_BYTES = 18;
@@ -36,12 +37,21 @@ export class GroupInviteService {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly groups: GroupsService,
+    private readonly admin: GroupAdminService,
   ) {}
 
   /** 링크 만들기 (또는 내가 만든 살아 있는 링크 돌려주기 — 누를 때마다 주소가 늘지 않게) */
-  async create(me: string, groupId: string, now = new Date()): Promise<{ url: string; token: string; expiresAt: string }> {
+  async create(
+    me: string,
+    groupId: string,
+    options: { days?: number; renew?: boolean } = {},
+    now = new Date(),
+  ): Promise<{ url: string; token: string; expiresAt: string }> {
     const group = await this.groups.assertMember(groupId, me);
     if (group.is_direct) throw appError(HttpStatus.BAD_REQUEST, 'DIRECT_ROOM', '1:1 대화방에는 초대할 수 없습니다');
+    await this.admin.assertCanInvite(groupId, me);
+    // 새 링크를 만들면 이 그룹의 기존 링크는 바로 막힙니다 (보완 4.20)
+    if (options.renew) await this.revokeAll(groupId, now);
 
     const existing = await this.db
       .selectFrom('social.group_invites')
@@ -52,12 +62,38 @@ export class GroupInviteService {
       .where('expires_at', '>', now)
       .orderBy('created_at', 'desc')
       .executeTakeFirst();
-    if (existing) return this.link(existing.token, existing.expires_at);
+    if (existing && !options.renew) return this.link(existing.token, existing.expires_at);
 
     const token = randomBytes(TOKEN_BYTES).toString('base64url');
-    const expiresAt = new Date(now.getTime() + TTL_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + (options.days ?? TTL_DAYS) * 24 * 60 * 60 * 1000);
     await this.db.insertInto('social.group_invites').values({ token, group_id: groupId, created_by: me, expires_at: expiresAt }).execute();
     return this.link(token, expiresAt);
+  }
+
+  /** 지금 살아 있는 이 그룹의 링크 (그룹 설정 화면). 없으면 null */
+  async current(me: string, groupId: string, now = new Date()) {
+    await this.groups.assertMember(groupId, me);
+    const row = await this.db
+      .selectFrom('social.group_invites as i')
+      .innerJoin('social.group_members as gm', (join) => join.onRef('gm.group_id', '=', 'i.group_id').onRef('gm.user_id', '=', 'i.created_by'))
+      .select(['i.token', 'i.expires_at'])
+      .where('i.group_id', '=', groupId)
+      .where('i.revoked_at', 'is', null)
+      .where('i.expires_at', '>', now)
+      .orderBy('i.created_at', 'desc')
+      .executeTakeFirst();
+    return row ? this.link(row.token, row.expires_at) : null;
+  }
+
+  /** 링크 끄기: 이 그룹의 살아 있는 링크를 모두 막습니다 (방장·관리자, 또는 초대가 허용된 멤버) */
+  async revoke(me: string, groupId: string, now = new Date()) {
+    await this.admin.assertCanInvite(groupId, me);
+    await this.revokeAll(groupId, now);
+    return { ok: true };
+  }
+
+  private async revokeAll(groupId: string, now: Date) {
+    await this.db.updateTable('social.group_invites').set({ revoked_at: now }).where('group_id', '=', groupId).where('revoked_at', 'is', null).execute();
   }
 
   /** 받은 사람이 보는 초대 내용 (피그마 738 '그룹방 초대' 카드) */

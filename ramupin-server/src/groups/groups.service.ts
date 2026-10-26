@@ -4,6 +4,8 @@ import type { Transaction } from 'kysely';
 import { appError } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { MainDatabase, ShareLevel } from '../database/main.schema.js';
+import { policyNumber, resolvePolicy } from '../config/policy.js';
+import { DEFAULT_GROUP_MEMBER_LIMIT, GroupAdminService } from './group-admin.service.js';
 import { displayGroupName } from './group-name.js';
 
 /** 앱 src/types/models.ts 의 GroupMember */
@@ -12,7 +14,7 @@ export interface GroupMemberResponse {
   publicId: string;
   nickname: string;
   avatarUrl: string | null;
-  role: 'owner' | 'member';
+  role: 'owner' | 'admin' | 'member';
   /** 내가 이 사람에게 공유하는 수준 (친구가 아니면 없음) */
   myShareLevel?: ShareLevel;
 }
@@ -27,10 +29,17 @@ export interface GroupDetailResponse {
   isDirect: boolean;
   createdAt: string;
   members: GroupMemberResponse[];
+  /** 내 역할 (보완 4.19) */
+  myRole: 'owner' | 'admin' | 'member';
+  /** 그룹 설정 (보완 4.20) */
+  invitePermission: 'all' | 'admins';
+  photoPermission: 'all' | 'admins';
+  defaultShareLevel: 'exact' | 'blurred';
+  /** 최대 인원 = 방장 등급 정책 */
+  memberLimit: number;
 }
 
 const CREATED_MESSAGE = '그룹채팅을 만들었습니다.';
-const MAX_MEMBERS = 50;
 
 const notFound = () => appError(HttpStatus.NOT_FOUND, 'GROUP_NOT_FOUND', '그룹방이 없습니다');
 
@@ -40,7 +49,10 @@ const notFound = () => appError(HttpStatus.NOT_FOUND, 'GROUP_NOT_FOUND', '그룹
  */
 @Injectable()
 export class GroupsService {
-  constructor(@Inject(MAIN_DB) private readonly db: MainDb) {}
+  constructor(
+    @Inject(MAIN_DB) private readonly db: MainDb,
+    private readonly admin: GroupAdminService,
+  ) {}
 
   /** 내가 속한 그룹방 목록 (최근 대화 순) */
   async list(me: string): Promise<GroupDetailResponse[]> {
@@ -57,7 +69,7 @@ export class GroupsService {
   async get(me: string, groupId: string): Promise<GroupDetailResponse> {
     const group = await this.db
       .selectFrom('social.groups')
-      .select(['id', 'name', 'owner_id', 'is_premium', 'is_direct', 'created_at'])
+      .select(['id', 'name', 'owner_id', 'is_premium', 'is_direct', 'created_at', 'invite_permission', 'photo_permission', 'default_share_level'])
       .where('id', '=', groupId)
       .executeTakeFirst();
     if (!group) throw notFound();
@@ -92,6 +104,11 @@ export class GroupsService {
         role: m.role,
         ...(m.my_level ? { myShareLevel: m.my_level } : {}),
       })),
+      myRole: members.find((m) => m.id === me)?.role ?? 'member',
+      invitePermission: group.invite_permission,
+      photoPermission: group.photo_permission,
+      defaultShareLevel: group.default_share_level,
+      memberLimit: await this.admin.memberLimit(groupId),
     };
   }
 
@@ -101,7 +118,9 @@ export class GroupsService {
     memberIds = [...new Set(memberIds)];
     const friends = await this.friendIdsOf(me, memberIds);
     if (friends.length !== memberIds.length) throw appError(HttpStatus.BAD_REQUEST, 'NOT_FRIEND', '친구만 초대할 수 있습니다');
-    if (friends.length + 1 > MAX_MEMBERS) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${MAX_MEMBERS}명입니다`);
+    // 새 그룹의 방장은 나이므로 내 등급의 그룹 최대 인원을 봅니다
+    const limit = policyNumber(await resolvePolicy(this.db, me), 'groupMemberLimit', DEFAULT_GROUP_MEMBER_LIMIT);
+    if (friends.length + 1 > limit) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${limit}명입니다`);
 
     const groupId = await this.db.transaction().execute(async (trx) => {
       const group = await trx.insertInto('social.groups').values({ name, owner_id: me }).returning('id').executeTakeFirstOrThrow();
@@ -198,6 +217,8 @@ export class GroupsService {
   async invite(me: string, groupId: string, memberIds: string[]) {
     const group = await this.assertMember(groupId, me);
     if (group.is_direct) throw appError(HttpStatus.BAD_REQUEST, 'DIRECT_ROOM', '1:1 대화방에는 초대할 수 없습니다');
+    // 그룹 설정이 "방장·관리자만" 이면 일반 멤버는 초대할 수 없습니다 (보완 4.20)
+    await this.admin.assertCanInvite(groupId, me);
     memberIds = [...new Set(memberIds)];
     const friends = await this.friendIdsOf(me, memberIds);
     if (friends.length !== memberIds.length) throw appError(HttpStatus.BAD_REQUEST, 'NOT_FRIEND', '친구만 초대할 수 있습니다');
@@ -207,7 +228,8 @@ export class GroupsService {
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .where('group_id', '=', groupId)
       .executeTakeFirstOrThrow();
-    if (Number(count) + friends.length > MAX_MEMBERS) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${MAX_MEMBERS}명입니다`);
+    const limit = await this.admin.memberLimit(groupId);
+    if (Number(count) + friends.length > limit) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${limit}명입니다`);
 
     const added = await this.db.transaction().execute(async (trx) => {
       const rows = await trx
@@ -234,6 +256,7 @@ export class GroupsService {
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .where('group_id', '=', groupId)
       .executeTakeFirstOrThrow();
+    const limit = await this.admin.memberLimit(groupId);
     return this.db.transaction().execute(async (trx) => {
       const row = await trx
         .insertInto('social.group_members')
@@ -242,7 +265,7 @@ export class GroupsService {
         .returning('user_id')
         .executeTakeFirst();
       if (!row) return false;
-      if (Number(count) + 1 > MAX_MEMBERS) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${MAX_MEMBERS}명입니다`);
+      if (Number(count) + 1 > limit) throw appError(HttpStatus.BAD_REQUEST, 'TOO_MANY_MEMBERS', `멤버는 최대 ${limit}명입니다`);
       const user = await trx.selectFrom('member.users').select('nickname').where('id', '=', me).executeTakeFirst();
       await this.systemMessage(trx, groupId, `${user?.nickname ?? '알 수 없음'}님이 초대 링크로 들어왔습니다.`);
       return true;
@@ -251,11 +274,20 @@ export class GroupsService {
 
   /**
    * 그룹방 나가기.
-   * 방장이 나가면 가장 먼저 들어온 멤버가 방장이 되고, 아무도 없으면 방과 대화가 지워집니다 (WBS 7.3).
+   * 방장은 다른 멤버에게 방장을 넘긴 뒤 나갈 수 있습니다 (보완 4.20). 혼자 남은 방장이 나가면 방과 대화가 지워집니다 (WBS 7.3).
+   * 1:1 대화방은 예전처럼 그냥 나갑니다.
    * 기기에 남은 대화는 지우지 않습니다 (WBS 7.6).
    */
   async leave(me: string, groupId: string) {
     const group = await this.assertMember(groupId, me);
+    if (group.owner_id === me && !group.is_direct) {
+      const { count } = await this.db
+        .selectFrom('social.group_members')
+        .select((eb) => eb.fn.countAll<string>().as('count'))
+        .where('group_id', '=', groupId)
+        .executeTakeFirstOrThrow();
+      if (Number(count) > 1) throw appError(HttpStatus.CONFLICT, 'TRANSFER_OWNER_FIRST', '방장을 다른 멤버에게 넘긴 뒤 나갈 수 있어요');
+    }
     await this.db.transaction().execute(async (trx) => {
       await trx.deleteFrom('social.group_members').where('group_id', '=', groupId).where('user_id', '=', me).execute();
       const rest = await trx

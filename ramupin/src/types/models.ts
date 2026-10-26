@@ -168,7 +168,8 @@ export interface Group {
   createdAt: string;
 }
 
-export type GroupRole = 'owner' | 'member';
+/** 방장 = 모든 권한 / 관리자 = 초대·내보내기(방장 제외) / 멤버 = 보기·사진·대화 (보완 4.19) */
+export type GroupRole = 'owner' | 'admin' | 'member';
 
 export interface GroupMember extends Pick<Friend, 'id' | 'nickname' | 'avatarUrl' | 'batteryLevel' | 'isOnline'> {
   role: GroupRole;
@@ -178,6 +179,21 @@ export interface GroupMember extends Pick<Friend, 'id' | 'nickname' | 'avatarUrl
 
 export interface GroupDetail extends Group {
   members: GroupMember[];
+  /** 내 역할 (서버 연결 시) */
+  myRole?: GroupRole;
+  /** 그룹 설정 (보완 4.20). all = 누구나 / admins = 방장·관리자만 */
+  invitePermission?: 'all' | 'admins';
+  photoPermission?: 'all' | 'admins';
+  /** 친구별 설정이 없는 멤버에게 쓰는 기본 위치 공개 */
+  defaultShareLevel?: 'exact' | 'blurred';
+  /** 최대 인원 (방장 등급 기준) */
+  memberLimit?: number;
+}
+
+export interface GroupInviteLink {
+  url: string;
+  token: string;
+  expiresAt: string;
 }
 
 export type GeofenceKind = 'home' | 'work' | 'school' | 'hospital' | 'other';

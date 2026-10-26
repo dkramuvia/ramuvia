@@ -1,7 +1,7 @@
 import { apiClient, mockResponse } from '../client';
 import { mockChatRooms, mockFriends, mockGroups, mockMe } from '../mock/data';
 import { isLive } from '@/config/env';
-import type { Friend, GroupDetail, GroupMember } from '@/types/models';
+import type { Friend, GroupDetail, GroupInviteLink, GroupMember } from '@/types/models';
 
 function findMockGroup(groupId: string) {
   const group = mockGroups.find((g) => g.id === groupId);
@@ -121,11 +121,60 @@ export const groupsApi = {
     await apiClient.post(`/groups/${groupId}/members`, { memberIds });
   },
 
-  /** 초대 링크 (서버 발급, 7일). 같은 방에서 다시 누르면 같은 주소가 옵니다 */
-  async inviteLink(groupId: string): Promise<{ url: string; token: string; expiresAt: string }> {
+  /**
+   * 초대 링크 (서버 발급, 기본 7일). 같은 방에서 다시 누르면 같은 주소가 옵니다.
+   * renew = 새 링크 (기존 링크는 바로 막힘), days = 1·7·30일 (보완 4.20)
+   */
+  async inviteLink(groupId: string, options: { days?: 1 | 7 | 30; renew?: boolean } = {}): Promise<GroupInviteLink> {
     if (!isLive('groups')) return mockResponse({ url: `ramupin://group-invite/mock-${groupId}`, token: `mock-${groupId}`, expiresAt: new Date().toISOString() });
-    const { data } = await apiClient.post<{ url: string; token: string; expiresAt: string }>(`/groups/${groupId}/invite-link`);
+    const { data } = await apiClient.post<GroupInviteLink>(`/groups/${groupId}/invite-link`, options);
     return data;
+  },
+
+  /** 지금 살아 있는 초대 링크 (없으면 null) */
+  async currentInviteLink(groupId: string): Promise<GroupInviteLink | null> {
+    if (!isLive('groups')) return mockResponse(null);
+    const { data } = await apiClient.get<GroupInviteLink | null>(`/groups/${groupId}/invite-link`);
+    return data || null;
+  },
+
+  /** 링크 끄기 */
+  async revokeInviteLink(groupId: string): Promise<void> {
+    if (!isLive('groups')) return mockResponse(undefined);
+    await apiClient.delete(`/groups/${groupId}/invite-link`);
+  },
+
+  /** 관리자 지정·해제 (방장만, 보완 4.19) */
+  async setRole(groupId: string, userId: string, role: 'admin' | 'member'): Promise<void> {
+    if (!isLive('groups')) return mockResponse(undefined);
+    await apiClient.put(`/groups/${groupId}/members/${userId}/role`, { role });
+  },
+
+  /** 방장 넘기기 (방장만) */
+  async transferOwner(groupId: string, userId: string): Promise<void> {
+    if (!isLive('groups')) return mockResponse(undefined);
+    await apiClient.put(`/groups/${groupId}/owner`, { userId });
+  },
+
+  /** 그룹에서 내보내기 (방장·관리자) */
+  async kick(groupId: string, userId: string): Promise<void> {
+    if (!isLive('groups')) return mockResponse(undefined);
+    await apiClient.delete(`/groups/${groupId}/members/${userId}`);
+  },
+
+  /** 그룹 설정 (방장만): 초대·사진 권한, 그룹 기본 위치 공개 */
+  async updateSettings(
+    groupId: string,
+    settings: Partial<Pick<GroupDetail, 'invitePermission' | 'photoPermission' | 'defaultShareLevel'>>,
+  ): Promise<void> {
+    if (!isLive('groups')) return mockResponse(undefined);
+    await apiClient.put(`/groups/${groupId}/settings`, settings);
+  },
+
+  /** 그룹 삭제: 사진·대화 모두 (방장만) */
+  async remove(groupId: string): Promise<void> {
+    if (!isLive('groups')) return mockResponse(undefined);
+    await apiClient.delete(`/groups/${groupId}`);
   },
 
   /** 받은 초대 내용 (피그마 738) */

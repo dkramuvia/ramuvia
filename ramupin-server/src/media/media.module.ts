@@ -119,7 +119,7 @@ class GalleryController {
     const input = parseInput(createPostBody, body);
     const groupIds = [...new Set(input.groupIds ?? (input.groupId ? [input.groupId] : []))];
     if (groupIds.length === 0) throw appError(400, 'GROUP_REQUIRED', '그룹방을 골라 주세요');
-    for (const groupId of groupIds) await this.assertGroupMember(user.id, groupId);
+    for (const groupId of groupIds) await this.assertCanPost(user.id, groupId);
 
     const assets = await this.db
       .selectFrom('media.assets')
@@ -408,14 +408,17 @@ class GalleryController {
     return policyNumber(await resolvePolicy(this.db, userId), 'photoStorageMb', 0);
   }
 
-  private async assertGroupMember(userId: string, groupId: string) {
+  /** 사진을 올릴 수 있는지: 멤버이고, 그룹 설정이 "방장·관리자만" 이면 방장·관리자 (보완 4.20) */
+  private async assertCanPost(userId: string, groupId: string) {
     const row = await this.db
-      .selectFrom('social.group_members')
-      .select('user_id')
-      .where('group_id', '=', groupId)
-      .where('user_id', '=', userId)
+      .selectFrom('social.group_members as gm')
+      .innerJoin('social.groups as g', 'g.id', 'gm.group_id')
+      .select(['gm.role', 'g.photo_permission'])
+      .where('gm.group_id', '=', groupId)
+      .where('gm.user_id', '=', userId)
       .executeTakeFirst();
     if (!row) throw appError(403, 'NOT_GROUP_MEMBER', '이 그룹의 멤버가 아닙니다');
+    if (row.photo_permission === 'admins' && row.role === 'member') throw appError(403, 'PHOTO_NOT_ALLOWED', '이 그룹은 방장·관리자만 사진을 올릴 수 있어요');
   }
 }
 

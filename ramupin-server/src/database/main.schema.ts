@@ -120,6 +120,11 @@ export interface GroupsTable {
   owner_id: string;
   is_direct: Generated<boolean>;
   is_premium: Generated<boolean>;
+  /** 멤버 초대·사진 올리기: all = 누구나 / admins = 방장·관리자만 (보완 4.20) */
+  invite_permission: Generated<'all' | 'admins'>;
+  photo_permission: Generated<'all' | 'admins'>;
+  /** 친구별 설정이 없는 멤버에게 쓰는 기본 위치 공개 */
+  default_share_level: Generated<'exact' | 'blurred'>;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -127,7 +132,7 @@ export interface GroupsTable {
 export interface GroupMembersTable {
   group_id: string;
   user_id: string;
-  role: Generated<'owner' | 'member'>;
+  role: Generated<'owner' | 'admin' | 'member'>;
   location_paused: Generated<boolean>;
   joined_at: Timestamp;
   last_read_at: Timestamp;

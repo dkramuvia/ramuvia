@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { groupsApi } from '@/api';
+import i18n from '@/i18n';
+import { showToast } from '@/utils/toast';
 
 export const groupKeys = {
   list: ['groups'] as const,
@@ -70,4 +72,30 @@ export function useLeaveGroup(groupId: string) {
       queryClient.invalidateQueries({ queryKey: chatRoomsKey });
     },
   });
+}
+
+/**
+ * 그룹 관리 (보완 4.19·4.20): 관리자 지정, 방장 넘기기, 내보내기, 그룹 설정, 그룹 삭제, 초대 링크.
+ * 서버가 막은 이유(권한·방장 넘기기 먼저 등)는 문장으로 와서 화면에 그대로 띄웁니다.
+ */
+export function useGroupAdmin(groupId: string) {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: groupKeys.detail(groupId) });
+    void queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });
+    void queryClient.invalidateQueries({ queryKey: chatRoomsKey });
+  };
+  const run = useMutation({
+    mutationFn: (action: () => Promise<unknown>) => action(),
+    onSuccess: refresh,
+    onError: (error) => {
+      const message = (error as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      showToast(typeof message === 'string' ? message : i18n.t('common.requestFailed'));
+    },
+  });
+  return run;
+}
+
+export function useInviteLink(groupId: string) {
+  return useQuery({ queryKey: [...groupKeys.detail(groupId), 'invite-link'], queryFn: () => groupsApi.currentInviteLink(groupId), enabled: !!groupId });
 }

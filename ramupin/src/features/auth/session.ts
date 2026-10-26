@@ -8,6 +8,7 @@ import { getDb } from '@/db';
 import { useAuthStore, type SessionEndReason } from '@/stores/authStore';
 import { useSignUpStore } from '@/stores/signUpStore';
 import { unregisterPush } from '@/features/notifications/push';
+import { useDeviceRestoreStore } from './deviceRestore';
 import { getInstallationId } from './device';
 import { secureStorage } from './secureStorage';
 
@@ -39,6 +40,8 @@ export async function applyLoginResult(result: LoginResult): Promise<LoginOutcom
   }
   await secureStorage.set('refreshToken', result.refreshToken);
   await secureStorage.set('deviceKey', result.deviceKey);
+  // 다른 기기에서 쓰던 계정이면 "새 휴대폰에서 로그인했어요" 를 한 번 보여 줍니다 (보완 4.21)
+  useDeviceRestoreStore.getState().set(result.replacedDevice ?? null);
   useAuthStore.setState({ accessToken: result.accessToken });
   const user = await usersApi.me();
   store.signIn(result.accessToken, user);
@@ -131,3 +134,24 @@ setUnauthorizedHandler(async (error: AxiosError<{ code?: string }>) => {
   else await endSession('expired');
   return null;
 });
+
+/**
+ * "내가 로그인한 게 아니에요" (보완 4.21, 수정 반영본 C10).
+ * 서버가 이 기기 세션을 끊고 이전 기기를 되살린 뒤, 이 기기에서는 로그아웃합니다.
+ */
+export async function notMeLogout(): Promise<boolean> {
+  let restored = false;
+  try {
+    await unregisterPush();
+  } catch {
+    // 못 지워도 진행
+  }
+  try {
+    restored = (await authApi.notMe()).previousRestored;
+  } catch {
+    // 서버에 못 알려도 이 기기에서는 나갑니다
+  }
+  useDeviceRestoreStore.getState().set(null);
+  await endSession('logout');
+  return restored;
+}

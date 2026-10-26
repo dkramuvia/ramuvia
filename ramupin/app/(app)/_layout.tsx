@@ -1,12 +1,19 @@
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import { useEffect } from 'react';
 
 import { AlertPopupHost } from '@/features/alerts/AlertPopupHost';
 import { InAppCardHost } from '@/features/alerts/InAppCardHost';
+import { useDeviceRestoreStore } from '@/features/auth/deviceRestore';
 import { useColors } from '@/theme';
 
 // 상단 바는 각 화면의 <Screen> 컴포넌트가 피그마 디자인으로 직접 그립니다.
 export default function AppLayout() {
   const colors = useColors();
+  // 다른 기기에서 쓰던 계정으로 막 로그인했으면 "새 휴대폰에서 로그인했어요" (보완 4.21)
+  const replaced = useDeviceRestoreStore((s) => s.replaced);
+  useEffect(() => {
+    if (replaced) setTimeout(() => router.push('/device-restore'), 0);
+  }, [replaced]);
   return (
     <>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>

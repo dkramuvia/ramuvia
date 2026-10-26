@@ -139,6 +139,21 @@ export class PushService implements OnModuleInit {
     return { sent: response.successCount };
   }
 
+  /**
+   * 특정 기기 토큰으로 보냅니다 (알림 설정과 상관없는 보안 알림).
+   * 예: 다른 기기에서 로그인되어 이 기기의 위치 공유가 멈췄을 때 (보완 4.21)
+   */
+  async sendToTokens(tokens: string[], message: PushMessage): Promise<{ sent: number }> {
+    if (tokens.length === 0 || !this.messaging) return { sent: 0 };
+    const response = await this.messaging.sendEachForMulticast({
+      tokens,
+      notification: { title: message.title, body: message.body },
+      android: { priority: 'high', notification: { channelId: message.channel } },
+      data: { ...(message.data ?? {}), ...(message.route ? { route: message.route } : {}) },
+    });
+    return { sent: response.successCount };
+  }
+
   /** 더 이상 쓸 수 없는 토큰을 지웁니다 (앱 삭제·토큰 만료) */
   private async cleanUpDeadTokens(tokens: string[], responses: { success: boolean; error?: { code: string } }[]) {
     const dead = tokens.filter((_, i) => {

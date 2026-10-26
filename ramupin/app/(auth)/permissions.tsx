@@ -6,8 +6,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, PermissionsAndroid, Platform } from 'react-native';
 
+import { BgLocationDisclosure } from '@/features/onboarding/BgLocationDisclosure';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { PermissionCard } from '@/features/onboarding/PermissionCard';
+import { showToast } from '@/utils/toast';
 
 type Step = {
   key: string;
@@ -32,6 +34,7 @@ async function requestAndroid(permission: string) {
  * 피그마: 권한 안내 7종 (348:15289 ~ 348:15473)
  * 순서: 위치(사용 중) → 위치(항상) → 신체 활동 → 알림 → 사진 → 주소록 → 배터리 최적화
  * Play 정책: 백그라운드 위치는 앱 사용 중 권한을 먼저 받은 뒤 별도로 요청해야 합니다.
+ * 그 직전에 "앱을 닫아도 위치를 사용해요" 고지(보완 4.10)를 보여 주고, [동의하고 계속] 을 눌러야 "항상 허용" 을 묻습니다.
  * TODO(6단계): 백그라운드 위치는 isAndroidBackgroundLocationEnabled 켠 빌드에서만 동작, 블루투스(BLE)는 2차
  */
 export default function PermissionsScreen() {
@@ -48,6 +51,14 @@ export default function PermissionsScreen() {
       hintStrong: t('onboarding.permWhileUsing'),
       primary: t('onboarding.continue'),
       request: () => Location.requestForegroundPermissionsAsync(),
+    },
+    {
+      // 보완 4.10: 백그라운드 위치 사전 고지. 화면은 아래에서 따로 그립니다
+      key: 'bgDisclosure',
+      title: '',
+      description: '',
+      primary: '',
+      request: async () => undefined,
     },
     {
       key: 'locationAlways',
@@ -123,6 +134,21 @@ export default function PermissionsScreen() {
       next();
     }
   };
+
+  if (step.key === 'bgDisclosure') {
+    return (
+      <OnboardingLayout title={t('onboarding.permTitle')}>
+        <BgLocationDisclosure
+          onAgree={next}
+          onDecline={() => {
+            // 거부하면 "항상 허용" 을 묻지 않고 넘어갑니다. 앱을 쓰는 동안에만 위치가 공유됩니다
+            showToast(t('bgLocation.declined'));
+            setIndex(index + 2);
+          }}
+        />
+      </OnboardingLayout>
+    );
+  }
 
   return (
     <OnboardingLayout title={step.screenTitle ?? t('onboarding.permTitle')}>

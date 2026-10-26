@@ -6,6 +6,7 @@ import type { Redis } from 'ioredis';
 
 import { env } from '../config/env.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
+import { PushService } from '../push/push.service.js';
 import { REDIS } from '../redis/redis.module.js';
 import { authError } from './auth-error.js';
 
@@ -24,7 +25,15 @@ export interface TokenPair {
   refreshTokenExpiresAt: string;
 }
 
+/** 이 로그인으로 끊긴 이전 기기 (새 기기 로그인 화면, 보완 4.21) */
+export interface ReplacedDevice {
+  model: string | null;
+  platform: string;
+}
+
 export interface NewSession extends TokenPair {
+  /** 다른 기기에서 쓰던 계정이면 그 기기. 같은 기기 재로그인·첫 로그인은 없음 */
+  replacedDevice?: ReplacedDevice;
   /** 앱이 보안 저장소에 보관했다가 다음 로그인 때 보내는 기기 키 (로그인할 때마다 새로 발급) */
   deviceKey: string;
 }
@@ -53,7 +62,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * - 사용자당 끊기지 않은 세션은 1개 (DB 부분 유니크 인덱스 sessions_one_active_per_user)
  * - 새 세션을 만들면 이전 세션은 revoke_reason='replaced' → 이전 기기는 다음 요청에서 SESSION_REPLACED
  * - 마지막으로 로그인한 기기와 다른 기기면 문자 인증을 먼저 받음 (DeviceVerificationService)
- * TODO(푸시 단계): 끊긴 기기에 푸시/WebSocket 으로 즉시 알림
+ * - 끊긴 기기에는 바로 푸시로 알리고, 그 기기 푸시 토큰은 지웁니다 (로그아웃된 기기에 내 알림이 가지 않게, 보완 4.21)
  */
 @Injectable()
 export class SessionService {
@@ -63,6 +72,7 @@ export class SessionService {
     @Inject(MAIN_DB) private readonly db: MainDb,
     @Inject(REDIS) private readonly redis: Redis,
     private readonly jwt: JwtService,
+    private readonly push: PushService,
   ) {}
 
   /**
@@ -91,7 +101,7 @@ export class SessionService {
     const refreshExpiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 86_400_000);
     const deviceKey = randomBytes(32).toString('base64url');
 
-    const replaced = await this.db.transaction().execute(async (trx) => {
+    const { replaced, oldTokens } = await this.db.transaction().execute(async (trx) => {
       // 같은 사용자가 동시에 두 기기에서 로그인하면 여기서 줄을 섭니다
       await trx.selectFrom('member.users').select('id').where('id', '=', userId).forUpdate().executeTakeFirstOrThrow();
       const now = new Date();
@@ -145,12 +155,72 @@ export class SessionService {
         })
         .execute();
 
-      return revoked.filter((r) => r.device_id !== deviceRow.id).length;
+      const others = revoked.filter((r) => r.device_id !== deviceRow.id);
+      if (others.length === 0) return { replaced: undefined, oldTokens: [] as string[] };
+      const old = await trx
+        .selectFrom('member.devices')
+        .select(['model', 'platform'])
+        .where('id', '=', others[0].device_id)
+        .executeTakeFirst();
+      // 새 기기는 로그인한 뒤에 토큰을 올리므로, 지금 있는 토큰은 이전 기기 것입니다
+      const tokens = await trx.selectFrom('member.push_tokens').select('token').where('user_id', '=', userId).execute();
+      if (tokens.length) await trx.deleteFrom('member.push_tokens').where('user_id', '=', userId).execute();
+      return {
+        replaced: { model: old?.model ?? null, platform: old?.platform ?? 'unknown' } as ReplacedDevice,
+        oldTokens: tokens.map((t) => t.token),
+      };
     });
 
     await this.cacheActive(userId, sessionId, ACTIVE_CACHE_SEC);
-    if (replaced > 0) this.logger.log(`user ${userId}: 다른 기기 세션 ${replaced}개 끊고 새 기기로 로그인`);
-    return { ...(await this.issueTokens(userId, sessionId, refreshToken, refreshExpiresAt)), deviceKey };
+    if (replaced) {
+      this.logger.log(`user ${userId}: 다른 기기 세션을 끊고 새 기기로 로그인`);
+      await this.push
+        .sendToTokens(oldTokens, {
+          title: '라무핀',
+          body: '다른 기기에서 로그인되어 이 휴대폰의 위치 공유가 중단되었어요',
+          channel: 'general',
+          data: { kind: 'sessionReplaced' },
+        })
+        .catch((error: unknown) => this.logger.error(`이전 기기 알림 실패: ${String(error)}`));
+    }
+    return { ...(await this.issueTokens(userId, sessionId, refreshToken, refreshExpiresAt)), deviceKey, ...(replaced ? { replacedDevice: replaced } : {}) };
+  }
+
+  /**
+   * "내가 로그인한 게 아니에요" (보완 4.21, 수정 반영본 C10).
+   * 새 기기 세션을 끊고, 방금 끊긴 이전 기기 세션을 되살립니다 (이전 기기 유지).
+   * 이전 기기가 이미 로그아웃 화면으로 갔다면 되살려도 다시 로그인해야 합니다.
+   * 되살리는 것은 30분 안에 끊긴 세션만입니다.
+   */
+  async notMe(userId: string, sessionId: string) {
+    const restored = await this.db.transaction().execute(async (trx) => {
+      await trx.selectFrom('member.users').select('id').where('id', '=', userId).forUpdate().executeTakeFirstOrThrow();
+      const mine = await trx
+        .updateTable('member.sessions')
+        .set({ revoked_at: new Date(), revoke_reason: 'logout' })
+        .where('id', '=', sessionId)
+        .where('user_id', '=', userId)
+        .where('revoked_at', 'is', null)
+        .returning('device_id')
+        .executeTakeFirst();
+      if (!mine) return null;
+      const previous = await trx
+        .selectFrom('member.sessions')
+        .select('id')
+        .where('user_id', '=', userId)
+        .where('revoke_reason', '=', 'replaced')
+        .where('revoked_at', '>', new Date(Date.now() - 30 * 60_000))
+        .where('device_id', '!=', mine.device_id)
+        .where('expires_at', '>', new Date())
+        .orderBy('revoked_at', 'desc')
+        .executeTakeFirst();
+      if (!previous) return null;
+      await trx.updateTable('member.sessions').set({ revoked_at: null, revoke_reason: null }).where('id', '=', previous.id).execute();
+      return previous.id;
+    });
+    await this.cacheActive(userId, restored ?? NO_SESSION, ACTIVE_CACHE_SEC);
+    this.logger.warn(`user ${userId}: "내가 로그인한 게 아니에요" — 새 기기 끊음${restored ? ', 이전 기기 되살림' : ''}`);
+    return { previousRestored: !!restored };
   }
 
   /**

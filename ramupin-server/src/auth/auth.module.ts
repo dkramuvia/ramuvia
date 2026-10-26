@@ -32,6 +32,7 @@ import { NaverService } from './naver.service.js';
 import { FacebookService } from './facebook.service.js';
 import { XService } from './x.service.js';
 import { SignUpService, type SocialIdentity } from './sign-up.service.js';
+import { PushModule } from '../push/push.module.js';
 import { SessionService, type DeviceInfo, type NewSession, type TokenPair } from './session.service.js';
 import { SmsService } from './sms.service.js';
 
@@ -354,6 +355,14 @@ class AuthController {
     return this.sessions.refresh(refreshToken, installationId);
   }
 
+  /** "내가 로그인한 게 아니에요": 이 기기 세션을 끊고 이전 기기를 되살립니다 (보완 4.21) */
+  @Post('not-me')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  notMe(@CurrentUser() user: AuthUser) {
+    return this.sessions.notMe(user.id, user.sessionId);
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(AuthGuard)
@@ -364,7 +373,8 @@ class AuthController {
 
 @Global()
 @Module({
-  imports: [JwtModule.register({ secret: env.JWT_SECRET, signOptions: { expiresIn: env.JWT_EXPIRES_IN as never } })],
+  // PushModule: 다른 기기에서 로그인되면 끊긴 기기에 바로 알림 (보완 4.21)
+  imports: [JwtModule.register({ secret: env.JWT_SECRET, signOptions: { expiresIn: env.JWT_EXPIRES_IN as never } }), PushModule],
   controllers: [AuthController],
   providers: [
     AuthGuard,

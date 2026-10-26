@@ -57,7 +57,7 @@ export interface SessionTokens {
 
 /** 로그인 결과: 바로 로그인 / 다른 기기라 문자 인증 필요 / 처음이라 가입 필요 */
 export type LoginResult =
-  | ({ status: 'ok'; deviceKey: string } & SessionTokens)
+  | ({ status: 'ok'; deviceKey: string; replacedDevice?: { model: string | null; platform: string } } & SessionTokens)
   | { status: 'device_verification_required'; challengeId: string; expiresInSec: number }
   | {
       status: 'sign_up_required';
@@ -143,6 +143,12 @@ export const authApi = {
 
   async logout(): Promise<void> {
     await apiClient.post('/auth/logout');
+  },
+
+  /** "내가 로그인한 게 아니에요": 이 기기 세션을 끊고 이전 기기를 되살립니다 (보완 4.21) */
+  async notMe(): Promise<{ previousRestored: boolean }> {
+    const { data } = await apiClient.post<{ previousRestored: boolean }>('/auth/not-me');
+    return data;
   },
 
   /** 카카오 로그인: 카카오 SDK 로 받은 토큰을 서버가 확인 */

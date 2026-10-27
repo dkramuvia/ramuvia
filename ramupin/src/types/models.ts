@@ -285,6 +285,12 @@ export interface HideModeSetting {
   hideAll: boolean;
   /** 숨기기 종료 시각. 없으면 직접 끌 때까지 */
   until: string | null;
+  /**
+   * 숨김 모드 종류 (WBS 12.7·12.8).
+   * server_only = 친구에게만 숨김, 서버에는 보내 SOS·이상징후 같은 위험 신호는 그대로
+   * off_server = 서버에도 안 보냄 (위험 신호 감시도 멈춤)
+   */
+  scope?: 'server_only' | 'off_server';
 }
 
 /** SOS 를 문자로 받을 비회원 연락처 (서버가 알리고로 발송, 국내 휴대폰 번호만) */

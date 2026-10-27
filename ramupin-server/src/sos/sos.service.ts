@@ -5,6 +5,7 @@ import { appError } from '../common/app-error.js';
 import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
+import { StorageService } from '../media/storage.service.js';
 import { PushService } from '../push/push.service.js';
 import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
 import { SoloService } from '../solo/solo.module.js';
@@ -40,7 +41,27 @@ export class SosService {
     private readonly location: LocationService,
     private readonly sms: SosSmsService,
     private readonly solo: SoloService,
+    private readonly storage: StorageService,
   ) {}
+
+  /**
+   * SOS 녹음 듣기 주소 (받은 사람 팝업의 [음성 듣기]).
+   * 받은 사람과 보낸 본인만 들을 수 있습니다. 주소는 잠깐 뒤 만료됩니다 (StorageService.viewUrl)
+   */
+  async audioUrl(userId: string, sosId: string): Promise<{ url: string | null }> {
+    const event = await this.db
+      .selectFrom('member.sos_events as e')
+      .leftJoin('media.assets as a', 'a.id', 'e.audio_asset_id')
+      .select(['e.user_id', 'a.object_key'])
+      .where('e.id', '=', sosId)
+      .executeTakeFirst();
+    if (!event) throw appError(404, 'SOS_NOT_FOUND', 'SOS 를 찾을 수 없습니다');
+    if (event.user_id !== userId && !(await this.deliveredTo(sosId)).includes(userId)) {
+      throw appError(404, 'SOS_NOT_FOUND', 'SOS 를 찾을 수 없습니다');
+    }
+    if (!event.object_key) return { url: null };
+    return { url: await this.storage.viewUrl(event.object_key) };
+  }
 
   async send(userId: string, input: SosInput) {
     const me = await this.db

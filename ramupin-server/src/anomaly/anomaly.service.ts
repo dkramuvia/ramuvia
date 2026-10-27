@@ -64,6 +64,16 @@ export class AnomalyService {
       .select(['id', 'nickname', 'single_household'])
       .where('id', 'in', userIds)
       .where('status', '=', 'active')
+      // 숨김 모드 "서버에도 안 보내기" 중이면 위치가 오지 않는 게 당연하므로 신호 끊김·움직임 없음을 보지 않습니다
+      .where((eb) =>
+        eb.not(
+          eb.and([
+            eb('hide_all', '=', true),
+            eb('hide_scope', '=', 'off_server'),
+            eb.or([eb('hide_until', 'is', null), eb('hide_until', '>', now)]),
+          ]),
+        ),
+      )
       .execute();
     const userById = new Map(users.map((u) => [u.id, u]));
 

@@ -21,6 +21,7 @@ import type { ChatMessage } from '@/types/models';
 let socket: Socket | null = null;
 
 interface ServerSos {
+  sosId?: string;
   nickname: string;
   latitude: number | null;
   longitude: number | null;
@@ -83,6 +84,7 @@ function connect(token: string) {
     if (payload.status === 'cancelled' || payload.status === 'resolved') return;
     useAlertStore.getState().showPopup({
       kind: 'sos',
+      sosId: payload.sosId,
       name: payload.nickname,
       place: {
         placeName: payload.placeName ?? undefined,

@@ -38,6 +38,19 @@ export interface JourneyResponse {
   batteryLevel?: number;
 }
 
+/** 기간 통계 (히스토리 > 장소 기록 위 합계) */
+export interface JourneyStatsResponse {
+  days: number;
+  totalDistanceM: number;
+  /** 머문 곳 수 (하루에 같은 곳을 두 번 가면 두 번) */
+  stopCount: number;
+  /** 자주 간 곳 (많이 간 순, 최대 3곳) */
+  topPlaces: { name: string; count: number }[];
+}
+
+/** 자주 간 곳을 묶는 격자 (소수 셋째 자리 ≈ 100m). 같은 건물 안에서 조금씩 다른 좌표를 한 곳으로 셉니다 */
+const placeCell = (latitude: number, longitude: number) => `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+
 @Injectable()
 export class JourneyService {
   private readonly logger = new Logger(JourneyService.name);
@@ -75,6 +88,40 @@ export class JourneyService {
       route: journey.route,
       ...(status?.lastBattery != null ? { batteryLevel: status.lastBattery } : {}),
     };
+  }
+
+  /**
+   * 내 최근 며칠 합계: 이동 거리, 머문 곳 수, 자주 간 곳 (TODO 였던 "기간 합계·자주 간 장소 서버 통계").
+   * 날마다 하루 여정과 같은 방법(buildJourney)으로 셉니다. 보관 기간이 지난 날은 기록이 없어 0 입니다.
+   * 주소는 자주 간 3곳에만 붙입니다 (주소 변환은 유료라 머문 곳마다 부르지 않음)
+   */
+  async stats(userId: string, days: number): Promise<JourneyStatsResponse> {
+    const today = dayRange();
+    let totalDistanceM = 0;
+    let stopCount = 0;
+    const cells = new Map<string, { count: number; stop: Stop }>();
+    for (let i = 0; i < days; i += 1) {
+      const from = new Date(today.from.getTime() - i * 24 * 60 * 60_000);
+      const rows = await this.location.dayPoints(userId, from, new Date(from.getTime() + 24 * 60 * 60_000));
+      if (rows.length === 0) continue;
+      const journey = buildJourney(rows.map((r) => ({ latitude: r.latitude, longitude: r.longitude, measuredAt: r.measured_at })));
+      totalDistanceM += journey.totalDistanceM;
+      stopCount += journey.stops.length;
+      for (const stop of journey.stops) {
+        const key = placeCell(stop.latitude, stop.longitude);
+        const cell = cells.get(key);
+        if (cell) cell.count += 1;
+        else cells.set(key, { count: 1, stop });
+      }
+    }
+    const top = [...cells.values()].sort((a, b) => b.count - a.count).slice(0, 3);
+    const topPlaces = await Promise.all(
+      top.map(async ({ count, stop }) => {
+        const place = await this.describe(stop);
+        return { name: place.placeName || place.address, count };
+      }),
+    );
+    return { days, totalDistanceM: Math.round(totalDistanceM), stopCount, topPlaces: topPlaces.filter((p) => p.name) };
   }
 
   /** 이 사람이 나에게 이동 경로를 공개했는지 (친구이면서 경로 공유를 켠 경우만) */

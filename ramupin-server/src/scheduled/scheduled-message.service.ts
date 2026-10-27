@@ -21,6 +21,38 @@ export interface ScheduledMessageInput {
   body: string;
   scheduledAt: Date;
   tts: boolean;
+  /** 받는 사람 시각 기준으로 고른 날짜·시각 "2026-10-27T08:00" (있으면 scheduledAt 대신 이걸로 계산) */
+  recipientLocalTime?: string;
+}
+
+/** 이 시각(UTC)에 그 시간대의 시계가 UTC 보다 몇 ms 앞서 있는지 */
+function offsetMs(at: number, timezone: string): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      .formatToParts(new Date(at))
+      .filter((p) => p.type !== 'literal')
+      .map((p) => [p.type, Number(p.value)]),
+  );
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) - Math.floor(at / 1000) * 1000;
+}
+
+/**
+ * 그 시간대의 벽시계 "2026-10-27T08:00" 가 실제로 언제(UTC)인지.
+ * 서머타임으로 시차가 바뀌는 날도 맞게, 구한 시각의 시차로 한 번 더 맞춥니다
+ */
+export function wallTimeToUtc(local: string, timezone: string): Date {
+  const [date, time] = local.split('T');
+  const [y, m, d] = date!.split('-').map(Number);
+  const [hh, mm] = time!.split(':').map(Number);
+  const guess = Date.UTC(y!, m! - 1, d!, hh!, mm!);
+  let tz = timezone;
+  try {
+    offsetMs(guess, tz);
+  } catch {
+    tz = 'Asia/Seoul';
+  }
+  const first = guess - offsetMs(guess, tz);
+  return new Date(guess - offsetMs(first, tz));
 }
 
 /**
@@ -54,8 +86,20 @@ export class ScheduledMessageService {
     }));
   }
 
+  /** 받는 사람 시각 기준이면 받는 사람의 시간대(알림 설정에 기기가 저장해 둔 값)로 실제 시각을 구합니다 */
+  private async resolveScheduledAt(input: ScheduledMessageInput): Promise<Date> {
+    if (!input.recipientLocalTime) return input.scheduledAt;
+    const row = await this.db
+      .selectFrom('member.notification_settings')
+      .select('timezone')
+      .where('user_id', '=', input.targetUserId)
+      .executeTakeFirst();
+    return wallTimeToUtc(input.recipientLocalTime, row?.timezone ?? 'Asia/Seoul');
+  }
+
   async create(userId: string, input: ScheduledMessageInput): Promise<ScheduledMessageResponse> {
     await this.assertFriend(userId, input.targetUserId);
+    const scheduledAt = await this.resolveScheduledAt(input);
     const row = await this.db
       .insertInto('member.scheduled_messages')
       .values({
@@ -63,7 +107,7 @@ export class ScheduledMessageService {
         target_id: input.targetUserId,
         title: input.title,
         body: input.body,
-        scheduled_at: input.scheduledAt,
+        scheduled_at: scheduledAt,
         tts: input.tts,
       })
       .returning(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts', 'sent_at'])
@@ -87,13 +131,14 @@ export class ScheduledMessageService {
    */
   async update(userId: string, id: string, input: ScheduledMessageInput): Promise<ScheduledMessageResponse> {
     await this.assertFriend(userId, input.targetUserId);
+    const scheduledAt = await this.resolveScheduledAt(input);
     const row = await this.db
       .updateTable('member.scheduled_messages')
       .set({
         target_id: input.targetUserId,
         title: input.title,
         body: input.body,
-        scheduled_at: input.scheduledAt,
+        scheduled_at: scheduledAt,
         tts: input.tts,
         updated_at: new Date(),
       })

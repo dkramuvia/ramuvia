@@ -27,6 +27,8 @@ export interface UsersTable {
   hide_all: Generated<boolean>;
   /** 숨김이 저절로 풀리는 시각. 없으면 직접 끌 때까지 */
   hide_until: Date | null;
+  /** 숨김 모드 종류. server_only = 친구에게만 숨김(위험 신호는 전달), off_server = 서버에도 안 보냄 (WBS 12.7·12.8) */
+  hide_scope: Generated<'server_only' | 'off_server'>;
   /**
    * 근처 친구 찾기에 내가 나타날지 (WBS 12.9).
    * **기본은 꺼짐** — 아직 친구가 아닌 사람에게 위치를 알리려면 본인 동의가 필요합니다

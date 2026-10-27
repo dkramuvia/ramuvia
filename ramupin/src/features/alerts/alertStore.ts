@@ -7,7 +7,7 @@ import type { HistoryCategory, HistoryEventType, SharedPlace } from '@/types/mod
 
 /** 피그마 [설정 2 > 알림] 긴급 팝업 6종 */
 export type AlertPopupPayload =
-  | { kind: 'sos'; name: string; avatarUrl?: string; place: SharedPlace; sentAt: string; hasVoice: boolean }
+  | { kind: 'sos'; sosId?: string; name: string; avatarUrl?: string; place: SharedPlace; sentAt: string; hasVoice: boolean }
   | { kind: 'dangerZone'; zoneName: string; place: SharedPlace }
   | { kind: 'gpsLost'; name: string; place: SharedPlace; lastSeenAt: string }
   | { kind: 'batteryLow'; name: string; level: number; minutesLeft: number }

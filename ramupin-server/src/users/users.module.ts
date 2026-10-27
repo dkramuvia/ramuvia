@@ -29,7 +29,12 @@ const profileBody = z.object({
 });
 const avatarTargetBody = z.object({ contentType: z.string().min(3).max(100), bytes: z.number().int().positive().max(AVATAR_MAX_BYTES) });
 // 앱이 보내는 +09:00 같은 시간대 표기도 받습니다 (/locations, 채팅과 같게, 10-12 자동 시험)
-const hideModeBody = z.object({ hideAll: z.boolean(), until: z.iso.datetime({ offset: true }).nullish() });
+const hideModeBody = z.object({
+  hideAll: z.boolean(),
+  until: z.iso.datetime({ offset: true }).nullish(),
+  /** 숨김 모드 종류 (WBS 12.7·12.8). 없으면 그대로 */
+  scope: z.enum(['server_only', 'off_server']).optional(),
+});
 // 탈퇴 사유는 비워 둘 수 있습니다. 이유를 꼭 적게 하면 그냥 아무 글자나 넣습니다
 const withdrawBody = z.object({ reason: z.string().max(500).default('') });
 
@@ -138,7 +143,7 @@ class MeController {
   @Put('hide-mode')
   setHideMode(@CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parseInput(hideModeBody, body);
-    return this.profile.setHideMode(user.id, { hideAll: input.hideAll, until: input.until ?? null });
+    return this.profile.setHideMode(user.id, { hideAll: input.hideAll, until: input.until ?? null, ...(input.scope ? { scope: input.scope } : {}) });
   }
 
   /** 1인 가구 모드 켜기/끄기 (첫 친구 수락 후 해제 안내에서 사용) */

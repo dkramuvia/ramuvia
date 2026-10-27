@@ -378,10 +378,30 @@ export class LocationService {
     return stats;
   }
 
-  /** 보호자 동의를 기다리는 계정인지 (위치를 받지 않음, 보완 4.1) */
-  async isPendingGuardian(userId: string): Promise<boolean> {
-    const row = await this.mainDb.selectFrom('member.users').select('status').where('id', '=', userId).executeTakeFirst();
-    return row?.status === 'pending_guardian';
+  /**
+   * 위치를 받지 않는 계정인지.
+   *   - 보호자 동의를 기다리는 만 14세 미만 (보완 4.1)
+   *   - 숨김 모드 "서버에도 안 보내기" 중 (WBS 12.7). 앱도 안 보내지만, 예전 앱·대기열에 남은 점도 받지 않습니다
+   */
+  async refusesLocation(userId: string, now = new Date()): Promise<boolean> {
+    const row = await this.mainDb
+      .selectFrom('member.users')
+      .select(['status', 'hide_all', 'hide_until', 'hide_scope'])
+      .where('id', '=', userId)
+      .executeTakeFirst();
+    if (!row) return false;
+    if (row.status === 'pending_guardian') return true;
+    const hidden = row.hide_all && row.hide_scope === 'off_server' && (!row.hide_until || row.hide_until > now);
+    if (!hidden) return false;
+    // SOS 를 보낸 지 30분 안이면 숨김과 상관없이 받습니다 (구조하러 가는 사람이 경로를 봐야 함)
+    const sos = await this.mainDb
+      .selectFrom('member.sos_events')
+      .select('id')
+      .where('user_id', '=', userId)
+      .where('status', '=', 'sent')
+      .where('started_at', '>', new Date(now.getTime() - 30 * 60_000))
+      .executeTakeFirst();
+    return !sos;
   }
 
   /** 내 위치 기록 내려받기 (보완 4.13 개인정보 센터). 보관 기간 안의 것만 있습니다 */

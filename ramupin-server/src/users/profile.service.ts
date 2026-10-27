@@ -22,6 +22,8 @@ export interface HideMode {
   hideAll: boolean;
   /** 이 시각이 지나면 저절로 풀립니다. 없으면 직접 끌 때까지 */
   until: string | null;
+  /** server_only = 친구에게만 숨김(위험 신호는 전달), off_server = 서버에도 안 보냄 (WBS 12.7·12.8) */
+  scope?: 'server_only' | 'off_server';
 }
 
 @Injectable()
@@ -81,10 +83,11 @@ export class ProfileService {
    * 이미 풀렸어야 할 사람이 계속 숨겨집니다. 위치가 조용히 안 보이는 것이 이 앱에서 가장 위험합니다.
    */
   async getHideMode(userId: string): Promise<HideMode> {
-    const row = await this.db.selectFrom('member.users').select(['hide_all', 'hide_until']).where('id', '=', userId).executeTakeFirst();
-    if (!row || !row.hide_all) return { hideAll: false, until: null };
-    if (row.hide_until && row.hide_until.getTime() <= Date.now()) return { hideAll: false, until: null };
-    return { hideAll: true, until: row.hide_until?.toISOString() ?? null };
+    const row = await this.db.selectFrom('member.users').select(['hide_all', 'hide_until', 'hide_scope']).where('id', '=', userId).executeTakeFirst();
+    const scope = row?.hide_scope ?? 'server_only';
+    if (!row || !row.hide_all) return { hideAll: false, until: null, scope };
+    if (row.hide_until && row.hide_until.getTime() <= Date.now()) return { hideAll: false, until: null, scope };
+    return { hideAll: true, until: row.hide_until?.toISOString() ?? null, scope };
   }
 
   async setHideMode(userId: string, setting: HideMode): Promise<HideMode> {
@@ -93,6 +96,7 @@ export class ProfileService {
       .set({
         hide_all: setting.hideAll,
         hide_until: setting.hideAll && setting.until ? new Date(setting.until) : null,
+        ...(setting.scope ? { hide_scope: setting.scope } : {}),
         updated_at: new Date(),
       })
       .where('id', '=', userId)

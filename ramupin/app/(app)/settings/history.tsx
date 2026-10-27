@@ -8,11 +8,12 @@ import { AppText, BottomNav, ChipTabs, Header, QueryState } from '@/components/u
 import { useAlertStore } from '@/features/alerts/alertStore';
 import { popupForHistory } from '@/features/alerts/samples';
 import i18n from '@/i18n';
-import { useHistory, useJourney } from '@/features/settings/queries';
+import { useHistory, useJourney, useJourneyStats } from '@/features/settings/queries';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { useAuthStore } from '@/stores/authStore';
 import { layout, makeStyles, radius, useColors } from '@/theme';
 import type { HistoryEvent, HistoryEventType } from '@/types/models';
+import { formatDate, formatTimeOfDay } from '@/utils/time';
 
 type Tab = 'all' | 'safety' | 'place';
 
@@ -58,7 +59,7 @@ function dayLabel(iso: string) {
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
-  const date = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+  const date = formatDate(d, 'monthDayWeekday');
   if (d.toDateString() === today.toDateString()) return i18n.t('history.today', { date });
   if (d.toDateString() === yesterday.toDateString()) return i18n.t('history.yesterday', { date });
   return date;
@@ -115,7 +116,7 @@ function EventHistory({ category }: { category?: 'safety' }) {
               {item.message}
             </AppText>
             <AppText variant="body2" color={item.type === 'sos' ? ON_SOS_SUB : colors.textTertiary}>
-              {new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}
+              {formatTimeOfDay(item.createdAt)}
             </AppText>
           </View>
         </Pressable>
@@ -131,17 +132,26 @@ function PlaceHistory() {
   const me = useAuthStore((s) => s.user);
   const unit = usePreferencesStore((s) => s.distanceUnit);
   const { data: journey, isLoading, isError, refetch } = useJourney(me?.id ?? '');
+  // 위쪽 합계는 최근 7일·30일 (서버 통계). 날짜별 칸은 오늘 여정
+  const [days, setDays] = useState<7 | 30>(7);
+  const { data: stats } = useJourneyStats(days);
 
   if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
   if (!journey) return null;
 
-  // TODO(5단계): 기간 합계·자주 간 장소는 서버 통계 API. 그 전까지는 오늘 기록에서 셉니다
-  const visits = new Map<string, number>();
-  journey.stops.forEach((s) => {
-    const name = s.placeName || s.address;
-    if (name) visits.set(name, (visits.get(name) ?? 0) + 1);
-  });
-  const mostVisited = [...visits].sort((a, b) => b[1] - a[1])[0];
+  const mostVisited = stats?.topPlaces[0];
+
+  const periodSummary = stats ? (
+    <View style={styles.summaryRow}>
+      <AppText variant="body2Bold" style={styles.flex}>
+        {t('history.totalDistance', { distance: formatDistance(stats.totalDistanceM, unit) })}
+      </AppText>
+      <View style={styles.visited}>
+        <Image source={PLACE_PIN} style={styles.pinIcon} />
+        <AppText variant="body2Bold">{t('history.visited', { count: stats.stopCount })}</AppText>
+      </View>
+    </View>
+  ) : null;
 
   const summary = (
     <View style={styles.summaryRow}>
@@ -164,8 +174,17 @@ function PlaceHistory() {
       ListHeaderComponent={
         <View style={styles.placeHeader}>
           <AppText variant="body2Bold">{t('history.myPlaces')}</AppText>
-          {summary}
-          {mostVisited ? <AppText variant="label1">{t('history.mostVisited', { place: mostVisited[0], count: mostVisited[1] })}</AppText> : null}
+          <ChipTabs<'7' | '30'>
+            tone="dark"
+            value={String(days) as '7' | '30'}
+            onChange={(v) => setDays(v === '30' ? 30 : 7)}
+            options={[
+              { value: '7', label: t('history.last7') },
+              { value: '30', label: t('history.last30') },
+            ]}
+          />
+          {periodSummary}
+          {mostVisited ? <AppText variant="label1">{t('history.mostVisited', { place: mostVisited.name, count: mostVisited.count })}</AppText> : null}
         </View>
       }
       renderSectionHeader={({ section }) => (
@@ -189,7 +208,7 @@ function PlaceHistory() {
                   ) : null}
                 </View>
                 <AppText variant="label2" color={colors.textSecondary}>
-                  {new Date(stop.arrivedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}
+                  {formatTimeOfDay(stop.arrivedAt)}
                 </AppText>
               </View>
             ))}

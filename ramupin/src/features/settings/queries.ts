@@ -117,6 +117,10 @@ export function useRemoveScheduledMessage() {
 export const useHistory = (category?: HistoryCategory) =>
   useQuery({ queryKey: keys.history(category), queryFn: () => historyApi.events(category) });
 
+/** 내 최근 며칠 이동 합계 (서버 통계) */
+export const useJourneyStats = (days: 7 | 30) =>
+  useQuery({ queryKey: ['journey-stats', days], queryFn: () => historyApi.journeyStats(days) });
+
 export const useJourney = (userId: string) =>
   useQuery({ queryKey: keys.journey(userId), queryFn: () => historyApi.journey(userId), enabled: !!userId });
 

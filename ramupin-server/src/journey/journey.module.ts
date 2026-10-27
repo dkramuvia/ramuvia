@@ -16,6 +16,7 @@ import { JourneyService } from './journey.service.js';
 
 const journeyQuery = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
 const historyQuery = z.object({ category: z.enum(['safety', 'place']).optional() });
+const statsQuery = z.object({ days: z.enum(['7', '30']).default('7').transform(Number) });
 
 @Controller('users')
 @UseGuards(AuthGuard)
@@ -36,6 +37,19 @@ class JourneyController {
   }
 }
 
+/** 내 최근 7일·30일 이동 합계 (히스토리 > 장소 기록) */
+@Controller('me/journey')
+@UseGuards(AuthGuard)
+class JourneyStatsController {
+  constructor(private readonly journey: JourneyService) {}
+
+  @Get('stats')
+  stats(@CurrentUser() user: AuthUser, @Query() query: unknown) {
+    const { days } = parseInput(statsQuery, query);
+    return this.journey.stats(user.id, days);
+  }
+}
+
 @Controller('me/history')
 @UseGuards(AuthGuard)
 class HistoryController {
@@ -50,7 +64,7 @@ class HistoryController {
 
 @Module({
   imports: [LocationModule, PlacesModule],
-  controllers: [JourneyController, HistoryController],
+  controllers: [JourneyController, JourneyStatsController, HistoryController],
   providers: [JourneyService, HistoryService],
 })
 export class JourneyModule {}

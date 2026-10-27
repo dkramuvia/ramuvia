@@ -20,6 +20,13 @@ const messageBody = z.object({
   body: z.string().min(1).max(500),
   scheduledAt: z.iso.datetime(),
   tts: z.boolean().default(true),
+  /**
+   * 받는 사람이 다른 나라에 있을 때 기준 시각 (보완 4.14 "예약 메시지 기준 시간").
+   * recipient 면 고른 날짜·시각(localTime)을 **받는 사람이 있는 곳**의 시각으로 보고 서버가 다시 계산합니다.
+   * 없거나 mine 이면 앱이 보낸 scheduledAt(보내는 사람 폰 시각 기준) 그대로
+   */
+  timezoneBasis: z.enum(['recipient', 'mine']).optional(),
+  localTime: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).optional(),
 });
 
 function toInput(body: unknown): ScheduledMessageInput {
@@ -30,6 +37,7 @@ function toInput(body: unknown): ScheduledMessageInput {
     body: input.body,
     scheduledAt: new Date(input.scheduledAt),
     tts: input.tts,
+    ...(input.timezoneBasis === 'recipient' && input.localTime ? { recipientLocalTime: input.localTime } : {}),
   };
 }
 

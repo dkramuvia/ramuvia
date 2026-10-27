@@ -6,6 +6,7 @@ import { RealtimeModule } from '../chat/chat.gateway.js';
 import { parseInput } from '../common/app-error.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationModule } from '../location/location.module.js';
+import { MediaModule } from '../media/media.module.js';
 import { PushModule } from '../push/push.module.js';
 import { SoloModule } from '../solo/solo.module.js';
 import { SosSmsService } from './sos-sms.service.js';
@@ -90,6 +91,12 @@ class SosController {
   @Get('received')
   received(@CurrentUser() user: AuthUser) {
     return this.sos.received(user.id);
+  }
+
+  /** SOS 녹음 듣기 주소 (받은 사람·보낸 사람만) */
+  @Get(':id/audio')
+  audio(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.sos.audioUrl(user.id, id);
   }
 
   /** 보낸 사람의 결과 화면: 받은 친구(확인 시각)와 문자(전송 상태) (보완 4.5, C8) */
@@ -204,7 +211,7 @@ class SafetyController {
 
 @Module({
   // SOS 로 위치를 넘긴 기록을 남기려고 (위치정보 이용·제공사실 확인자료)
-  imports: [RealtimeModule, PushModule, LocationModule, SoloModule],
+  imports: [RealtimeModule, PushModule, LocationModule, SoloModule, MediaModule],
   controllers: [SosController, SafetyController],
   providers: [SosService, SosSmsService],
   exports: [SosService],

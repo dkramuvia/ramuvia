@@ -1,16 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAlertStore, type AlertPopupPayload } from './alertStore';
+import { sosApi } from '@/api/endpoints/sos';
 import { AppText, Avatar, Button } from '@/components/ui';
 import { formatDuration, minutesSince } from '@/features/journey/routeLayers';
 import { AppMapView } from '@/features/map/AppMapView';
 import { makeStyles, radius, useColors } from '@/theme';
 import type { LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
+import { formatDateTime, formatTimeOfDay } from '@/utils/time';
 import { useFriendAvatar } from './useFriendAvatar';
 
 const RED = '#FF1E00';
@@ -63,7 +66,7 @@ function PopupContent({ popup }: { popup: AlertPopupPayload }) {
             <View style={styles.tile}>
               <AppText variant="headlineMedium">{t('alerts.sentAt')}</AppText>
               <AppText variant="label2" color={colors.textSecondary}>
-                {sent.toLocaleString('ko-KR')} ({formatDuration(minutesSince(popup.sentAt))} 전)
+                {formatDateTime(sent, { withYear: true, seconds: true })} ({formatDuration(minutesSince(popup.sentAt))} 전)
               </AppText>
               <AppText variant="headlineMedium" style={styles.tileGap}>
                 {t('alerts.coordinates')}
@@ -72,21 +75,7 @@ function PopupContent({ popup }: { popup: AlertPopupPayload }) {
                 {t('alerts.latLng', { lat: popup.place.latitude.toFixed(4), lng: popup.place.longitude.toFixed(4) })}
               </AppText>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              disabled={!popup.hasVoice}
-              // TODO(5단계): 서버의 SOS 녹음 파일 재생 (expo-audio useAudioPlayer)
-              onPress={() => showToast(t('alerts.voiceDesc').replace('\n', ' '))}
-              style={[styles.tile, !popup.hasVoice && styles.dim]}
-            >
-              <AppText variant="headlineMedium">{t('alerts.voice')}</AppText>
-              <AppText variant="label2" color={colors.textSecondary}>
-                {t('alerts.voiceDesc')}
-              </AppText>
-              <View style={styles.play}>
-                <Ionicons name="play" size={30} color={colors.white} />
-              </View>
-            </Pressable>
+            <VoiceTile sosId={popup.sosId} hasVoice={popup.hasVoice} />
           </View>
         </>
       );
@@ -114,7 +103,7 @@ function PopupContent({ popup }: { popup: AlertPopupPayload }) {
           <AppText variant="body2" color={colors.textSecondary}>
             {t('alerts.lastInfo', {
               place: popup.place.placeName ?? popup.place.address,
-              time: `${formatDuration(minutesSince(popup.lastSeenAt))} 전 (${new Date(popup.lastSeenAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`,
+              time: `${formatDuration(minutesSince(popup.lastSeenAt))} 전 (${formatTimeOfDay(popup.lastSeenAt)})`,
             })}
           </AppText>
         </>
@@ -249,6 +238,74 @@ function PopupButtons({ popup, dismiss }: { popup: AlertPopupPayload; dismiss: (
         </Pressable>
       ) : null}
     </>
+  );
+}
+
+/**
+ * SOS 녹음 듣기. 누르면 서버에서 잠깐 쓸 수 있는 주소를 받아 재생하고, 다시 누르면 멈춥니다.
+ * 무음 모드여도 들리게 합니다 — 긴급 상황에 소리가 안 나면 안 됩니다
+ */
+function VoiceTile({ sosId, hasVoice }: { sosId?: string; hasVoice: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  const player = useRef<AudioPlayer | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(
+    () => () => {
+      player.current?.remove();
+      player.current = null;
+    },
+    [],
+  );
+
+  const toggle = async () => {
+    if (playing && player.current) {
+      player.current.pause();
+      setPlaying(false);
+      return;
+    }
+    if (!sosId) return;
+    try {
+      setLoading(true);
+      if (!player.current) {
+        const url = await sosApi.audioUrl(sosId);
+        if (!url) {
+          showToast(t('alerts.voiceMissing'));
+          return;
+        }
+        await setAudioModeAsync({ playsInSilentMode: true });
+        const created = createAudioPlayer(url);
+        created.addListener('playbackStatusUpdate', (status) => {
+          if (status.didJustFinish) {
+            setPlaying(false);
+            void created.seekTo(0);
+          }
+        });
+        player.current = created;
+      }
+      player.current.play();
+      setPlaying(true);
+    } catch {
+      showToast(t('alerts.voiceFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const enabled = hasVoice && !!sosId;
+  return (
+    <Pressable accessibilityRole="button" disabled={!enabled || loading} onPress={() => void toggle()} style={[styles.tile, !enabled && styles.dim]}>
+      <AppText variant="headlineMedium">{t('alerts.voice')}</AppText>
+      <AppText variant="label2" color={colors.textSecondary}>
+        {t('alerts.voiceDesc')}
+      </AppText>
+      <View style={styles.play}>
+        <Ionicons name={playing ? 'pause' : 'play'} size={30} color={colors.white} />
+      </View>
+    </Pressable>
   );
 }
 

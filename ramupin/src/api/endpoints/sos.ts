@@ -56,6 +56,13 @@ export const sosApi = {
     return data;
   },
 
+  /** SOS 녹음 듣기 주소 (받은 사람·보낸 사람만, 잠깐 뒤 만료) */
+  async audioUrl(sosId: string): Promise<string | null> {
+    if (!isLive('sos')) return mockResponse(null);
+    const { data } = await apiClient.get<{ url: string | null }>(`/sos/${sosId}/audio`);
+    return data.url;
+  },
+
   /** 보낸 뒤 취소. 받은 사람들에게 "취소됨"이 전달됩니다 */
   async cancel(sosId: string): Promise<void> {
     if (!isLive('sos')) return mockResponse(undefined);

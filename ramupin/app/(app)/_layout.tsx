@@ -1,6 +1,7 @@
 import { router, Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 
+import { syncDeviceTimezone } from '@/api/endpoints/settings';
 import { AlertPopupHost } from '@/features/alerts/AlertPopupHost';
 import { InAppCardHost } from '@/features/alerts/InAppCardHost';
 import { useDeviceRestoreStore, usePostSignupStore } from '@/features/auth/deviceRestore';
@@ -28,6 +29,10 @@ export default function AppLayout() {
     usePostSignupStore.getState().set(false);
     setTimeout(() => router.push('/settings/solo-mode'), 0);
   }, [openSolo]);
+  // 기기 시간대를 서버에 맞춤 (받는 사람 시각 기준 예약 메시지·방해 금지 시간)
+  useEffect(() => {
+    void syncDeviceTimezone().catch(() => undefined);
+  }, []);
   // 30일마다 + 새 공유가 시작된 다음 날 "지금 내 위치를 N명이 보고 있어요" (보완 4.12). 새 기기 화면을 먼저 봅니다
   useSharingReminder(!replaced && !pendingGuardian);
   return (

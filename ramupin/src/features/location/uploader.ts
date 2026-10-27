@@ -7,6 +7,8 @@ import { getActivity, getSatellites } from '../../../modules/ramupin-gps';
 import { restoreSession } from '@/features/auth/session';
 import { useAuthStore } from '@/stores/authStore';
 import { distanceM } from './geo';
+import { isHiddenFromServer } from './hideScope';
+import { isSosActive } from './sosMode';
 import type { MyLocation } from './useMyLocation';
 
 /**
@@ -82,6 +84,8 @@ export interface EnqueueRule {
 /** 위치 하나를 대기열에 넣습니다 */
 export async function enqueueLocation(location: MyLocation, rule: EnqueueRule): Promise<boolean> {
   if (!canCollect()) return false;
+  // 숨김 모드 "서버에도 안 보내기" 중에는 쌓지도 않습니다 (WBS 12.7). 단 SOS 를 보낸 동안은 보냅니다
+  if (isHiddenFromServer() && !(await isSosActive())) return false;
   const sinceLastMs = location.timestamp - lastQueuedAt;
   if (sinceLastMs < rule.minGapSec * 1000) return false;
 

@@ -14,7 +14,9 @@ import {
 import { env, isLive } from '@/config/env';
 import { inbox } from '@/db/inbox';
 import { describeOnDevice } from '@/features/location/address';
+import { rememberHideMode } from '@/features/location/hideScope';
 import { isMeId } from '@/stores/authStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import type {
   Geofence,
   HideModeSetting,
@@ -88,6 +90,7 @@ export const hideModeApi = {
   async get(): Promise<HideModeSetting> {
     if (!isLive('me')) return mockResponse(clone(mockHideMode));
     const { data } = await apiClient.get<HideModeSetting>('/me/hide-mode');
+    rememberHideMode(data);
     return data;
   },
   async save(setting: HideModeSetting): Promise<void> {
@@ -96,6 +99,7 @@ export const hideModeApi = {
       return mockResponse(undefined);
     }
     await apiClient.put('/me/hide-mode', setting);
+    rememberHideMode(setting);
   },
 };
 
@@ -186,6 +190,30 @@ function deviceTimezone(): string {
   return getCalendars()[0]?.timeZone || 'Asia/Seoul';
 }
 
+/**
+ * 예약 메시지 기준 시간 (설정 > 언어·지역, 보완 4.14).
+ * 받는 사람 기준이면 고른 날짜·시각(이 폰 시계 기준 숫자)을 함께 보내고, 서버가 받는 사람 시간대로 실제 시각을 구합니다
+ */
+function withBasis<T extends { scheduledAt: string }>(message: T) {
+  const basis = usePreferencesStore.getState().scheduleTimezone;
+  const at = new Date(message.scheduledAt);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const localTime = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  return { ...message, timezoneBasis: basis, localTime };
+}
+
+/**
+ * 앱을 켤 때 기기 시간대가 서버에 저장된 값과 다르면 맞춥니다.
+ * 받는 사람 시각 기준 예약 메시지와 방해 금지 시간이 그 값을 씁니다 — 알림 설정을 저장할 때만 올리면
+ * 해외에 나가도 예전 시간대로 남았습니다
+ */
+export async function syncDeviceTimezone() {
+  if (!isLive('me')) return;
+  const current = await notificationSettingsApi.get();
+  if (current.timezone === deviceTimezone()) return;
+  await notificationSettingsApi.save(current);
+}
+
 export const notificationSettingsApi = {
   async get(): Promise<NotificationSettings> {
     if (!isLive('me')) return mockResponse(clone(mockNotifications));
@@ -222,8 +250,8 @@ export const scheduledMessagesApi = {
       return mockResponse(clone(created));
     }
     const { data } = message.id
-      ? await apiClient.put<ScheduledMessage>(`/scheduled-messages/${message.id}`, message)
-      : await apiClient.post<ScheduledMessage>('/scheduled-messages', message);
+      ? await apiClient.put<ScheduledMessage>(`/scheduled-messages/${message.id}`, withBasis(message))
+      : await apiClient.post<ScheduledMessage>('/scheduled-messages', withBasis(message));
     return data;
   },
   async remove(id: string): Promise<void> {
@@ -235,6 +263,13 @@ export const scheduledMessagesApi = {
     await apiClient.delete(`/scheduled-messages/${id}`);
   },
 };
+
+export interface JourneyStats {
+  days: number;
+  totalDistanceM: number;
+  stopCount: number;
+  topPlaces: { name: string; count: number }[];
+}
 
 export const historyApi = {
   /**
@@ -262,6 +297,12 @@ export const historyApi = {
     }
   },
 
+  /** 내 최근 7일·30일 합계: 이동 거리, 머문 곳 수, 자주 간 곳 (히스토리 > 장소 기록) */
+  async journeyStats(days: 7 | 30): Promise<JourneyStats | null> {
+    if (!isLive('location')) return mockResponse(null);
+    const { data } = await apiClient.get<JourneyStats>('/me/journey/stats', { params: { days } });
+    return data;
+  },
   /** 하루 여정. 친구의 이동 경로 공유가 꺼져 있으면 서버가 null (기획: '최근 여정' 미표시) */
   async journey(userId: string): Promise<JourneyDay | null> {
     if (!isLive('location')) {

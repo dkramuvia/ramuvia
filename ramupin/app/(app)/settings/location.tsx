@@ -13,6 +13,7 @@ import {
 import { outboxStats, flushLocationOutbox, type OutboxStats } from '@/features/location/uploader';
 import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
+import { formatDateTime } from '@/utils/time';
 
 /**
  * 위치 수집 설정 (WBS 2.4, 4.3).
@@ -145,7 +146,7 @@ function Row({ label, value }: { label: string; value: string }) {
 /** 60초 이상은 분으로 (180초 → 3분) */
 const intervalText = (sec: number) => (sec >= 60 ? `${Math.round(sec / 60)}분마다` : `${sec}초마다`);
 
-const timeText = (iso: string) => new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const timeText = (iso: string) => formatDateTime(iso, { seconds: true });
 
 const useStyles = makeStyles((colors) => ({
   content: { gap: 16 },

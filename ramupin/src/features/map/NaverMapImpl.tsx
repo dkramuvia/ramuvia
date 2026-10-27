@@ -18,6 +18,8 @@ const MAP_TYPES: Record<Preferences['mapType'], 'Basic' | 'Satellite' | 'Terrain
 };
 
 /** 위도 범위(delta) → 줌 레벨. delta 가 작을수록 확대 */
+/** 3D 로 볼 때 기울기 (도) */
+const TILT = 45;
 const zoomOf = (delta: number) => Math.min(21, Math.max(4, Math.log2(360 / delta) - 1));
 /** 마커 내용을 재는 판의 너비 (dp). 이름표·배지가 이보다 넓을 일은 없습니다 */
 const MEASURE_WIDTH = 400;
@@ -33,7 +35,7 @@ type Size = { width: number; height: number };
  * 그려진 크기를 재서 넘깁니다. 구글과 다른 점: 띄우기는 여백으로, 움직이는 그림은 뷰 안에서 (아래 설명).
  */
 export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function NaverMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, traffic, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, traffic, tilted = false, style },
   ref,
 ) {
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -51,6 +53,12 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
     markers,
     onMapPress: onPress,
   });
+
+  /**
+   * 3D (설정 > 지도): 지도를 기울입니다. 네이버는 건물 레이어가 켜져 있어 입체로 보입니다.
+   * 라이브러리의 카메라 이동(animateCameraTo)은 기울기를 넘기지 않아서, 지도를 띄울 때 적용합니다 (바꾸면 AppMapView 가 새로 띄움)
+   */
+  const tilt = tilted ? TILT : 0;
 
   useImperativeHandle(ref, () => ({
     moveTo: (coordinate, zoomDelta) => mapRef.current?.animateCameraTo({ ...coordinate, zoom: zoomOf(zoomDelta ?? initialDelta), duration: 400 }),
@@ -74,7 +82,7 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
       <NaverMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialCamera={{ ...initialCenter, zoom: zoomOf(initialDelta) }}
+        initialCamera={{ ...initialCenter, zoom: zoomOf(initialDelta), tilt }}
         mapType={MAP_TYPES[mapType]}
         // 바텀시트·광고 등에 가려지는 만큼 지도 안쪽 여백
         mapPadding={padding}

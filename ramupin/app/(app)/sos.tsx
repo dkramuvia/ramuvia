@@ -22,6 +22,7 @@ import { openOfflineSosSms } from '@/features/sos/sosContactsSnapshot';
 import { useAuthStore } from '@/stores/authStore';
 import { showToast } from '@/utils/toast';
 import { makeStyles, radius, useColors } from '@/theme';
+import { formatDateTime, formatTimeOfDay } from '@/utils/time';
 
 // TODO(정책): 카운트다운·녹음 시간은 서버 정책값 (WBS 7.9: 10초)
 const COUNTDOWN_SECONDS = 10;
@@ -372,7 +373,7 @@ function SentView({
     enabled: !!sosId,
     refetchInterval: 4000,
   });
-  const time = (iso: string | Date) => new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+  const time = (iso: string | Date) => formatTimeOfDay(iso);
 
   const resend = async (deliveryId: string) => {
     if (!sosId) return;
@@ -441,7 +442,7 @@ function SentView({
           <Fact label={t('sos.factCoords')} value={`${sentInfo.latitude.toFixed(4)}, ${sentInfo.longitude.toFixed(4)}`} />
         ) : null}
         {sentInfo?.altitude != null ? <Fact label={t('sos.factAltitude')} value={`${Math.round(sentInfo.altitude)} m`} /> : null}
-        <Fact label={t('sos.factSentAt')} value={sentAt.toLocaleString('ko-KR')} />
+        <Fact label={t('sos.factSentAt')} value={formatDateTime(sentAt, { withYear: true, seconds: true })} />
       </View>
 
       <View style={styles.sentActions}>

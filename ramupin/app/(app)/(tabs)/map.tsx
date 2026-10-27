@@ -71,6 +71,7 @@ export default function MapScreen() {
   const mapIsDark = useMapIsDark();
   const appIsDark = useThemeName() === 'dark';
   const showTraffic = usePreferencesStore((s) => s.showTraffic);
+  const fitAllFriends = usePreferencesStore((s) => s.fitAllFriends);
   const focused = useIsFocused();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
@@ -105,6 +106,16 @@ export default function MapScreen() {
     centeredOnce.current = true;
     mapRef.current?.moveTo(location);
   }, [location]);
+
+  // 설정 > 지도 "모든 친구 보이게 축소": 친구 위치가 오면 한 번, 나와 친구들이 다 들어오게 맞춥니다
+  const fittedOnce = useRef(false);
+  useEffect(() => {
+    if (!fitAllFriends || fittedOnce.current || !location) return;
+    const others = friends.flatMap((f) => (f.location ? [{ latitude: f.location.latitude, longitude: f.location.longitude }] : []));
+    if (others.length === 0) return;
+    fittedOnce.current = true;
+    mapRef.current?.fitTo([location, ...others]);
+  }, [fitAllFriends, friends, location]);
 
   const signal = gpsSignal(location?.accuracy ?? null);
   // 거리뷰(로드뷰)는 네이버에만 있습니다. 구글·Mapbox 지도일 때는 버튼을 숨깁니다 (대표님 10-12)

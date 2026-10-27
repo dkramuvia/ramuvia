@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { AppText } from './AppText';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { makeStyles, useColors } from '@/theme';
 
 /**
  * 피그마 "시간 설정" 휠: 시 / 분(5분 단위) / 오전·오후.
+ * 설정의 시간 표기가 24시간이면 시 0~23 / 분 두 칸만 둡니다 (보완 4.14).
  *
  * 네이티브 시간 선택기를 쓰지 않는 이유: 모듈을 더하면 네이티브 재빌드가 필요하고,
  * 기기마다 생김새가 달라 피그마와 어긋납니다.
@@ -15,6 +17,7 @@ import { makeStyles, useColors } from '@/theme';
 
 const ROW = 40;
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
 /** 분은 5분 단위입니다. 1분 단위는 휠이 60칸이라 고르기 어렵습니다 */
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
@@ -26,6 +29,7 @@ interface TimeWheelsProps {
 
 export function TimeWheels({ hours24, minutes, onChange }: TimeWheelsProps) {
   const styles = useStyles();
+  const use24h = usePreferencesStore((s) => s.timeFormat === '24h');
   const pm = hours24 >= 12;
   const hour12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
   const to24 = (h12: number, isPm: boolean) => (h12 % 12) + (isPm ? 12 : 0);
@@ -35,10 +39,16 @@ export function TimeWheels({ hours24, minutes, onChange }: TimeWheelsProps) {
   return (
     <View style={styles.wheels}>
       <View style={styles.wheelHighlight} pointerEvents="none" />
-      <Wheel values={HOURS} value={hour12} format={(v) => String(v).padStart(2, '0')} onChange={(h) => onChange(to24(h, pm), minuteRounded)} />
+      {use24h ? (
+        <Wheel values={HOURS_24} value={hours24} format={(v) => String(v).padStart(2, '0')} onChange={(h) => onChange(h, minuteRounded)} />
+      ) : (
+        <Wheel values={HOURS} value={hour12} format={(v) => String(v).padStart(2, '0')} onChange={(h) => onChange(to24(h, pm), minuteRounded)} />
+      )}
       <AppText variant="title4">:</AppText>
       <Wheel values={MINUTES} value={minuteRounded} format={(v) => String(v).padStart(2, '0')} onChange={(m) => onChange(hours24, m)} />
-      <Wheel values={[0, 1]} value={pm ? 1 : 0} format={(v) => (v ? 'PM' : 'AM')} onChange={(v) => onChange(to24(hour12, v === 1), minuteRounded)} />
+      {use24h ? null : (
+        <Wheel values={[0, 1]} value={pm ? 1 : 0} format={(v) => (v ? 'PM' : 'AM')} onChange={(v) => onChange(to24(hour12, v === 1), minuteRounded)} />
+      )}
     </View>
   );
 }

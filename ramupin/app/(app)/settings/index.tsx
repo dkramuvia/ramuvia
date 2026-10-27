@@ -9,6 +9,7 @@ import { AppText, MenuItem, Screen } from '@/components/ui';
 import { describePlace } from '@/features/location/address';
 import { ProfileCard } from '@/features/settings/ProfileCard';
 import { makeStyles, radius, useColors } from '@/theme';
+import { formatDate, formatTimeOfDay } from '@/utils/time';
 
 interface LocationInfo {
   address: string;
@@ -82,14 +83,14 @@ export default function MyProfileScreen() {
           ) : (
             <>
               <AppText variant="body2" color={colors.textTertiary}>
-                {new Date(info.timestamp).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {formatDate(info.timestamp, 'full')}
               </AppText>
               {[
                 t('myProfile.currentLocation', { address: info.address }),
                 t('myProfile.coordinates', { lat: info.latitude.toFixed(4), lng: info.longitude.toFixed(4) }),
                 info.altitude != null ? t('myProfile.altitude', { altitude: info.altitude.toFixed(1) }) : null,
                 info.accuracy != null ? t('myProfile.accuracy', { accuracy: Math.round(info.accuracy) }) : null,
-                t('myProfile.measuredAt', { time: new Date(info.timestamp).toLocaleTimeString('ko-KR') }),
+                t('myProfile.measuredAt', { time: formatTimeOfDay(info.timestamp, { seconds: true }) }),
               ]
                 .filter(Boolean)
                 .map((line) => (

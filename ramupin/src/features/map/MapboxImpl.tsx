@@ -37,6 +37,9 @@ const STYLES: Record<Preferences['mapType'], string> = {
  * 다른 지도와 같은 방식으로 확대 정도를 받기 위해 변환합니다.
  * 360도가 줌 0, 절반씩 좁아질 때마다 1씩 올라갑니다.
  */
+/** 3D 로 볼 때 기울기 (도) */
+const TILT_PITCH = 45;
+
 function zoomFromDelta(delta: number): number {
   return Math.min(20, Math.max(1, Math.log2(360 / Math.max(delta, 0.0001))));
 }
@@ -55,6 +58,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
     mapType,
     nightMode,
     traffic,
+    tilted = false,
     style,
   },
   ref,
@@ -171,7 +175,11 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
         defaultSettings={{
           centerCoordinate: [initialCenter.longitude, initialCenter.latitude],
           zoomLevel: zoomFromDelta(initialDelta),
+          pitch: tilted ? TILT_PITCH : 0,
         }}
+        // 3D (설정 > 지도): 바꾸면 그 자리에서 기울기만 바뀝니다
+        pitch={tilted ? TILT_PITCH : 0}
+        animationDuration={300}
         padding={
           padding
             ? {

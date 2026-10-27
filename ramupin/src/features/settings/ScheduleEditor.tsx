@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Button, Switch, TimeWheels } from '@/components/ui';
 import { makeStyles, radius, typography, useColors } from '@/theme';
 import type { ScheduledMessage } from '@/types/models';
+import { formatDate } from '@/utils/time';
 
 type Draft = Omit<ScheduledMessage, 'id'> & { id?: string };
 
@@ -156,7 +157,7 @@ function Calendar({ value, onChange }: { value: Date; onChange: (date: Date) => 
         <Pressable accessibilityRole="button" onPress={() => shift(-1)} style={styles.monthButton} hitSlop={8}>
           <Ionicons name="arrow-back" size={18} color={colors.text} />
         </Pressable>
-        <AppText variant="body1Bold">{month.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}</AppText>
+        <AppText variant="body1Bold">{formatDate(month, 'yearMonth')}</AppText>
         <Pressable accessibilityRole="button" onPress={() => shift(1)} style={styles.monthButton} hitSlop={8}>
           <Ionicons name="arrow-forward" size={18} color={colors.text} />
         </Pressable>

@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { makeStyles, useColors } from '@/theme';
 import type { PlanId } from '@/types/models';
 import { showToast } from '@/utils/toast';
+import { formatDate } from '@/utils/time';
 
 // TODO(9단계): 약관 본문은 확정된 약관 URL 로 교체
 const TERMS: TermItem[] = [
@@ -72,7 +73,7 @@ export default function CheckoutScreen() {
         <View style={styles.billingRow}>
           <AppText variant="label2" color={colors.textSecondary} style={styles.flex}>
             {yearly
-              ? t('plans.billingDayYearly', { date: today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) })
+              ? t('plans.billingDayYearly', { date: formatDate(today, 'monthDay') })
               : t('plans.billingDay', { day: today.getDate() })}
           </AppText>
           {/* TODO(9단계): 환불 규정 페이지 */}

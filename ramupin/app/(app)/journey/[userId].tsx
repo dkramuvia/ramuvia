@@ -19,6 +19,7 @@ import { isMeId, useAuthStore } from '@/stores/authStore';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { layout, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, useThemeName } from '@/theme';
 import { showToast } from '@/utils/toast';
+import { formatTimeOfDay } from '@/utils/time';
 
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
 const FALLBACK = { latitude: 37.4979, longitude: 127.0276 };
@@ -26,7 +27,7 @@ const SHEET_RATIO = 0.62;
 /** 내렸을 때: 손잡이 + 이름 줄만 보임 */
 const SHEET_COLLAPSED = 90;
 
-const timeText = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+const timeText = (iso: string) => formatTimeOfDay(iso);
 
 /**
  * 피그마: 친구 상세 (283:17712) → 최근 여정 (283:17799) / 나의 최근 여정 (283:26036)

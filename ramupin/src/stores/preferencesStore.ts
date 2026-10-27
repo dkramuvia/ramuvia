@@ -86,16 +86,3 @@ export function formatSpeed(kmh: number, unit: Preferences['speedUnit']): string
 export function formatTemperature(celsius: number, unit: Preferences['temperatureUnit']): string {
   return unit === 'f' ? `${Math.round(celsius * 1.8 + 32)}°F` : `${celsius}°C`;
 }
-
-/** 시각 표시 (12시간 · 24시간) */
-export function formatClock(date: Date, format: Preferences['timeFormat']): string {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: format === '12h' });
-}
-
-/** 날짜 표시 (YYYY.MM.DD · MM/DD/YYYY · DD/MM/YYYY) */
-export function formatDay(date: Date, format: Preferences['dateFormat']): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return format === 'MDY' ? `${m}/${d}/${y}` : format === 'DMY' ? `${d}/${m}/${y}` : `${y}.${m}.${d}`;
-}

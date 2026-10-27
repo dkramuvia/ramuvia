@@ -12,6 +12,7 @@ import { logout } from '@/features/auth/session';
 import { useAuthStore } from '@/stores/authStore';
 import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
+import { formatDateTime } from '@/utils/time';
 
 interface GuardianStatus {
   required: boolean;
@@ -56,7 +57,7 @@ export default function GuardianWaitingScreen() {
     }
   };
 
-  const expires = data?.expiresAt ? new Date(data.expiresAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const expires = data?.expiresAt ? formatDateTime(data.expiresAt) : '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

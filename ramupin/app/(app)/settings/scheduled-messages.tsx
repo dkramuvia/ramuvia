@@ -12,6 +12,7 @@ import { useRemoveScheduledMessage, useSaveScheduledMessage, useScheduledMessage
 import { makeStyles, radius, useColors } from '@/theme';
 import type { ScheduledMessage } from '@/types/models';
 import { showToast } from '@/utils/toast';
+import { formatDate, formatTimeOfDay } from '@/utils/time';
 
 type Draft = Omit<ScheduledMessage, 'id'> & { id?: string };
 
@@ -135,10 +136,10 @@ export default function ScheduledMessagesScreen() {
                       </View>
                       <View style={styles.messageTime}>
                         <AppText variant="label1" color={colors.textTertiary} style={styles.flex}>
-                          {at.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}
+                          {formatDate(at, 'monthDayWeekday')}
                         </AppText>
                         <AppText variant="label1" color={colors.textTertiary}>
-                          {at.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}
+                          {formatTimeOfDay(at)}
                         </AppText>
                         {m.tts ? <Ionicons name="volume-medium" size={16} color={colors.textTertiary} /> : null}
                       </View>

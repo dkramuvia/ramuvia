@@ -11,6 +11,7 @@ import { useGroup, useGroupAdmin, useInviteLink, useLeaveGroup } from '@/feature
 import { useIsMe } from '@/stores/authStore';
 import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
+import { formatDate } from '@/utils/time';
 
 type LinkDays = '1' | '7' | '30';
 
@@ -104,7 +105,7 @@ export default function GroupSettingsScreen() {
               </View>
               {link ? (
                 <AppText variant="caption" color={colors.textTertiary}>
-                  {t('groups.linkExpires', { date: new Date(link.expiresAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) })}
+                  {t('groups.linkExpires', { date: formatDate(link.expiresAt, 'monthDay') })}
                 </AppText>
               ) : null}
               <View style={styles.row}>

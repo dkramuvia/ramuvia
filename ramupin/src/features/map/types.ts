@@ -92,5 +92,7 @@ export interface MapImplProps {
   nightMode: boolean;
   /** 실시간 도로 상황 (설정 > 지도). 각 지도에 들어 있는 교통 정보를 그대로 씁니다 */
   traffic?: boolean;
+  /** 3D: 지도를 비스듬히 기울여 건물을 입체로 봅니다 (설정 > 지도 3D/2D) */
+  tilted?: boolean;
   style?: StyleProp<ViewStyle>;
 }

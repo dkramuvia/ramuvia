@@ -15,7 +15,7 @@ import { showToast } from '@/utils/toast';
 /**
  * 피그마: 지도 설정 (283:27132 / 무료 사용자 283:27009)
  * 기획: 유료 지도 옵션을 누르면 "0000 플랜부터 이용 가능"으로 선택 불가 (WBS 10.5~10.7)
- * TODO(8단계): 네이버·Mapbox·다크·3D·교통·날씨 실제 적용. 지금은 설정값만 저장
+ * 지도 제공·다크·3D·교통·모든 친구 보이게 축소는 지도(AppMapView, 지도 탭)에 바로 적용됩니다
  */
 export default function MapSettingsScreen() {
   const styles = useStyles();

@@ -75,7 +75,7 @@ export function useMapProvider(center: AppMapViewProps['initialCenter']) {
 }
 
 export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function AppMapView(props, ref: Ref<AppMapViewHandle>) {
-  const { mapType, mapTheme } = usePreferencesStore();
+  const { mapType, mapTheme, mapDimension } = usePreferencesStore();
   const provider = useMapProvider(props.initialCenter);
   /**
    * 지금 화면에 떠 있는 지도. 설정에서 바꿔도 곧바로 갈아 끼우지 않습니다.
@@ -86,13 +86,22 @@ export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function
    */
   const focused = useIsFocused();
   const [shown, setShown] = useState(provider);
-  const swapping = shown !== provider;
+  /**
+   * 3D (설정 > 지도). 구글·Mapbox 는 그 자리에서 기울지만, 네이버는 카메라 이동에 기울기를 넘길 수 없어
+   * 지도를 새로 띄워야 합니다. 그래서 네이버는 지도 제공을 바꿀 때처럼 화면이 보일 때 갈아 끼웁니다
+   */
+  const tilted = mapDimension === '3d';
+  const [shownTilted, setShownTilted] = useState(tilted);
+  const swapping = shown !== provider || (shown === 'naver' && shownTilted !== tilted);
 
   useEffect(() => {
     if (!swapping || !focused) return;
-    const timer = setTimeout(() => setShown(provider), MARKER_CLEANUP_MS);
+    const timer = setTimeout(() => {
+      setShown(provider);
+      setShownTilted(tilted);
+    }, MARKER_CLEANUP_MS);
     return () => clearTimeout(timer);
-  }, [swapping, focused, provider]);
+  }, [swapping, focused, provider, tilted]);
 
   /**
    * **Mapbox 는 지도 화면이 보인 뒤에 붙입니다.** 앱이 Mapbox 로 켜지면 지도가 스타일을 불러오지 않고
@@ -110,6 +119,8 @@ export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function
   const Impl = shown === 'naver' ? NaverMapImpl : shown === 'mapbox' ? MapboxImpl : GoogleMapImpl;
   const map = (
     <Impl
+      // 네이버는 3D 를 바꾸면 새로 띄웁니다 (위 설명)
+      key={shown === 'naver' ? `naver-${shownTilted}` : shown}
       ref={ref}
       {...props}
       // 바꾸는 중에는 마커·원·선을 잠깐 걷어 냅니다
@@ -119,6 +130,7 @@ export const AppMapView = forwardRef<AppMapViewHandle, AppMapViewProps>(function
       initialDelta={props.initialDelta ?? DEFAULT_DELTA}
       mapType={mapType}
       nightMode={mapTheme === 'dark'}
+      tilted={shown === 'naver' ? shownTilted : tilted}
     />
   );
 

@@ -10,7 +10,7 @@ import { AppText, Avatar, Button, Popup, QueryState } from '@/components/ui';
 import { friendKeys } from '@/features/friends/queries';
 import { fetchSharingOverview, markSharingReminderShown, type SharingViewer } from '@/features/safety/sharingReminder';
 import { makeStyles, radius, useColors, withAlpha } from '@/theme';
-import { formatRelativeTime } from '@/utils/time';
+import { formatDate, formatRelativeTime } from '@/utils/time';
 import { showToast } from '@/utils/toast';
 
 /**
@@ -69,7 +69,7 @@ export default function SharingReminderScreen() {
                 <AppText variant="caption" color={v.unusual ? colors.sos : colors.textTertiary}>
                   {[
                     t(`friendShare.${v.level}`),
-                    t('sharingReminder.since', { date: new Date(v.sharingSince).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }) }),
+                    t('sharingReminder.since', { date: formatDate(v.sharingSince, 'yearMonth') }),
                     v.unusual
                       ? t('sharingReminder.viewsToday', { count: v.viewsToday })
                       : v.lastViewedAt

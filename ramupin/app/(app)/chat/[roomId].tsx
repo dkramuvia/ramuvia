@@ -19,6 +19,7 @@ import { useIsMe } from '@/stores/authStore';
 import { makeStyles, useColors } from '@/theme';
 import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
 import { showToast } from '@/utils/toast';
+import { formatDate } from '@/utils/time';
 
 /** 피그마: 채팅방 1:1 (283:34973) / 그룹 생성 직후 (283:39171) / 위치 공유 (283:35894) */
 /** 이만큼 안에 잡힌 위치면 새로 잡지 않고 씁니다 */
@@ -139,7 +140,7 @@ export default function ChatRoomScreen() {
               <View style={styles.intro}>
                 <AppText variant="body1Bold">{group.name}</AppText>
                 <AppText variant="body2" color="#8593A8">
-                  {new Date(group.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  {formatDate(group.createdAt, 'full')}
                 </AppText>
                 <View style={styles.introActions}>
                   <IntroAction icon="link" label={t('chat.inviteLink')} onPress={inviteLink} />
@@ -170,7 +171,7 @@ export default function ChatRoomScreen() {
                   <View style={styles.dateDivider}>
                     <View style={styles.dateLine} />
                     <AppText variant="caption" color="#8593A8">
-                      {new Date(item.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                      {formatDate(item.createdAt, 'fullWeekday')}
                     </AppText>
                     <View style={styles.dateLine} />
                   </View>

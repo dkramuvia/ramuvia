@@ -16,6 +16,10 @@ export function useAreaName(coordinate: LatLng | null) {
   const lastResolved = useRef<LatLng | null>(null);
   const inFlight = useRef(false);
   const mounted = useRef(true);
+  // 조회하는 동안 들어온 마지막 좌표. 지도가 움직이는 도중의 지점을 조회하는 사이 도착한 최종 위치를 건너뛰면
+  // 제목이 중간 지점 이름으로 남았습니다 (10-27 안심존 추가 화면: 강남 기본값 → 가산동 이동 중 "관악구")
+  const latest = useRef<LatLng | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(
     () => () => {
@@ -25,6 +29,7 @@ export function useAreaName(coordinate: LatLng | null) {
   );
 
   useEffect(() => {
+    latest.current = coordinate;
     if (!coordinate || inFlight.current) return;
     if (lastResolved.current && distanceM(lastResolved.current, coordinate) < REFRESH_DISTANCE_M) return;
 
@@ -43,8 +48,10 @@ export function useAreaName(coordinate: LatLng | null) {
       .catch(() => undefined)
       .finally(() => {
         inFlight.current = false;
+        // 조회 중에 멀리 옮겨졌으면 마지막 좌표로 한 번 더
+        if (mounted.current && latest.current && distanceM(latest.current, coordinate) >= REFRESH_DISTANCE_M) setRetry((n) => n + 1);
       });
-  }, [coordinate]);
+  }, [coordinate, retry]);
 
   return name;
 }

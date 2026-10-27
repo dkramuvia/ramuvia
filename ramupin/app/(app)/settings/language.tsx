@@ -20,10 +20,23 @@ export default function LanguageRegionScreen() {
   const prefs = usePreferencesStore();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  function Row<K extends keyof Preferences>({ label, sub, field, options }: { label: string; sub?: string; field: K; options: { value: Preferences[K] & string; label: string }[] }) {
+  function Row<K extends keyof Preferences>({
+    label,
+    sub,
+    field,
+    options,
+    stacked,
+  }: {
+    label: string;
+    sub?: string;
+    field: K;
+    options: { value: Preferences[K] & string; label: string }[];
+    /** 선택지가 길어 한 줄에 다 못 들어가면 이름 아래에 둡니다 (글자를 크게 해도 이름이 안 사라지게) */
+    stacked?: boolean;
+  }) {
     return (
-      <View style={styles.row}>
-        <View style={styles.flex}>
+      <View style={stacked ? styles.stacked : styles.row}>
+        <View style={styles.label}>
           <AppText variant="label1">{label}</AppText>
           {sub ? (
             <AppText variant="caption" color={colors.textTertiary}>
@@ -70,6 +83,7 @@ export default function LanguageRegionScreen() {
         <Row
           label={t('languageRegion.dateFormat')}
           field="dateFormat"
+          stacked
           options={[
             { value: 'YMD', label: 'YYYY.MM.DD' },
             { value: 'MDY', label: 'MM/DD' },
@@ -132,4 +146,6 @@ const useStyles = makeStyles((colors) => ({
   section: { gap: 8 },
   card: { gap: 4, paddingHorizontal: 14, paddingVertical: 6, borderRadius: radius.md, backgroundColor: colors.surface },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52 },
+  stacked: { gap: 8, paddingVertical: 10 },
+  label: { flexGrow: 1, flexShrink: 1 },
 }));

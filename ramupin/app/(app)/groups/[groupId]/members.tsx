@@ -132,11 +132,14 @@ export default function GroupMembersScreen() {
             })}
           </View>
 
-          <View style={styles.note}>
-            <AppText variant="caption" color={colors.textTertiary}>
-              {t('groups.kickNote')}
-            </AppText>
-          </View>
+          {/* 내보낼 수 있는 사람(방장·관리자)에게만 */}
+          {myRole !== 'member' ? (
+            <View style={styles.note}>
+              <AppText variant="caption" color={colors.textTertiary}>
+                {t('groups.kickNote')}
+              </AppText>
+            </View>
+          ) : null}
         </>
       )}
 

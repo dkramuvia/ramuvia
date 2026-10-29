@@ -138,7 +138,9 @@
     "deleteGroup": "그룹 삭제",
     "deleteGroupNote": "사진·대화 모두 삭제",
     "deleteTitle": "'{{name}}' 그룹을 삭제할까요?",
-    "deleteMessage": "모든 멤버에게 알림이 가고, 그룹의 사진과 대화가 모두 지워져요. 되돌릴 수 없어요."
+    "deleteMessage": "모든 멤버에게 알림이 가고, 그룹의 사진과 대화가 모두 지워져요. 되돌릴 수 없어요.",
+    "mute": "이 방 알림 끄기",
+    "muteDesc": "새 메시지 알림이 오지 않아요. SOS 알림은 그대로 와요."
   },
   "chat": {
     "placeholder": "메시지를 입력하세요...",
@@ -708,7 +710,10 @@
     "cancel": "취소",
     "deleteTitle": "예약 메시지를 삭제할까요?",
     "empty": "예약한 메시지가 없어요.",
-    "limit": "예약 메시지는 최대 {{limit}}명에게 보낼 수 있어요."
+    "limit": "예약 메시지는 최대 {{limit}}명에게 보낼 수 있어요.",
+    "repeatDaily": "매일 반복",
+    "repeatDailyDesc": "날짜 없이 매일 같은 시각에 보내요 (예: 약 드실 시간)",
+    "everyDay": "매일"
   },
   "mapSettings": {
     "style": "지도 스타일",

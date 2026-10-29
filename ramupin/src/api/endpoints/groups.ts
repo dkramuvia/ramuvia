@@ -189,6 +189,16 @@ export const groupsApi = {
   },
 
   /** 그룹방 나가기. 마지막 멤버가 나가면 서버의 대화도 삭제됩니다 (WBS 7.3) */
+  /** 이 방 채팅 알림 끄기 (나에게만) */
+  async setMuted(groupId: string, muted: boolean): Promise<void> {
+    if (!isLive('groups')) {
+      const group = mockGroups.find((g) => g.id === groupId);
+      if (group) group.muted = muted;
+      return mockResponse(undefined);
+    }
+    await apiClient.put(`/groups/${groupId}/mute`, { muted });
+  },
+
   async leave(groupId: string): Promise<void> {
     if (!isLive('groups')) {
       const index = mockGroups.findIndex((g) => g.id === groupId);

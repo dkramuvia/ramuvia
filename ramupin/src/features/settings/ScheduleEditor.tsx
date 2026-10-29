@@ -34,6 +34,7 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
   const [body, setBody] = useState('');
   const [date, setDate] = useState(new Date());
   const [tts, setTts] = useState(true);
+  const [daily, setDaily] = useState(false);
 
   useEffect(() => {
     if (!initial) return;
@@ -41,6 +42,7 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
     setBody(initial.body);
     setDate(new Date(initial.scheduledAt));
     setTts(initial.tts);
+    setDaily(initial.repeat === 'daily');
   }, [initial]);
 
   const setTime = (hours24: number, minutes: number) => {
@@ -49,7 +51,8 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
     setDate(next);
   };
 
-  const canSave = title.trim() && body.trim() && date.getTime() > Date.now();
+  // 매일 반복은 날짜가 없습니다. 오늘 시각이 지났으면 서버가 내일부터 보냅니다
+  const canSave = title.trim() && body.trim() && (daily || date.getTime() > Date.now());
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel} statusBarTranslucent>
@@ -60,11 +63,37 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
             <Field label={t('scheduled.title')}>
               <TextInput value={title} onChangeText={setTitle} maxLength={20} style={styles.input} placeholderTextColor={colors.textPlaceholder} />
             </Field>
-            <Calendar value={date} onChange={(d) => {
-              const next = new Date(d);
-              next.setHours(date.getHours(), date.getMinutes(), 0, 0);
-              setDate(next);
-            }} />
+            {/* 대표 리포트 10: 날짜 없이 매일 같은 시각 (복약 알림) */}
+            <View style={styles.ttsRow}>
+              <View style={styles.flex}>
+                <AppText variant="body2Bold">{t('scheduled.repeatDaily')}</AppText>
+                <AppText variant="caption" color={colors.textTertiary}>
+                  {t('scheduled.repeatDailyDesc')}
+                </AppText>
+              </View>
+              <Switch
+                value={daily}
+                onValueChange={(on) => {
+                  setDaily(on);
+                  if (!on) return;
+                  // 날짜는 오늘로. 시각만 의미가 있습니다
+                  const next = new Date();
+                  next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                  setDate(next);
+                }}
+                accessibilityLabel={t('scheduled.repeatDaily')}
+              />
+            </View>
+            {daily ? null : (
+              <Calendar
+                value={date}
+                onChange={(d) => {
+                  const next = new Date(d);
+                  next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                  setDate(next);
+                }}
+              />
+            )}
 
             <AppText variant="label1Bold">{t('scheduled.time')}</AppText>
             <TimeWheels hours24={date.getHours()} minutes={date.getMinutes()} onChange={setTime} />
@@ -109,7 +138,7 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
               label={t('scheduled.save')}
               disabled={!canSave}
               onPress={() =>
-                initial && onSave({ ...initial, title: title.trim(), body: body.trim(), scheduledAt: date.toISOString(), tts })
+                initial && onSave({ ...initial, title: title.trim(), body: body.trim(), scheduledAt: date.toISOString(), tts, repeat: daily ? 'daily' : 'none' })
               }
               style={styles.flex}
             />

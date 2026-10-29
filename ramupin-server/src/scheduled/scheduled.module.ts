@@ -20,6 +20,8 @@ const messageBody = z.object({
   body: z.string().min(1).max(500),
   scheduledAt: z.iso.datetime(),
   tts: z.boolean().default(true),
+  /** 매일 같은 시각에 반복 (대표 리포트 10). 없으면 한 번만 */
+  repeat: z.enum(['none', 'daily']).default('none'),
   /**
    * 받는 사람이 다른 나라에 있을 때 기준 시각 (보완 4.14 "예약 메시지 기준 시간").
    * recipient 면 고른 날짜·시각(localTime)을 **받는 사람이 있는 곳**의 시각으로 보고 서버가 다시 계산합니다.
@@ -37,6 +39,7 @@ function toInput(body: unknown): ScheduledMessageInput {
     body: input.body,
     scheduledAt: new Date(input.scheduledAt),
     tts: input.tts,
+    repeat: input.repeat,
     ...(input.timezoneBasis === 'recipient' && input.localTime ? { recipientLocalTime: input.localTime } : {}),
   };
 }

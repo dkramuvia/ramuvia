@@ -15,6 +15,7 @@ const createBody = z.object({ name: z.string().min(1).max(30), memberIds: z.arra
 const renameBody = z.object({ name: z.string().min(1).max(30) });
 const inviteBody = z.object({ memberIds: z.array(z.uuid()).min(1).max(20) });
 const pauseBody = z.object({ paused: z.boolean() });
+const muteBody = z.object({ muted: z.boolean() });
 const directBody = z.object({ friendId: z.uuid() });
 const roleBody = z.object({ role: z.enum(['admin', 'member']) });
 const ownerBody = z.object({ userId: z.uuid() });
@@ -175,6 +176,12 @@ class GroupsController {
       this.gateway.emitRoomsChanged(await this.groups.memberIds(result.groupId));
     }
     return result;
+  }
+
+  /** 이 방 알림 끄기 (대표 리포트 36). 나에게만 */
+  @Put(':groupId/mute')
+  setMuted(@CurrentUser() user: AuthUser, @Param('groupId', ParseUUIDPipe) groupId: string, @Body() body: unknown) {
+    return this.groups.setMuted(user.id, groupId, parseInput(muteBody, body).muted);
   }
 
   /** 그룹 안에서 내 위치 공유 잠시 끄기 (WBS 7.2) */

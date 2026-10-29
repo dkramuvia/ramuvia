@@ -11,8 +11,10 @@ export interface ScheduledMessageResponse {
   body: string;
   scheduledAt: string;
   tts: boolean;
-  /** 이미 보냈는지. 앱 목록에서 지난 예약을 흐리게 보여 줄 때 씁니다 */
+  /** 이미 보냈는지. 앱 목록에서 지난 예약을 흐리게 보여 줄 때 씁니다. 매일 반복은 늘 false */
   sent: boolean;
+  /** 매일 반복 (대표 리포트 10). scheduledAt 은 다음에 갈 시각 */
+  repeat: 'none' | 'daily';
 }
 
 export interface ScheduledMessageInput {
@@ -21,6 +23,7 @@ export interface ScheduledMessageInput {
   body: string;
   scheduledAt: Date;
   tts: boolean;
+  repeat: 'none' | 'daily';
   /** 받는 사람 시각 기준으로 고른 날짜·시각 "2026-10-27T08:00" (있으면 scheduledAt 대신 이걸로 계산) */
   recipientLocalTime?: string;
 }
@@ -55,6 +58,18 @@ export function wallTimeToUtc(local: string, timezone: string): Date {
   return new Date(guess - offsetMs(first, tz));
 }
 
+const DAY_MS = 86_400_000;
+
+/**
+ * 매일 반복이면 고른 시각이 이미 지났을 때 다음 날 같은 시각으로 옮깁니다.
+ * "매일 오전 8시"를 오전 10시에 걸면 첫 메시지는 내일 오전 8시입니다
+ */
+export function nextOccurrence(at: Date, repeat: 'none' | 'daily', now = Date.now()): Date {
+  if (repeat !== 'daily' || at.getTime() > now) return at;
+  const days = Math.floor((now - at.getTime()) / DAY_MS) + 1;
+  return new Date(at.getTime() + days * DAY_MS);
+}
+
 /**
  * 예약 메시지 (WBS 8.2).
  *
@@ -71,7 +86,7 @@ export class ScheduledMessageService {
   async list(userId: string): Promise<ScheduledMessageResponse[]> {
     const rows = await this.db
       .selectFrom('member.scheduled_messages')
-      .select(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts', 'sent_at'])
+      .select(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts', 'sent_at', 'repeat'])
       .where('user_id', '=', userId)
       .orderBy('scheduled_at', 'asc')
       .execute();
@@ -83,6 +98,7 @@ export class ScheduledMessageService {
       scheduledAt: r.scheduled_at.toISOString(),
       tts: r.tts,
       sent: r.sent_at != null,
+      repeat: r.repeat,
     }));
   }
 
@@ -99,7 +115,7 @@ export class ScheduledMessageService {
 
   async create(userId: string, input: ScheduledMessageInput): Promise<ScheduledMessageResponse> {
     await this.assertFriend(userId, input.targetUserId);
-    const scheduledAt = await this.resolveScheduledAt(input);
+    const scheduledAt = nextOccurrence(await this.resolveScheduledAt(input), input.repeat);
     const row = await this.db
       .insertInto('member.scheduled_messages')
       .values({
@@ -109,8 +125,9 @@ export class ScheduledMessageService {
         body: input.body,
         scheduled_at: scheduledAt,
         tts: input.tts,
+        repeat: input.repeat,
       })
-      .returning(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts', 'sent_at'])
+      .returning(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts', 'sent_at', 'repeat'])
       .executeTakeFirstOrThrow();
     return {
       id: row.id,
@@ -120,6 +137,7 @@ export class ScheduledMessageService {
       scheduledAt: row.scheduled_at.toISOString(),
       tts: row.tts,
       sent: false,
+      repeat: row.repeat,
     };
   }
 
@@ -131,7 +149,7 @@ export class ScheduledMessageService {
    */
   async update(userId: string, id: string, input: ScheduledMessageInput): Promise<ScheduledMessageResponse> {
     await this.assertFriend(userId, input.targetUserId);
-    const scheduledAt = await this.resolveScheduledAt(input);
+    const scheduledAt = nextOccurrence(await this.resolveScheduledAt(input), input.repeat);
     const row = await this.db
       .updateTable('member.scheduled_messages')
       .set({
@@ -140,12 +158,13 @@ export class ScheduledMessageService {
         body: input.body,
         scheduled_at: scheduledAt,
         tts: input.tts,
+        repeat: input.repeat,
         updated_at: new Date(),
       })
       .where('id', '=', id)
       .where('user_id', '=', userId)
       .where('sent_at', 'is', null)
-      .returning(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts'])
+      .returning(['id', 'target_id', 'title', 'body', 'scheduled_at', 'tts', 'repeat'])
       .executeTakeFirst();
     if (!row) throw appError(404, 'SCHEDULED_MESSAGE_NOT_FOUND', '고칠 수 있는 예약 메시지가 없습니다');
     return {
@@ -156,6 +175,7 @@ export class ScheduledMessageService {
       scheduledAt: row.scheduled_at.toISOString(),
       tts: row.tts,
       sent: false,
+      repeat: row.repeat,
     };
   }
 

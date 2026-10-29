@@ -53,10 +53,11 @@ class ChatController {
 
   /**
    * 방 사람들(보낸 사람 빼고)에게 채팅 푸시. 앱을 보고 있는 사람에게는 앱이 띄우지 않습니다
-   * (앱 push.ts 의 handleNotification). "그룹 활동 알림" 을 끈 사람은 PushService 가 거릅니다
+   * (앱 push.ts 의 handleNotification). "그룹 활동 알림" 을 끈 사람은 PushService 가 거릅니다.
+   * 이 방 알림을 끈 사람(대표 리포트 36)은 여기서 뺍니다
    */
   private async notify(senderId: string, message: ChatMessageResponse) {
-    const recipients = (await this.groups.memberIds(message.roomId)).filter((id) => id !== senderId);
+    const recipients = (await this.groups.unmutedMemberIds(message.roomId)).filter((id) => id !== senderId);
     if (recipients.length === 0) return;
     const [sender, room] = await Promise.all([
       this.db.selectFrom('member.users').select('nickname').where('id', '=', senderId).executeTakeFirst(),

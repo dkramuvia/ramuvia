@@ -136,7 +136,7 @@ export default function ScheduledMessagesScreen() {
                       </View>
                       <View style={styles.messageTime}>
                         <AppText variant="label1" color={colors.textTertiary} style={styles.flex}>
-                          {formatDate(at, 'monthDayWeekday')}
+                          {m.repeat === 'daily' ? t('scheduled.everyDay') : formatDate(at, 'monthDayWeekday')}
                         </AppText>
                         <AppText variant="label1" color={colors.textTertiary}>
                           {formatTimeOfDay(at)}

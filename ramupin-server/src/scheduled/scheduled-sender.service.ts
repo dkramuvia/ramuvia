@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, type OnApplicationShutdown, type OnModuleIn
 
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
+import { nextOccurrence } from './scheduled-message.service.js';
 
 /**
  * 예약 메시지 발송기 (WBS 8.2).
@@ -77,7 +78,7 @@ export class ScheduledSenderService implements OnModuleInit, OnApplicationShutdo
       const result = await this.db.transaction().execute(async (trx) => {
         const row = await trx
           .selectFrom('member.scheduled_messages')
-          .select(['id', 'user_id', 'target_id', 'title', 'body', 'tts', 'scheduled_at'])
+          .select(['id', 'user_id', 'target_id', 'title', 'body', 'tts', 'scheduled_at', 'repeat'])
           .where('id', '=', id)
           .where('sent_at', 'is', null)
           .forUpdate()
@@ -98,11 +99,20 @@ export class ScheduledSenderService implements OnModuleInit, OnApplicationShutdo
 
         // 보냈든 못 보냈든 **먼저 표시합니다.** 푸시가 실패해도 다시 집어 가지 않게 하려는 것입니다 —
         // 알림은 늦게 한 번 못 가는 것보다 여러 번 가는 쪽이 더 나쁩니다
-        await trx
-          .updateTable('member.scheduled_messages')
-          .set({ sent_at: now, failed_reason: reason, updated_at: now })
-          .where('id', '=', row.id)
-          .execute();
+        if (row.repeat === 'daily' && stillFriend) {
+          // 매일 반복은 다음 날로 옮겨 둡니다. 서버가 오래 꺼져 있었으면 지난 날들은 건너뜁니다
+          await trx
+            .updateTable('member.scheduled_messages')
+            .set({ scheduled_at: nextOccurrence(row.scheduled_at, 'daily', now.getTime()), last_sent_at: tooLate ? undefined : now, failed_reason: reason, updated_at: now })
+            .where('id', '=', row.id)
+            .execute();
+        } else {
+          await trx
+            .updateTable('member.scheduled_messages')
+            .set({ sent_at: now, failed_reason: reason, updated_at: now })
+            .where('id', '=', row.id)
+            .execute();
+        }
 
         return reason ? ('skipped' as const) : { row };
       });

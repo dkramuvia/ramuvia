@@ -37,6 +37,8 @@ export interface GroupDetailResponse {
   defaultShareLevel: 'exact' | 'blurred';
   /** 최대 인원 = 방장 등급 정책 */
   memberLimit: number;
+  /** 내가 이 방 알림을 껐는지 */
+  muted: boolean;
 }
 
 const CREATED_MESSAGE = '그룹채팅을 만들었습니다.';
@@ -81,7 +83,7 @@ export class GroupsService {
       .leftJoin('social.friend_share_settings as mine', (join) =>
         join.on('mine.owner_id', '=', me).onRef('mine.friend_id', '=', 'gm.user_id'),
       )
-      .select(['u.id', 'u.public_id', 'u.nickname', 'u.avatar_url', 'gm.role', 'mine.location_level as my_level'])
+      .select(['u.id', 'u.public_id', 'u.nickname', 'u.avatar_url', 'gm.role', 'gm.muted', 'mine.location_level as my_level'])
       .where('gm.group_id', '=', groupId)
       .orderBy('gm.joined_at')
       .execute();
@@ -109,6 +111,7 @@ export class GroupsService {
       photoPermission: group.photo_permission,
       defaultShareLevel: group.default_share_level,
       memberLimit: await this.admin.memberLimit(groupId),
+      muted: members.find((m) => m.id === me)?.muted ?? false,
     };
   }
 
@@ -319,6 +322,24 @@ export class GroupsService {
       .where('user_id', '=', me)
       .execute();
     return { locationPaused: paused };
+  }
+
+  /** 이 방 채팅 알림 끄기 (대표 리포트 36) */
+  async setMuted(me: string, groupId: string, muted: boolean) {
+    await this.assertMember(groupId, me);
+    await this.db.updateTable('social.group_members').set({ muted }).where('group_id', '=', groupId).where('user_id', '=', me).execute();
+    return { muted };
+  }
+
+  /** 채팅 푸시를 받을 멤버 (알림을 끈 사람 빼고) */
+  async unmutedMemberIds(groupId: string): Promise<string[]> {
+    const rows = await this.db
+      .selectFrom('social.group_members')
+      .select('user_id')
+      .where('group_id', '=', groupId)
+      .where('muted', '=', false)
+      .execute();
+    return rows.map((r) => r.user_id);
   }
 
   async memberIds(groupId: string): Promise<string[]> {

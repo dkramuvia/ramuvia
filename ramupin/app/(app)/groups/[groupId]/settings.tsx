@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
 import { groupsApi } from '@/api/endpoints/groups';
-import { AppText, Avatar, ChipTabs, MenuItem, Popup, QueryState, Screen } from '@/components/ui';
+import { AppText, Avatar, ChipTabs, MenuItem, Popup, QueryState, Screen, ToggleRow } from '@/components/ui';
 import { forgetRoom } from '@/features/chat/queries';
 import { useGroup, useGroupAdmin, useInviteLink, useLeaveGroup } from '@/features/groups/queries';
 import { ReportSheet, type ReportTarget } from '@/features/safety/ReportSheet';
@@ -41,6 +41,7 @@ function DirectRoomSettings({ groupId }: { groupId: string }) {
   const queryClient = useQueryClient();
   const { data: group } = useGroup(groupId);
   const leave = useLeaveGroup(groupId);
+  const admin = useGroupAdmin(groupId);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [reporting, setReporting] = useState<ReportTarget | null>(null);
   const other = group?.members.find((m) => !isMe(m.id));
@@ -67,6 +68,7 @@ function DirectRoomSettings({ groupId }: { groupId: string }) {
           <AppText variant="listTitle">{other.nickname}</AppText>
         </View>
       ) : null}
+      <MuteRow muted={group?.muted ?? false} onChange={(muted) => admin.mutate(() => groupsApi.setMuted(groupId, muted))} />
       {other?.myShareLevel ? (
         <MenuItem label={t('chat.directShare')} onPress={() => router.push(`/settings/share/${other.id}?from=people`)} />
       ) : null}
@@ -160,6 +162,7 @@ function GroupRoomSettings({ groupId }: { groupId: string }) {
             <MenuItem label={`${t('groups.manageMembers')} · ${t('groups.memberCount', { count: group.memberCount })}`} onPress={() => router.push(`/groups/${groupId}/members`)} />
             {isOwner ? <MenuItem label={t('groups.rename')} onPress={() => router.push(`/groups/${groupId}/rename`)} /> : null}
             <Row label={t('groups.maxMembers')} value={t('groups.maxMembersValue', { count: group.memberLimit ?? 50 })} />
+            <MuteRow muted={group.muted ?? false} onChange={(muted) => admin.mutate(() => groupsApi.setMuted(groupId, muted))} />
           </Section>
 
           {canInvite ? (
@@ -293,6 +296,12 @@ function GroupRoomSettings({ groupId }: { groupId: string }) {
       />
     </Screen>
   );
+}
+
+/** 이 방 알림 끄기 (대표 리포트 36). SOS 는 끌 수 없어 따로 안내합니다 */
+function MuteRow({ muted, onChange }: { muted: boolean; onChange: (muted: boolean) => void }) {
+  const { t } = useTranslation();
+  return <ToggleRow title={t('groups.mute')} description={t('groups.muteDesc')} value={muted} onValueChange={onChange} />;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

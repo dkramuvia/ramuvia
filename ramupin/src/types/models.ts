@@ -194,6 +194,8 @@ export interface GroupDetail extends Group {
   memberLimit?: number;
   /** 1:1 대화방 (서버 is_direct). 그룹 설정 대신 알림·차단·신고·나가기만 (대표 리포트 31) */
   isDirect?: boolean;
+  /** 내가 이 방 알림을 껐는지 (대표 리포트 36) */
+  muted?: boolean;
 }
 
 export interface GroupInviteLink {
@@ -357,4 +359,6 @@ export interface ScheduledMessage {
   tts: boolean;
   /** 이미 보냈는지 (서버가 채웁니다). 지난 예약을 흐리게 보여 줄 때 씁니다 */
   sent?: boolean;
+  /** 매일 같은 시각에 반복 (대표 리포트 10: 복약 알림). scheduledAt 은 다음에 갈 시각 */
+  repeat?: 'none' | 'daily';
 }

@@ -137,6 +137,8 @@ export interface GroupMembersTable {
   user_id: string;
   role: Generated<'owner' | 'admin' | 'member'>;
   location_paused: Generated<boolean>;
+  /** 이 방 채팅 알림 끄기 (대표 리포트 36). 나에게만 */
+  muted: Generated<boolean>;
   joined_at: Timestamp;
   last_read_at: Timestamp;
 }
@@ -550,6 +552,10 @@ export interface ScheduledMessagesTable {
   /** 보낸 시각. NULL 이면 아직 안 보냈습니다 */
   sent_at: Date | null;
   failed_reason: string | null;
+  /** 매일 반복이면 'daily'. 보낸 뒤 scheduled_at 이 다음 날로 옮겨지고 sent_at 은 비어 있습니다 (대표 리포트 10) */
+  repeat: Generated<'none' | 'daily'>;
+  /** 반복 예약이 마지막으로 간 때 */
+  last_sent_at: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

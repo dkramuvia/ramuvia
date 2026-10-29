@@ -27,6 +27,8 @@ export function useCreateGroup() {
       queryClient.setQueryData(groupKeys.detail(group.id), group);
       queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });
       queryClient.invalidateQueries({ queryKey: chatRoomsKey });
+      // 나간 그룹의 사진이 갤러리에 남지 않게 (대표 리포트 14)
+      queryClient.invalidateQueries({ queryKey: ['gallery'] });
     },
   });
 }
@@ -84,6 +86,7 @@ export function useGroupAdmin(groupId: string) {
     void queryClient.invalidateQueries({ queryKey: groupKeys.detail(groupId) });
     void queryClient.invalidateQueries({ queryKey: groupKeys.list, exact: true });
     void queryClient.invalidateQueries({ queryKey: chatRoomsKey });
+    void queryClient.invalidateQueries({ queryKey: ['gallery'] });
   };
   const run = useMutation({
     mutationFn: (action: () => Promise<unknown>) => action(),

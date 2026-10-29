@@ -33,7 +33,8 @@ export default function GalleryUploadDetailScreen() {
   const upload = useUploadPost();
   const [groupListOpen, setGroupListOpen] = useState(false);
 
-  const choices = groups;
+  // 1:1 대화방은 빼고, 이름이 같은 방을 구분하도록 인원을 붙입니다 ('라무비아' 가 두 번 보였습니다, 대표 리포트 45)
+  const choices = groups.filter((g) => !g.isDirect);
   const selectedNames = choices.filter((g) => groupIds.includes(g.id)).map((g) => g.name);
 
   const onShare = () => {
@@ -101,9 +102,12 @@ export default function GalleryUploadDetailScreen() {
                 >
                   {/* 피그마 583: 고른 방은 앞에 체크, 뒤에 '(현재 선택됨)' */}
                   <Ionicons name="checkmark" size={20} color={colors.textStrong} style={{ opacity: selected ? 1 : 0 }} />
-                  <AppText variant="body1">
+                  <AppText variant="body1" style={styles.flexShrink} numberOfLines={1}>
                     {g.name}
                     {selected ? ` ${t('gallery.currentSelected')}` : ''}
+                  </AppText>
+                  <AppText variant="label1" color={colors.textTertiary}>
+                    {t('gallery.memberCount', { count: g.memberCount })}
                   </AppText>
                 </Pressable>
               );
@@ -139,6 +143,7 @@ export default function GalleryUploadDetailScreen() {
 const useStyles = makeStyles((colors) => ({
   content: { paddingHorizontal: 0, paddingTop: 0 },
   flex: { flex: 1 },
+  flexShrink: { flexShrink: 1 },
   preview: { backgroundColor: colors.surfaceStrong },
   count: { position: 'absolute', right: 12, top: 12, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.5)' },
   rows: { paddingHorizontal: 20, paddingTop: 12, gap: 8 },

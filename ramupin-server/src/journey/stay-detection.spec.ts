@@ -100,4 +100,19 @@ describe('하루 여정 만들기', () => {
     const shuffled = [...points].reverse();
     expect(buildJourney(shuffled).stops).toEqual(buildJourney(points).stops);
   });
+
+  it('정확도가 나쁜 점은 이동 거리에 넣지 않는다 (대표 리포트 63)', () => {
+    const points = staying(0, 120, HOME);
+    // 실내에서 기지국으로 잡혀 500m 튄 점
+    points.splice(60, 0, { latitude: HOME.latitude + 500 / 111_320, longitude: HOME.longitude, measuredAt: new Date(base + 60.5 * 60_000), accuracy: 800 });
+    const journey = buildJourney(points);
+    expect(journey.totalDistanceM).toBe(0);
+    expect(journey.stops).toHaveLength(1);
+  });
+
+  it('같은 곳 근처 머문 곳이 짧은 이동으로 갈라지면 하나로 합친다 (대표 리포트 82)', () => {
+    const NEAR = { latitude: HOME.latitude + 70 / 111_320, longitude: HOME.longitude };
+    const points = [...staying(0, 60, HOME), ...staying(62, 120, NEAR)];
+    expect(buildJourney(points).stops).toHaveLength(1);
+  });
 });

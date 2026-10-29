@@ -19,7 +19,7 @@ export default function FriendShareScreen() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const { friendId } = useLocalSearchParams<{ friendId: string }>();
+  const { friendId, from } = useLocalSearchParams<{ friendId: string; from?: string }>();
   const { data: friends = [] } = useFriends();
   const friend = friends.find((f) => f.id === friendId);
   const { data: saved, isLoading, isError, refetch } = useShareSetting(friendId);
@@ -47,7 +47,8 @@ export default function FriendShareScreen() {
   return (
     <Screen
       title={t('screens.friendShare')}
-      tab="map"
+      // 사람들 탭에서 들어왔으면 아래 탭도 사람들 (대표 리포트 64)
+      tab={from === 'people' ? 'people' : 'map'}
       footer={<Button label={t('friendShare.save')} size="sm" disabled={!draft || save.isPending} onPress={onSave} />}
     >
       {isLoading || isError || !draft ? (

@@ -51,15 +51,12 @@ export default function MyProfileScreen() {
       title={t('screens.myProfile')}
       tab="map"
       contentStyle={styles.content}
-      headerRight={
-        <Pressable accessibilityRole="button" accessibilityLabel={t('myProfile.settings')} hitSlop={8} onPress={() => router.push('/settings/menu')}>
-          <Ionicons name="settings-outline" size={24} color={colors.text} />
-        </Pressable>
-      }
+      // 대표 리포트 93: 오른쪽 위 톱니는 아래 '설정' 메뉴와 같은 화면이라 뺐습니다
     >
       <ProfileCard onPress={() => router.push('/settings/profile-edit')} />
       <MenuItem label={t('myProfile.settings')} onPress={() => router.push('/settings/menu')} />
       <MenuItem label={t('myProfile.history')} onPress={() => router.push('/settings/history')} />
+      <MenuItem label={t('locationViews.title')} onPress={() => router.push('/settings/location-views')} />
 
       {open ? (
         <View style={styles.locationCard}>

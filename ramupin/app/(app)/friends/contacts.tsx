@@ -6,8 +6,9 @@ import { ActivityIndicator, Image, Linking, StyleSheet, View } from 'react-nativ
 import { friendsApi } from '@/api';
 import { AppText, Button, Screen, ToggleRow } from '@/components/ui';
 import { RequestSentPopup } from '@/features/friends/RequestSentPopup';
+import { FriendRow } from '@/features/friends/FriendRow';
 import { SuggestionCard } from '@/features/friends/SuggestionCard';
-import { useContactDiscoverable, useSendFriendRequest, useSetContactDiscoverable } from '@/features/friends/queries';
+import { useContactDiscoverable, useFriends, useSendFriendRequest, useSetContactDiscoverable } from '@/features/friends/queries';
 import { useColors } from '@/theme';
 import type { FriendSuggestion } from '@/types/models';
 
@@ -23,6 +24,7 @@ export default function ContactFriendsScreen() {
   const send = useSendFriendRequest();
   const { data: discoverable = true } = useContactDiscoverable();
   const setDiscoverable = useSetContactDiscoverable();
+  const { data: friends = [] } = useFriends();
 
   const sync = async () => {
     const { granted } = await requestPermissionsAsync();
@@ -36,8 +38,10 @@ export default function ContactFriendsScreen() {
       const phoneNumbers = contacts
         .flatMap((c) => c.phones ?? [])
         .map((p) => (p.number ?? '').replace(/[^0-9+]/g, ''))
-        .filter(Boolean);
-      setSuggestions(await friendsApi.matchContacts(phoneNumbers));
+        // 112·1588-xxxx 같은 짧은 번호가 하나라도 있으면 서버가 목록 전체를 거절했습니다 (9~20자리만, 대표 리포트 17)
+        .filter((n) => n.length >= 9 && n.length <= 20);
+      const unique = [...new Set(phoneNumbers)];
+      setSuggestions(await friendsApi.matchContacts(unique));
       setStep('done');
     } catch (error) {
       // 실패했는데 'syncing' 에 머물면 화면이 영원히 돕니다 (09-21)
@@ -58,6 +62,17 @@ export default function ContactFriendsScreen() {
     <Screen title={t('screens.contactFriends')} contentStyle={styles.content}>
       {step === 'done' ? (
         <View style={styles.list}>
+          {/* 이미 등록된 친구를 먼저, 그 아래 주소록에서 찾은 사람 (대표 리포트 27) */}
+          {friends.length > 0 ? (
+            <>
+              <AppText variant="label1" color={colors.textTertiary}>
+                {t('friendAdd.registeredFriends', { count: friends.length })}
+              </AppText>
+              {friends.map((f) => (
+                <FriendRow key={f.id} friend={f} />
+              ))}
+            </>
+          ) : null}
           <AppText variant="label1" color={colors.textTertiary}>
             {t('friendAdd.peopleYouMayKnow')}
           </AppText>

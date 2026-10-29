@@ -71,7 +71,8 @@ export default function FriendSettingsScreen() {
             <AppText variant="listTitle" style={styles.flex} numberOfLines={1}>
               {f.nickname}
             </AppText>
-            <Button label={t('friendSettings.remove')} variant="primaryLight" size="xs" shape="square" onPress={() => setRemoving(f)} />
+            {/* 대표 리포트 57: 삭제가 파란 주 버튼처럼 보여 테두리만 있는 보조 버튼으로 (누르면 확인 창) */}
+            <Button label={t('friendSettings.remove')} variant="white" size="xs" shape="square" onPress={() => setRemoving(f)} style={[styles.removeButton, { borderColor: colors.border }]} />
           </Card>
         ))}
       </View>
@@ -114,4 +115,5 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   list: { gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 52, paddingLeft: 8, paddingRight: 16 },
+  removeButton: { borderWidth: 1 },
 });

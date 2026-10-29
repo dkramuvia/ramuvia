@@ -46,6 +46,8 @@ export interface ChatRoomResponse {
   lastMessage?: string;
   updatedAt: string;
   unreadCount: number;
+  /** 1:1 방 (설정 화면이 그룹과 다름) */
+  isDirect: boolean;
 }
 
 const PAGE_SIZE = 50;
@@ -82,6 +84,8 @@ export class ChatService {
           .selectFrom('chat.messages as msg')
           .select('msg.text')
           .whereRef('msg.room_id', '=', 'g.id')
+          // 미리보기는 사람이 보낸 마지막 메시지. "들어왔습니다" 같은 안내는 대화가 없을 때만 (대표 리포트 39)
+          .orderBy(sql`msg.sender_id is null`)
           .orderBy('msg.created_at', 'desc')
           .limit(1)
           .as('last_text'),
@@ -89,6 +93,7 @@ export class ChatService {
           .selectFrom('chat.messages as msg2')
           .select('msg2.type')
           .whereRef('msg2.room_id', '=', 'g.id')
+          .orderBy(sql`msg2.sender_id is null`)
           .orderBy('msg2.created_at', 'desc')
           .limit(1)
           .as('last_type'),
@@ -119,6 +124,7 @@ export class ChatService {
       lastMessage: row.last_type === 'location' ? '위치를 공유했어요.' : row.last_type === 'photo' ? '사진을 보냈어요.' : (row.last_text ?? undefined),
       updatedAt: new Date(row.updated_at).toISOString(),
       unreadCount: Number(row.unread_count ?? 0),
+      isDirect: row.is_direct,
     }));
   }
 

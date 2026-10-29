@@ -8,7 +8,7 @@ import { AppText, Avatar, Button } from '@/components/ui';
 import { AppMapView } from '@/features/map/AppMapView';
 import { makeStyles, radius, useColors } from '@/theme';
 import type { ChatMessage } from '@/types/models';
-import { formatRelativeTime } from '@/utils/time';
+import { formatTimeOfDay } from '@/utils/time';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -22,12 +22,14 @@ interface MessageItemProps {
   onLongPress?: () => void;
   /** 1:1 에서 상대가 읽은 내 메시지 (보완 4.18) */
   read?: boolean;
+  /** 그룹방에서 내 메시지를 아직 안 읽은 사람 수 (대표 리포트 33) */
+  unreadBy?: number;
   /** 전송 실패한 내 메시지 다시 보내기 */
   onRetry?: () => void;
 }
 
 /** 피그마: 채팅방 말풍선 (283:34973), 위치 공유 카드 (283:35894) */
-export function MessageItem({ message, isMine, sender, showSender, showTime, onLongPress, read, onRetry }: MessageItemProps) {
+export function MessageItem({ message, isMine, sender, showSender, showTime, onLongPress, read, unreadBy, onRetry }: MessageItemProps) {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
@@ -82,14 +84,15 @@ export function MessageItem({ message, isMine, sender, showSender, showTime, onL
               {t(onRetry ? 'chat.failedRetry' : 'chat.failed')}
             </AppText>
           </Pressable>
-        ) : isMine && (read || showTime) ? (
+        ) : isMine && (read || showTime || !!unreadBy) ? (
           <AppText variant="caption" color="#8593A8">
+            {unreadBy ? <AppText variant="caption" color="#E2A400">{`${unreadBy} `}</AppText> : null}
             {read ? `${t('chat.read')} · ` : ''}
-            {formatRelativeTime(message.createdAt)}
+            {formatTimeOfDay(message.createdAt)}
           </AppText>
         ) : showTime ? (
           <AppText variant="caption" color="#8593A8">
-            {formatRelativeTime(message.createdAt)}
+            {formatTimeOfDay(message.createdAt)}
           </AppText>
         ) : null}
       </View>
@@ -169,7 +172,8 @@ function LocationCard({ message }: { message: ChatMessage }) {
           onPress={() =>
             router.push({
               pathname: '/place-picker',
-              params: { mode: 'view', lat: String(place.latitude), lng: String(place.longitude) },
+              // 보낸 사람이 본 주소를 그대로 보여 주고 길찾기 목적지로 씁니다 (대표 리포트 35·97)
+              params: { mode: 'view', lat: String(place.latitude), lng: String(place.longitude), name: place.placeName ?? '', address: place.address },
             })
           }
         />

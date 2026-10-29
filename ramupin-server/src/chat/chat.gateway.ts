@@ -223,6 +223,11 @@ export class ChatGateway implements OnGatewayConnection, OnApplicationShutdown {
     this.server?.to(`room:${roomId}`).emit('read', { roomId, userId, at });
   }
 
+  /** 친구 목록·요청이 바뀐 사람에게 알림 (요청·수락). 30초 새로고침을 기다리지 않게 (대표 리포트 70) */
+  emitFriendsChanged(userIds: string[]) {
+    for (const userId of userIds) this.server?.to(`user:${userId}`).emit('friends-changed', {});
+  }
+
   /** 방 목록이 바뀐 사람에게 알림 (초대·나가기) */
   emitRoomsChanged(userIds: string[]) {
     for (const userId of userIds) this.server?.to(`user:${userId}`).emit('rooms-changed', {});

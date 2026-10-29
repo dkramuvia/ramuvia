@@ -30,6 +30,8 @@ interface ServerSos {
   startedAt: string;
   status?: 'sent' | 'cancelled' | 'resolved';
   hasAudio?: boolean;
+  /** 이미 보낸 SOS 에 녹음이 붙었다는 알림 */
+  audioAdded?: boolean;
 }
 
 interface ServerMessage {
@@ -82,6 +84,13 @@ function connect(token: string) {
     queryClient.invalidateQueries({ queryKey: ['sos', 'received'] });
     // 취소 알림은 팝업을 띄우지 않습니다 — 이미 지나간 일이라 놀라게만 합니다
     if (payload.status === 'cancelled' || payload.status === 'resolved') return;
+    // 위치를 먼저 보내고 녹음은 뒤에 붙습니다 (대표 리포트 88). 같은 SOS 팝업이 떠 있으면 듣기 버튼만 켭니다
+    if (payload.audioAdded) {
+      const store = useAlertStore.getState();
+      const open = store.popup;
+      if (open?.kind === 'sos' && open.sosId === payload.sosId) useAlertStore.setState({ popup: { ...open, hasVoice: true } });
+      return;
+    }
     useAlertStore.getState().showPopup({
       kind: 'sos',
       sosId: payload.sosId,
@@ -125,6 +134,11 @@ function connect(token: string) {
       zoneName: payload.zoneName,
       place: { latitude: payload.place.latitude, longitude: payload.place.longitude, address: '' },
     });
+  });
+
+  // 친구 요청·수락이 오면 바로 목록을 다시 받습니다 (30초 새로고침을 기다리면 "20초 뒤에 친구가 생김", 대표 리포트 70)
+  socket.on('friends-changed', () => {
+    queryClient.invalidateQueries({ queryKey: friendKeys.list });
   });
 
   socket.on('rooms-changed', () => {

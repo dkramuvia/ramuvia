@@ -17,7 +17,16 @@ export type NotificationCategory =
   | 'groupActivity'
   | 'notice'
   | 'marketing'
-  | 'speeding';
+  | 'speeding'
+  /**
+   * 예약 메시지. 끄는 항목이 없습니다 (방해 금지만 따릅니다).
+   * 대표 리포트 23: 전에는 'notice' 로 보내 [공지사항 및 업데이트] 를 끄면 복약 알림 같은 예약 메시지까지 막혔습니다.
+   * 친구가 나에게 직접 맞춰 둔 메시지라 앱 공지와 같이 묶으면 안 됩니다.
+   */
+  | 'scheduledMessage';
+
+/** 끄고 켜는 칸이 따로 있는 종류 */
+type ToggleCategory = Exclude<NotificationCategory, 'scheduledMessage'>;
 
 /** 설정 표의 칸 이름 */
 const COLUMN = {
@@ -30,10 +39,10 @@ const COLUMN = {
   notice: 'notice',
   marketing: 'marketing',
   speeding: 'speeding',
-} as const satisfies Record<NotificationCategory, string>;
+} as const satisfies Record<ToggleCategory, string>;
 
 /** 안 켜 본 사람의 기본값. 광고성 알림만 기본이 꺼짐입니다 (정보통신망법) */
-const DEFAULT_ON: Record<NotificationCategory, boolean> = {
+const DEFAULT_ON: Record<ToggleCategory, boolean> = {
   sos: true,
   battery: true,
   geofence: true,
@@ -215,8 +224,8 @@ export class NotificationSettingsService {
 
     return rows
       .filter((row) => {
-        // 설정 줄이 아직 없으면(가입 직후) 기본값으로 봅니다
-        const on = row[COLUMN[category] as keyof typeof row] ?? DEFAULT_ON[category];
+        // 설정 줄이 아직 없으면(가입 직후) 기본값으로 봅니다. 칸이 없는 종류(예약 메시지)는 늘 켜짐
+        const on = category === 'scheduledMessage' ? true : (row[COLUMN[category] as keyof typeof row] ?? DEFAULT_ON[category]);
         if (!on) return false;
         if (!row.dnd_enabled) return true;
         return !inQuietHours(row.dnd_start ?? '23:00', row.dnd_end ?? '05:00', row.timezone ?? 'Asia/Seoul', now);

@@ -17,12 +17,22 @@ import { formatDate, formatTimeOfDay } from '@/utils/time';
 
 type Tab = 'all' | 'safety' | 'place';
 
-const EVENT_ICONS: Partial<Record<HistoryEventType, number>> = {
+/** 대표 리포트 95: 종류마다 아이콘 (있는 그림을 나눠 씁니다). 서버가 새 종류를 보내면 DEFAULT_ICON */
+const EVENT_ICONS: Record<HistoryEventType, number> = {
   sos: require('../../../assets/icons/history-sos.png'),
   geofenceArrive: require('../../../assets/icons/history-safezone.png'),
   geofenceLeave: require('../../../assets/icons/history-safezone.png'),
   batteryLow: require('../../../assets/icons/history-battery.png'),
+  gpsLost: require('../../../assets/icons/feed-checked.png'),
+  noMovement: require('../../../assets/icons/alert-no-movement.png'),
+  speeding: require('../../../assets/icons/alert-speeding.png'),
+  dangerZone: require('../../../assets/icons/history-sos.png'),
+  nearby: require('../../../assets/icons/feed-nearby.png'),
+  friendRequest: require('../../../assets/icons/card-request.png'),
+  placeShared: require('../../../assets/icons/card-place.png'),
+  notice: require('../../../assets/icons/card-request.png'),
 };
+const DEFAULT_ICON = require('../../../assets/icons/card-request.png');
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
 
 /**
@@ -109,7 +119,7 @@ function EventHistory({ category }: { category?: 'safety' }) {
           }}
           style={[styles.eventCard, item.type === 'sos' && styles.eventSos]}
         >
-          {EVENT_ICONS[item.type] ? <Image source={EVENT_ICONS[item.type]} style={styles.eventIcon} /> : <View style={styles.eventIcon} />}
+          <Image source={EVENT_ICONS[item.type] ?? DEFAULT_ICON} style={styles.eventIcon} />
           <View style={styles.eventTexts}>
             {/* SOS 칸은 늘 연분홍이라 그 위 글자도 고정으로 어둡게 (테마를 따르면 다크에서 안 보입니다) */}
             <AppText variant="body2Bold" color={item.type === 'sos' ? ON_SOS : colors.text}>
@@ -199,15 +209,16 @@ function PlaceHistory() {
           <Pressable accessibilityRole="button" onPress={() => router.push(`/journey/${item.userId}`)} style={styles.stopsCard}>
             {item.stops.map((stop) => (
               <View key={stop.arrivedAt} style={styles.stop}>
-                <View style={styles.flex}>
-                  <AppText variant="body2Bold">{stop.placeName ?? stop.address}</AppText>
+                {/* 대표 리포트 82: 긴 주소는 줄바꿈하고 시각은 오른쪽에 그대로 (주소가 시각을 밀어내지 않게) */}
+                <View style={styles.stopTexts}>
+                  <AppText variant="body2Bold">{stop.placeName || stop.address}</AppText>
                   {stop.placeName ? (
                     <AppText variant="label1" color={colors.textSecondary}>
                       {stop.address}
                     </AppText>
                   ) : null}
                 </View>
-                <AppText variant="label2" color={colors.textSecondary}>
+                <AppText variant="label2" color={colors.textSecondary} style={styles.stopTime}>
                   {formatTimeOfDay(stop.arrivedAt)}
                 </AppText>
               </View>
@@ -240,5 +251,7 @@ const useStyles = makeStyles((colors) => ({
   pinIcon: { width: 28, height: 28 },
   dayBlock: { gap: 12 },
   stopsCard: { borderRadius: radius.md, backgroundColor: colors.surface, paddingVertical: 8, paddingHorizontal: 20 },
-  stop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  stop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 14 },
+  stopTexts: { flex: 1, flexShrink: 1, minWidth: 0 },
+  stopTime: { flexShrink: 0, paddingTop: 2 },
 }));

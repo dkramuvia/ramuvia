@@ -1,8 +1,27 @@
 diff --git a/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapView.java b/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapView.java
-index ebf8780..6501927 100644
+index ebf8780..5d2e5df 100644
 --- a/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapView.java
 +++ b/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapView.java
-@@ -1171,19 +1171,21 @@ public class MapView extends com.google.android.gms.maps.MapView implements Goog
+@@ -337,6 +337,18 @@ public class MapView extends com.google.android.gms.maps.MapView implements Goog
+                     for (int i = 0; i < savedFeatures.size(); i++) {
+                         MapFeature savedFeature = savedFeatures.get(i);
+                         if (savedFeature != null) {
++                            // ramupin patch: the marker may still be on the map from before detach;
++                            // addToMap below would add a second, untracked copy (ghost marker)
++                            if (savedFeature instanceof MapMarker) {
++                                Object stale = savedFeature.getFeature();
++                                if (stale instanceof Marker) {
++                                    try {
++                                        ((Marker) stale).remove();
++                                    } catch (Exception e) {
++                                        Log.w("MapView", "stale marker remove failed: " + e.getMessage());
++                                    }
++                                }
++                            }
+                             addFeature(savedFeature, i);
+                         }
+                     }
+@@ -1171,19 +1183,21 @@ public class MapView extends com.google.android.gms.maps.MapView implements Goog
                  savedFeatures = new ArrayList<>();
              }
  
@@ -30,3 +49,23 @@ index ebf8780..6501927 100644
      }
  
      public void addFeature(View child, int index) {
+@@ -1284,7 +1298,18 @@ public class MapView extends com.google.android.gms.maps.MapView implements Goog
+     }
+ 
+     public void removeFeatureAt(int index) {
+-        MapFeature feature = features.remove(index);
++        MapFeature feature;
++        if (index >= 0 && index < features.size()) {
++            feature = features.remove(index);
++        } else if (savedFeatures != null && index >= 0 && index < savedFeatures.size()) {
++            // ramupin patch: while the map is detached (another tab is shown) the children live in
++            // savedFeatures and features is empty. Remove from there too, otherwise the removed
++            // marker came back on re-attach next to the re-added one (two icons for one friend).
++            feature = savedFeatures.remove(index);
++        } else {
++            // ramupin patch: out of range (already gone) - ignore instead of IndexOutOfBounds
++            return;
++        }
+         if (feature instanceof MapMarker) {
+             markerMap.remove(feature.getFeature());
+             feature.removeFromMap(markerCollection);

@@ -22,7 +22,8 @@ type SettingKey =
   | 'marketing';
 
 const SECTIONS: { titleKey: string; items: SettingKey[] }[] = [
-  { titleKey: 'sectionSafety', items: ['sos', 'battery', 'speeding'] },
+  // 대표 리포트 20: 과속 경고는 메뉴에서 숨김 (서버 설정값·알림은 그대로 둡니다)
+  { titleKey: 'sectionSafety', items: ['sos', 'battery'] },
   { titleKey: 'sectionLocation', items: ['geofence', 'locationRequest'] },
   { titleKey: 'sectionSocial', items: ['friendRequest', 'groupActivity'] },
   { titleKey: 'sectionSystem', items: ['notice', 'marketing'] },
@@ -87,13 +88,14 @@ export default function NotificationSettingsScreen() {
             <ToggleRow
               key={key}
               title={t(`notificationSettings.${key}`)}
-              // SOS 는 꺼도 서버가 보냅니다. 끄면 그 사실을 알려 줍니다
+              // 대표 리포트 47: SOS 는 끌 수 없습니다 (서버도 설정과 상관없이 보냅니다). 항상 켜진 채로 잠가 둡니다
               description={
-                key === 'sos' && !settings.sos
+                key === 'sos'
                   ? t('notificationSettings.sosAlwaysOn')
                   : t(`notificationSettings.${key}Desc`, { level: BATTERY_ALERT_LEVEL })
               }
-              value={settings[key]}
+              value={key === 'sos' ? true : settings[key]}
+              disabled={key === 'sos'}
               onValueChange={(value) => patch({ [key]: value } as Partial<NotificationSettings>)}
             />
           ))}

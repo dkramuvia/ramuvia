@@ -56,6 +56,26 @@ export const sosApi = {
     return data;
   },
 
+  /**
+   * 이미 보낸 SOS 에 녹음을 붙입니다 (대표 리포트 88).
+   * 위치는 카운트다운 직후 바로 보내고(send), 녹음은 끝나는 대로 여기로 올립니다.
+   * 실패해도 SOS 자체는 이미 갔으므로 false 만 돌려줍니다
+   */
+  async attachAudio(sosId: string, audioUri: string): Promise<boolean> {
+    if (!isLive('sos')) return mockResponse(true, 600);
+    const audioAssetId = await uploadAudio(audioUri).catch(() => null);
+    if (!audioAssetId) return false;
+    await apiClient.post(`/sos/${sosId}/audio`, { audioAssetId });
+    return true;
+  },
+
+  /** 내가 보낸 SOS (대표 리포트 73) */
+  async sent(): Promise<SentSos[]> {
+    if (!isLive('sos')) return mockResponse([]);
+    const { data } = await apiClient.get<SentSos[]>('/sos/sent');
+    return data;
+  },
+
   /** SOS 녹음 듣기 주소 (받은 사람·보낸 사람만, 잠깐 뒤 만료) */
   async audioUrl(sosId: string): Promise<string | null> {
     if (!isLive('sos')) return mockResponse(null);
@@ -69,7 +89,6 @@ export const sosApi = {
     await apiClient.post(`/sos/${sosId}/cancel`);
   },
 
-  /** 내가 받은 SOS (알림 보관함) */
   /** 보낸 뒤 "상황 종료 (안전함)". 받은 사람들에게 안전하다고 전달됩니다 */
   async resolve(sosId: string): Promise<void> {
     if (!isLive('sos')) return mockResponse(undefined);
@@ -95,6 +114,7 @@ export const sosApi = {
     await apiClient.post(`/sos/${sosId}/sms/${deliveryId}/resend`);
   },
 
+  /** 내가 받은 SOS (알림 보관함) */
   async received(): Promise<ReceivedSos[]> {
     if (!isLive('sos')) return mockResponse([]);
     const { data } = await apiClient.get<ReceivedSos[]>('/sos/received');
@@ -118,10 +138,33 @@ export interface ReceivedSos {
   longitude: number | null;
   placeName: string | null;
   placeAddress: string | null;
+  /** 고도(m). 예전 서버나 못 잡은 경우 없음 */
+  altitude?: number | null;
+  /** 녹음이 붙어 있는지 (있으면 sosApi.audioUrl 로 듣기) */
+  hasAudio?: boolean;
   status: 'sent' | 'cancelled' | 'resolved';
   startedAt: string;
   createdAt: string;
   readAt: string | null;
+}
+
+/** 내가 보낸 SOS (GET /sos/sent) */
+export interface SentSos {
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  placeName: string | null;
+  placeAddress: string | null;
+  hasAudio: boolean;
+  status: 'sent' | 'cancelled' | 'resolved';
+  /** 앱 알림을 받은 친구 수 */
+  recipientCount: number;
+  /** 받은 친구 이름 (문자 받은 연락처는 빠짐) */
+  recipientNames: string[];
+  toMonitoring: boolean;
+  startedAt: string;
+  createdAt: string;
 }
 
 /** 녹음 파일을 사진과 같은 방식으로 저장소에 올립니다 */

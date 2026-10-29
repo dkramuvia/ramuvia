@@ -59,7 +59,8 @@ export default function JourneyScreen() {
   const [view, setView] = useState<'summary' | 'timeline'>(isMe || params.view === 'timeline' ? 'timeline' : 'summary');
 
   const lastStop = journey?.stops[journey.stops.length - 1];
-  const current = lastStop ?? friend?.location ?? null;
+  // 친구는 지금 위치(실시간)를 먼저 봅니다. 마지막 머문 곳은 이동 중이면 한참 뒤쪽이라 로드뷰·핀이 엉뚱했습니다 (대표 리포트 5)
+  const current = (!isMe ? friend?.location : null) ?? lastStop ?? friend?.location ?? null;
   // 거리뷰(로드뷰)는 네이버 지도일 때만 (대표님 10-12)
   const streetView = useMapProvider(current ?? FALLBACK) === 'naver';
   const areaName = useAreaName(current);

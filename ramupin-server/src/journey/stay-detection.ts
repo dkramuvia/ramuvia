@@ -15,11 +15,24 @@ import { distanceM } from '../safe-zones/geo.js';
 export const STAY_RADIUS_M = 50;
 /** 이 시간(분)을 넘겨야 "머물렀다" 로 칩니다. 신호 대기 정도는 머문 것이 아닙니다 */
 export const MIN_STAY_MINUTES = 5;
+/**
+ * 정확도(m)가 이보다 나쁜 점은 버립니다.
+ * 대표 리포트 63: 실내에서 기지국으로 잡힌 점이 수백 m 씩 튀어, 같은 주소에 있었는데 하루 3.4km 를 이동한 것으로 나왔습니다
+ */
+export const MAX_ACCURACY_M = 100;
+/** 이동 거리는 이만큼(m) 넘게 움직였을 때만 셉니다. 제자리 흔들림이 쌓여 거리가 되는 것을 막습니다 */
+export const MIN_MOVE_M = 30;
+/** 대표 리포트 82: 이 반경(m) 안의 머문 곳 두 개가 짧은 이동으로만 갈라져 있으면 하나로 합칩니다 */
+export const MERGE_STAY_RADIUS_M = 100;
+/** 그 짧은 이동의 최대 길이(분) */
+export const MERGE_GAP_MINUTES = 5;
 
 export interface Point {
   latitude: number;
   longitude: number;
   measuredAt: Date;
+  /** 측정 정확도(m). 모르면 비움 */
+  accuracy?: number | null;
 }
 
 export interface Stop {
@@ -50,7 +63,10 @@ export interface Journey {
  * 기준점이 같이 끌려가면서 한 시간 걸은 것도 "한자리에 머묾"이 됩니다.
  */
 export function buildJourney(points: Point[]): Journey {
-  const sorted = [...points].sort((a, b) => a.measuredAt.getTime() - b.measuredAt.getTime());
+  const accurate = points.filter((p) => p.accuracy == null || p.accuracy <= MAX_ACCURACY_M);
+  // 전부 부정확하면(실내에만 있던 날) 아무것도 안 보이는 것보다 있는 그대로가 낫습니다
+  const usable = accurate.length > 0 ? accurate : points;
+  const sorted = [...usable].sort((a, b) => a.measuredAt.getTime() - b.measuredAt.getTime());
   if (sorted.length === 0) return { stops: [], route: [], totalDistanceM: 0 };
 
   const clusters = groupIntoClusters(sorted);
@@ -122,12 +138,52 @@ function groupIntoClusters(sorted: Point[]): Cluster[] {
     else merged.push(cluster);
   }
 
-  return merged.map((c, i) => ({ ...c, isLast: i === merged.length - 1 }));
+  return mergeNearbyStays(merged).map((c, i) => ({ ...c, isLast: i === merged.length - 1 }));
 }
 
+/**
+ * 가까운 머문 곳 두 개가 바로 붙어 있거나 짧은 이동(5분 미만)으로만 갈라져 있으면 하나로 합칩니다.
+ * 대표 리포트 82: 반경 50m 를 살짝 벗어난 흔들림 때문에 같은 주소가 히스토리에 여러 번 나열됐습니다
+ */
+function mergeNearbyStays(clusters: { points: Point[]; stayed: boolean }[]) {
+  const out: { points: Point[]; stayed: boolean }[] = [];
+  for (const cluster of clusters) {
+    if (cluster.stayed) {
+      const last = out[out.length - 1];
+      const gap = last && !last.stayed ? last : null;
+      const prevStay = gap ? out[out.length - 2] : last;
+      const gapMinutes = prevStay
+        ? (cluster.points[0].measuredAt.getTime() - prevStay.points[prevStay.points.length - 1].measuredAt.getTime()) / 60_000
+        : Infinity;
+      if (prevStay?.stayed && gapMinutes < MERGE_GAP_MINUTES && distanceM(prevStay.points[0], cluster.points[0]) <= MERGE_STAY_RADIUS_M) {
+        if (gap) {
+          prevStay.points.push(...gap.points);
+          out.pop();
+        }
+        prevStay.points.push(...cluster.points);
+        continue;
+      }
+    }
+    out.push(cluster);
+  }
+  return out;
+}
+
+/**
+ * 이동 거리. 마지막으로 센 점에서 max(두 점의 정확도, 30m) 를 넘게 벗어났을 때만 더합니다.
+ * 바로 앞 점과만 비교하면 천천히 걸을 때 한 칸씩은 늘 30m 미만이라 거리가 0 이 됩니다
+ */
 function totalDistance(points: Point[]): number {
+  if (points.length === 0) return 0;
   let sum = 0;
-  for (let i = 1; i < points.length; i += 1) sum += distanceM(points[i - 1], points[i]);
+  let anchor = points[0];
+  for (const point of points.slice(1)) {
+    const d = distanceM(anchor, point);
+    if (d > Math.max(anchor.accuracy ?? 0, point.accuracy ?? 0, MIN_MOVE_M)) {
+      sum += d;
+      anchor = point;
+    }
+  }
   return sum;
 }
 

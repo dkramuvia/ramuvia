@@ -3,6 +3,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { PixelRatio, StyleSheet, View } from 'react-native';
 
 import { anchorFor, iconSizeDp, useMarkerPress } from './markerPress';
+import { usePinImageReady } from './PinMarker';
 import { MarkerRenderContext, spriteSizeDp } from './spriteClock';
 import { LiveSprite } from './StatusBadge';
 import type { SpriteSheet } from './spriteTypes';
@@ -35,7 +36,7 @@ type Size = { width: number; height: number };
  * 그려진 크기를 재서 넘깁니다. 구글과 다른 점: 띄우기는 여백으로, 움직이는 그림은 뷰 안에서 (아래 설명).
  */
 export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function NaverMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, traffic, tilted = false, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, initialDelta, mapType, nightMode, traffic, tilted = false, style },
   ref,
 ) {
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -62,6 +63,8 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
 
   useImperativeHandle(ref, () => ({
     moveTo: (coordinate, zoomDelta) => mapRef.current?.animateCameraTo({ ...coordinate, zoom: zoomOf(zoomDelta ?? initialDelta), duration: 400 }),
+    // 줌을 넘기지 않으면 지금 확대 정도 그대로 옮깁니다
+    panTo: (coordinate) => mapRef.current?.animateCameraTo({ latitude: coordinate.latitude, longitude: coordinate.longitude, duration: 400 }),
     fitTo: (coordinates) => {
       if (coordinates.length === 0) return;
       const lats = coordinates.map((c) => c.latitude);
@@ -82,6 +85,8 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
       <NaverMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
+        // SurfaceView 는 다른 탭 화면 위로 비쳐 보였습니다 (대표 리포트 72, 갤러리 탭에 지도가 겹침). 띄운 뒤에는 못 바꿉니다
+        isUseTextureViewAndroid
         initialCamera={{ ...initialCenter, zoom: zoomOf(initialDelta), tilt }}
         mapType={MAP_TYPES[mapType]}
         // 바텀시트·광고 등에 가려지는 만큼 지도 안쪽 여백
@@ -98,7 +103,14 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
         isTiltGesturesEnabled={interactive}
         // 탭 위치는 픽셀로 옵니다 (좌표 변환 coordinateToScreen 은 dp). dp 로 맞춥니다
         onTapMap={(e) => press.resolveAt({ x: e.x / PixelRatio.get(), y: e.y / PixelRatio.get() })}
-        onCameraChanged={onCenterChange ? (e) => onCenterChange({ latitude: e.latitude, longitude: e.longitude }) : undefined}
+        onCameraChanged={
+          onCenterChange || onUserGesture
+            ? (e) => {
+                if (e.reason === 'Gesture') onUserGesture?.();
+                onCenterChange?.({ latitude: e.latitude, longitude: e.longitude });
+              }
+            : undefined
+        }
       >
         {circles.map((c) => (
           <NaverMapCircleOverlay
@@ -121,8 +133,10 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
         */}
         <MarkerRenderContext.Provider value="live">
           {markers.map((m) => {
-            // 위아래 순서가 바뀌면 새로 만듭니다 (구글과 같게 — 겹친 마커 순서를 확실히 맞추려고)
-            const key = `${m.id}@${m.zIndex ?? 0}`;
+            // **key 에 zIndex 를 넣지 않습니다.** 친구를 누를 때마다 마커를 떼고 다시 붙이다 앱이 꺼졌습니다
+            // (대표 리포트 4, 네이버 SDK 마커 목록과 어긋나는 RNCNaverMapView.removeOverlay 경로).
+            // 네이버는 zIndex 를 나중에 바꿔도 지도에 그대로 들어가서 새로 만들 필요가 없습니다
+            const key = m.id;
             if (m.sprite) return <NaverSprite key={key} coordinate={m.coordinate} sheet={m.sprite.sheet} offset={m.sprite.offset} zIndex={m.zIndex} />;
             return <NaverItem key={key} item={m} onSize={(size) => press.setSize(m.id, size)} />;
           })}
@@ -142,6 +156,8 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
  */
 function NaverItem({ item, onSize }: { item: MapMarkerItem; onSize?: (size: Size) => void }) {
   const [box, setBox] = useState<Size | null>(null);
+  // 사진 핀 그림을 다 받기 전에는 이름 핀 뷰로 (PinMarker usePinImageReady, 대표 리포트 66)
+  const imageReady = usePinImageReady(item.iconImage);
   const common = {
     latitude: item.coordinate.latitude,
     longitude: item.coordinate.longitude,
@@ -151,7 +167,7 @@ function NaverItem({ item, onSize }: { item: MapMarkerItem; onSize?: (size: Size
     isHideCollidedCaptions: false,
   };
 
-  if (item.iconImage) {
+  if (item.iconImage && (imageReady || !item.children)) {
     const size = iconSizeDp(item.iconImage);
     // 사진 프로필 핀은 인터넷 주소라 네이버 지도 형식({ httpUri })으로 넘깁니다
     const image = typeof item.iconImage === 'object' && item.iconImage.uri ? { httpUri: item.iconImage.uri } : (item.iconImage as number);

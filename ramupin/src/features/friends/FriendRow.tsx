@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Avatar, BatteryBadge, Card, CheckCircle, ShareLevelIcon } from '@/components/ui';
+import { useColors } from '@/theme';
 import type { LocationShareLevel } from '@/types/models';
+import { formatRelativeTime } from '@/utils/time';
 
 export interface PersonSummary {
   id: string;
@@ -11,6 +13,8 @@ export interface PersonSummary {
   isOnline?: boolean;
   batteryLevel?: number;
   myShareLevel?: LocationShareLevel;
+  /** 마지막으로 위치를 받은 때. 연결이 끊긴 친구를 구분하는 데 씁니다 */
+  location?: { updatedAt: string };
 }
 
 interface FriendRowProps {
@@ -31,20 +35,30 @@ interface FriendRowProps {
  * 기획: 공유 아이콘은 "그 친구에 대한 나의 공유 상태", 배터리는 "친구의 현재 배터리".
  */
 export function FriendRow({ friend, onPress, tag, selected, checkColor, action }: FriendRowProps) {
+  const colors = useColors();
   const selectable = selected !== undefined;
+  // 5분 넘게 소식이 없는 친구는 배터리가 지금 값이 아닙니다. 마지막으로 받은 때를 보여 주고 흐리게 (대표 리포트 80)
+  const stale = !selectable && friend.isOnline === false && !!friend.location?.updatedAt;
   return (
     <Card onPress={onPress} style={[styles.card, selectable && styles.cardSelectable]}>
       <View style={styles.left}>
         <Avatar name={friend.nickname} imageUrl={friend.avatarUrl} online={selectable ? undefined : friend.isOnline} />
-        <AppText variant="listTitle" numberOfLines={1} style={styles.name}>
-          {friend.nickname}
-        </AppText>
+        <View style={styles.name}>
+          <AppText variant="listTitle" numberOfLines={1}>
+            {friend.nickname}
+          </AppText>
+          {stale ? (
+            <AppText variant="caption" color={colors.textTertiary} numberOfLines={1}>
+              {formatRelativeTime(friend.location!.updatedAt)}
+            </AppText>
+          ) : null}
+        </View>
         {tag}
       </View>
       {selectable ? (
         <CheckCircle checked={selected} color={checkColor} />
       ) : (
-        <View style={styles.right}>
+        <View style={[styles.right, stale && styles.stale]}>
           {friend.myShareLevel ? <ShareLevelIcon level={friend.myShareLevel} /> : null}
           {friend.batteryLevel != null ? <BatteryBadge level={friend.batteryLevel} /> : null}
           {action}
@@ -68,4 +82,5 @@ const styles = StyleSheet.create({
   left: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { flexShrink: 1 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stale: { opacity: 0.45 },
 });

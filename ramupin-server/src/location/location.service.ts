@@ -244,13 +244,14 @@ export class LocationService {
   async dayPoints(userId: string, from: Date, to: Date) {
     const rows = await this.db
       .selectFrom('location.location_points')
-      .select(['latitude_enc', 'longitude_enc', 'measured_at'])
+      // 대표 리포트 63: 정확도(m)도 가져와 오차 큰 점을 거리 계산에서 뺍니다 (stay-detection.ts)
+      .select(['latitude_enc', 'longitude_enc', 'accuracy', 'measured_at'])
       .where('user_id', '=', userId)
       .where('measured_at', '>=', from)
       .where('measured_at', '<', to)
       .orderBy('measured_at')
       .execute();
-    return rows.map((r) => ({ ...readCoords(r.latitude_enc, r.longitude_enc), measured_at: r.measured_at }));
+    return rows.map((r) => ({ ...readCoords(r.latitude_enc, r.longitude_enc), accuracy: r.accuracy, measured_at: r.measured_at }));
   }
 
   /**
@@ -436,7 +437,13 @@ export class LocationService {
     return Number(points.numAffectedRows ?? 0) + Number(stays.numAffectedRows ?? 0);
   }
 
+  /**
+   * 최근에 내 위치를 본 사람.
+   * 대표 리포트 60: 지도·목록·여정을 열 때마다 기록이 남아 같은 시각 "내 위치를 확인했습니다" 가 3~4개씩 보였습니다.
+   * 기록(확인자료)은 법상 남겨야 하므로 그대로 두고, 보여 줄 때만 한 사람당 10분에 한 줄(가장 최근)로 줄입니다
+   */
   async recentViewers(userId: string, since: Date, limit: number) {
+    const BUCKET_MS = 10 * 60_000;
     const rows = await this.db
       .selectFrom('location.location_access_logs')
       .select(['id', 'viewer_user_id', 'accessed_at'])
@@ -447,9 +454,19 @@ export class LocationService {
       .where('purpose', 'in', VIEW_PURPOSES)
       .where('accessed_at', '>=', since)
       .orderBy('accessed_at', 'desc')
-      .limit(limit)
+      // 줄인 뒤에도 limit 만큼 남도록 넉넉히 가져옵니다
+      .limit(limit * 10)
       .execute();
-    return rows.map((r) => ({ id: r.id, viewerUserId: r.viewer_user_id as string, accessedAt: r.accessed_at }));
+    const seen = new Set<string>();
+    const result: { id: string; viewerUserId: string; accessedAt: Date }[] = [];
+    for (const r of rows) {
+      const bucket = `${r.viewer_user_id}|${Math.floor(r.accessed_at.getTime() / BUCKET_MS)}`;
+      if (seen.has(bucket)) continue;
+      seen.add(bucket);
+      result.push({ id: r.id, viewerUserId: r.viewer_user_id as string, accessedAt: r.accessed_at });
+      if (result.length >= limit) break;
+    }
+    return result;
   }
 
   /**

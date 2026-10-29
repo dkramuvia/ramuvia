@@ -210,6 +210,23 @@ class GalleryController {
     return Promise.all(rows.map((row) => this.withMedia(row, user.id)));
   }
 
+  /**
+   * 내 그룹방마다 게시물 수 (대표 리포트 12 ④: 갤러리 그룹 목록에 장수 표시).
+   * 게시물이 없는 방은 빠집니다 — 앱이 0 으로 봅니다
+   */
+  @Get('groups/counts')
+  async groupCounts(@CurrentUser() user: AuthUser) {
+    const rows = await this.db
+      .selectFrom('media.posts as p')
+      .innerJoin('social.group_members as gm', 'gm.group_id', 'p.group_id')
+      .select(['p.group_id as groupId', (eb) => eb.fn.countAll<string>().as('count')])
+      .where('gm.user_id', '=', user.id)
+      .where('p.deleted_at', 'is', null)
+      .groupBy('p.group_id')
+      .execute();
+    return rows.map((r) => ({ groupId: r.groupId, count: Number(r.count) }));
+  }
+
   /** 한 사람이 올린 것 모아 보기 (WBS 6.1). 같은 그룹에 있는 사람만 볼 수 있습니다 */
   @Get('users/:userId/posts')
   async userPosts(@CurrentUser() user: AuthUser, @Param('userId', ParseUUIDPipe) userId: string) {

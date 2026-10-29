@@ -119,7 +119,8 @@ export class ScheduledSenderService implements OnModuleInit, OnApplicationShutdo
           title: row.title,
           body: row.body,
           channel: 'general',
-          category: 'notice',
+          // 대표 리포트 23: 공지사항을 꺼도 예약 메시지는 와야 합니다
+          category: 'scheduledMessage',
           // 받는 사람 화면은 알림 보관함입니다. 예약 메시지 목록은 보낸 사람(보호자)의 것입니다
           route: '/settings/history',
           // 받는 폰이 소리로 읽어 줄지 판단합니다 (푸시 data 는 문자열만 담깁니다)

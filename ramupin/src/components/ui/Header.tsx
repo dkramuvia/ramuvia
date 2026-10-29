@@ -11,11 +11,13 @@ interface HeaderProps {
   /** 기본값: 뒤로 갈 화면이 있으면 표시 */
   showBack?: boolean;
   onBack?: () => void;
+  /** 왼쪽 버튼 모양. close = X (모달처럼 띄운 화면, 예: 갤러리 새로운 사진) */
+  backIcon?: 'back' | 'close';
   right?: ReactNode;
 }
 
 /** 피그마 상단 바: 높이 48, 뒤로가기 48x48 영역, 가운데 제목 (SUIT 16 bold) */
-export function Header({ title, showBack = router.canGoBack(), onBack, right }: HeaderProps) {
+export function Header({ title, showBack = router.canGoBack(), onBack, backIcon = 'back', right }: HeaderProps) {
   const colors = useColors();
   return (
     <View style={styles.container}>
@@ -25,12 +27,12 @@ export function Header({ title, showBack = router.canGoBack(), onBack, right }: 
       {showBack ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="뒤로가기"
+          accessibilityLabel={backIcon === 'close' ? '닫기' : '뒤로가기'}
           hitSlop={4}
           onPress={onBack ?? (() => router.back())}
           style={styles.side}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name={backIcon === 'close' ? 'close' : 'chevron-back'} size={24} color={colors.text} />
         </Pressable>
       ) : (
         <View style={styles.side} />

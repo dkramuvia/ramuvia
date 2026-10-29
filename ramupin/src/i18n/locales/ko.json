@@ -51,7 +51,9 @@
     "statusStill": "머무는 중",
     "durationMinutes": "{{minutes}}분",
     "durationHours": "{{hours}}시간",
-    "durationHoursMinutes": "{{hours}}시간 {{minutes}}분"
+    "durationHoursMinutes": "{{hours}}시간 {{minutes}}분",
+    "hiding": "위치 숨김 중",
+    "hidingOff": "끄기"
   },
   "streetView": {
     "openInNaver": "네이버 지도에서 보기",
@@ -67,7 +69,8 @@
     "emptyRooms": "아직 대화방이 없어요.",
     "openChat": "1:1 대화",
     "unread": "안 읽음 {{count}}",
-    "archived": "나간 대화"
+    "archived": "나간 대화",
+    "addFriend": "친구 추가"
   },
   "groups": {
     "registeredFriends": "{{count}}명의 친구 등록됨",
@@ -162,7 +165,20 @@
     "photoUnavailable": "사진을 볼 수 없어요",
     "withLocation": "위치 포함",
     "photoSendTitle": "사진을 보낼까요?",
-    "includeLocation": "찍은 곳(현재 위치)도 함께 보내기"
+    "includeLocation": "찍은 곳(현재 위치)도 함께 보내기",
+    "forgetRoom": "이 휴대폰에서 대화 지우기",
+    "forgetTitle": "이 대화를 지울까요?",
+    "forgetMessage": "이미 나간 대화라 이 휴대폰에서만 지워져요. 지운 뒤에는 되돌릴 수 없어요.",
+    "messageMenu": "메시지",
+    "copy": "복사",
+    "copied": "복사했어요.",
+    "report": "신고하기",
+    "directSettings": "대화방 설정",
+    "directShare": "이 친구에게 내 위치 공개 설정",
+    "reportBlock": "{{name}}님 신고 · 차단",
+    "leaveDirect": "대화방 나가기",
+    "leaveDirectTitle": "대화방을 나갈까요?",
+    "leaveDirectMessage": "대화 내용이 이 휴대폰에서 지워져요. 친구 사이는 그대로예요."
   },
   "gallery": {
     "allGroups": "전체그룹방 ({{count}})",
@@ -191,7 +207,18 @@
     "emergency": "긴급 공지",
     "uploadFailed": "업로드에 실패했습니다",
     "storageFull": "공유 용량이 가득 찼습니다 ({{usedMb}}MB / {{limitMb}}MB)",
-    "planNoPhoto": "지금 등급에서는 사진 공유를 쓸 수 없습니다"
+    "planNoPhoto": "지금 등급에서는 사진 공유를 쓸 수 없습니다",
+    "fromAlbum": "기기 앨범에서 고르기",
+    "memberCount": "{{count}}명",
+    "groupMeta": "{{members}}명 · 사진 {{posts}}",
+    "viewAll": "사진 크게 보기",
+    "tileView": "모아 보기",
+    "saved": "기기 앨범에 저장했어요.",
+    "saveDenied": "사진 저장 권한이 없어 저장하지 못했어요.",
+    "saveFailed": "저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    "deleteTitle": "이 게시물을 삭제할까요?",
+    "deleteMessage": "삭제하면 그룹방에서 더 이상 보이지 않아요.",
+    "deleted": "게시물을 삭제했어요."
   },
   "plans": {
     "heroTitle": "지난 달의 이동기록도 언제든 다시",
@@ -241,7 +268,8 @@
     "notFound": "검색 결과가 없어요.",
     "related": "연관 검색어",
     "finding": "주소 확인 중...",
-    "myLocation": "내 위치로 이동"
+    "myLocation": "내 위치로 이동",
+    "directions": "네이버 지도로 길찾기"
   },
   "friendAdd": {
     "title": "친구 추가",
@@ -253,10 +281,10 @@
     "otherApps": "다른 앱의 친구",
     "shareInvite": "초대 링크 공유",
     "inviteMessage": "라무핀에서 친구해요! 제 ID는 {{id}} 입니다.",
-    "peopleYouMayKnow": "알만한 사람",
+    "peopleYouMayKnow": "알 만한 사람",
     "contactSync": "연락처 동기화",
-    "contactSyncDesc": "Ramupin의 연락처 엑세스 권한을 켜면\n주소록에서 친구를 찾는 데 도움을 드릴 수 있습니다.",
-    "contactSyncQuestion": "연락처를 동기화할까요?\nRamupin의 연락처 엑세스 권한을 켜면 주소록에서\n이미 앱을 쓰고 있는 내 친구들을 바로 찾을 수 있습니다.",
+    "contactSyncDesc": "라무핀의 연락처 액세스 권한을 켜면\n주소록에서 친구를 찾는 데 도움을 드릴 수 있습니다.",
+    "contactSyncQuestion": "연락처를 동기화할까요?\n라무핀의 연락처 액세스 권한을 켜면 주소록에서\n이미 앱을 쓰고 있는 내 친구들을 바로 찾을 수 있습니다.",
     "sync": "동기화",
     "contactsDenied": "연락처 권한이 꺼져 있어요. 설정에서 권한을 허용해 주세요.",
     "contactsEmpty": "주소록에서 라무핀을 쓰는 친구를 찾지 못했어요.",
@@ -301,7 +329,8 @@
     "nearbyDiscoverableDesc": "켜면 1km 안에 있는 다른 사용자에게 내가 보여요. 정확한 위치는 알려주지 않아요.",
     "nearbyNeedsOptIn": "위 설정을 켜야 근처 사람을 볼 수 있어요.",
     "copyId": "ID 복사",
-    "qrExpired": "QR 코드가 만료됐어요. 다시 보여 달라고 해 주세요."
+    "qrExpired": "QR 코드가 만료됐어요. 다시 보여 달라고 해 주세요.",
+    "registeredFriends": "등록된 친구 ({{count}})"
   },
   "groupInvite": {
     "title": "그룹방 초대",
@@ -351,7 +380,7 @@
   "settingsMenu": {
     "id": "ID:{{id}}",
     "premium": "프리미엄 서비스",
-    "messages": "메시지",
+    "messages": "예약 메시지",
     "notifications": "알림",
     "friends": "친구",
     "groups": "그룹",
@@ -360,8 +389,12 @@
     "map": "지도",
     "account": "계정 관리",
     "location": "위치 수집",
-    "sosReceived": "받은 SOS",
-    "languageRegion": "언어 · 지역"
+    "sosReceived": "SOS 기록",
+    "languageRegion": "언어 · 지역",
+    "sectionSafety": "안전",
+    "sectionSocial": "친구 · 그룹",
+    "sectionMap": "지도 · 위치",
+    "sectionAccount": "계정"
   },
   "myProfile": {
     "settings": "설정",
@@ -390,7 +423,9 @@
     "needCheck": "사용자명 중복확인을 해주세요.",
     "save": "설정 저장",
     "saved": "프로필을 저장했어요.",
-    "uploadFailed": "사진을 올리지 못했어요. 다시 시도해 주세요."
+    "uploadFailed": "사진을 올리지 못했어요. 다시 시도해 주세요.",
+    "unsupportedType": "JPG·PNG 사진만 쓸 수 있어요. 다른 사진을 골라 주세요.",
+    "tooLarge": "5MB 이하 사진만 쓸 수 있어요."
   },
   "history": {
     "all": "전체",
@@ -467,7 +502,17 @@
     "retry": "다시 보내기",
     "callEmergency": "긴급전화 ({{name}} {{number}})",
     "registerEmergency": "긴급전화 등록하기",
-    "resolveNote": "상황을 종료하면 받은 사람에게도 '안전해요' 알림이 가요."
+    "resolveNote": "상황을 종료하면 받은 사람에게도 '안전해요' 알림이 가요.",
+    "requestDescTo": "{{seconds}}초 후 내 SOS와 위치가 {{names}}에게 전송됩니다.",
+    "requestDescMonitoring": "{{seconds}}초 후 내 SOS와 위치가 라무핀 관제센터로 전송됩니다.",
+    "recordingDescTo": "위치는 이미 보냈어요. {{seconds}}초 동안 주변 소리를 녹음해 {{names}}에게 이어서 보냅니다.",
+    "recordingDescMonitoring": "위치는 이미 보냈어요. {{seconds}}초 동안 주변 소리를 녹음해 관제센터로 이어서 보냅니다.",
+    "recipientsIdle": "받는 사람: {{names}}",
+    "recipientsIdleNone": "지정한 받는 사람이 없어 라무핀 관제센터로 전송돼요.",
+    "namesMore": "{{names}} 외 {{count}}명",
+    "overLimit": "받는 사람이 {{count}}명으로 요금제 한도({{limit}}명)를 넘어 {{limit}}명에게만 전송돼요.",
+    "call112": "112 신고",
+    "call119": "119 신고"
   },
   "alerts": {
     "sosTitle": "{{name}}님의 SOS 긴급 발신",
@@ -531,11 +576,11 @@
     "scopeServer": "서버에도 보내지 않기",
     "scopeServerDesc": "위치가 아무 데도 가지 않아요. 대신 신호 끊김·움직임 없음 알림과 안심존 알림이 멈춰요. SOS를 누르면 그동안은 위치를 보내요.",
     "exact": "정확한 위치",
-    "exactDesc": "정확한 위치로 설정한 친구는 실시간으로 당신의 정확한 위치를 볼 수 있습니다",
+    "exactDesc": "정확한 위치로 설정한 친구는 내 정확한 위치를 실시간으로 볼 수 있어요.",
     "blurred": "흐림 위치",
-    "blurredDesc": "흐리게 설정한 친구는 귀하의 위치를 실시간으로 확인 가능하지만 대체적인 위치만 볼 수 있습니다.",
+    "blurredDesc": "흐린 위치로 설정한 친구는 내 위치를 실시간으로 보지만 대략적인 위치만 볼 수 있어요.",
     "hidden": "위치 공유 안 함",
-    "hiddenDesc": "다음 친구는 귀하의 위치를 볼 수 없습니다.",
+    "hiddenDesc": "다음 친구는 내 위치를 볼 수 없어요.",
     "none": "해당하는 친구가 없어요."
   },
   "friendSettings": {
@@ -606,7 +651,11 @@
     "timed": "시간 지정",
     "timeFrom": "시작",
     "timeTo": "끝",
-    "dwellNote": "안심존 경계에서 오가는 경우를 막기 위해, 3분 이상 머문 뒤에 알려요."
+    "dwellNote": "안심존 경계에서 오가는 경우를 막기 위해, 3분 이상 머문 뒤에 알려요.",
+    "usage": "장소 {{limit}}개 중 {{used}}개 사용",
+    "limitReachedUpgrade": "장소는 {{limit}}개까지 저장할 수 있어요. 프리미엄으로 바꾸면 더 저장할 수 있어요.",
+    "expandPanel": "목록 펼치기",
+    "collapsePanel": "목록 접기"
   },
   "safety": {
     "sosEnabled": "SOS 사용 설정",
@@ -720,8 +769,8 @@
   },
   "notificationSettings": {
     "dnd": "방해 금지",
-    "dndDesc": "이 시간 동안 알림을 받지 않아요.",
-    "sosAlwaysOn": "SOS 는 안전을 위해 꺼도 전달됩니다.",
+    "dndDesc": "이 시간 동안 알림을 받지 않아요. SOS는 방해 금지 중에도 울려요.",
+    "sosAlwaysOn": "안전을 위해 SOS 알림은 끌 수 없어요. 방해 금지 중에도 울려요.",
     "speeding": "과속 경고",
     "speedingDesc": "친구가 제한 속도를 크게 넘겨 이동할 때",
     "start": "시작",
@@ -777,7 +826,7 @@
     "startHeadline1": "Share location for",
     "startHeadline2": "safety and fun",
     "start": "시작하기",
-    "welcomeTitle": "Ramupin에 오신것을\n환영합니다.",
+    "welcomeTitle": "라무핀에 오신 것을\n환영합니다.",
     "signUpWith": "{{provider}}로 가입하기",
     "or": "Or",
     "haveAccount": "이미 계정이 있으신가요?",
@@ -810,21 +859,21 @@
     "verified": "인증 완료",
     "alreadyRegistered": "이미 가입된 번호예요. 로그인해 주세요.",
     "devCodeHint": "(개발용) 인증번호 123456",
-    "termsTitle": "Ramupin에 오신것을\n환영합니다.",
+    "termsTitle": "라무핀에 오신 것을\n환영합니다.",
     "termsSubtitle": "라무핀 서비스 약관 및 개인정보 동의",
     "termService": "서비스 이용약관 동의",
     "termLocation": "위치기반서비스 이용약관 동의",
     "termPrivacy": "개인정보 수집 및 이용 동의",
     "termMarketing": "마케팅 정보 수신 및 활용 동의",
-    "permTitle": "Ramupin이 회원님의 안전을 완벽하게 보호하기 위해서는 몇 가지 권한이 필요합니다.",
+    "permTitle": "라무핀이 회원님의 안전을 완벽하게 보호하기 위해서는 몇 가지 권한이 필요합니다.",
     "permLocationTitle": "지도에 표시되려면 위치 공유를 허용하세요",
-    "permLocationDesc": "'계속'을 클릭하면 라무핀이 개인정보 처리방침에 따라 귀하의 위치 및 동작 데이터를 사용하여 최적의 위치 서비스를 제공하고 앱 성능을 개선하는 것에 동의하게 됩니다. 수집된 정보는 보안 상태로 엄격히 보호되며, 설정에서 언제든지 동의를 철회할 수 있습니다.",
+    "permLocationDesc": "'계속'을 누르면 라무핀이 개인정보 처리방침에 따라 내 위치와 동작 데이터를 사용해 위치 서비스를 제공하고 앱 성능을 개선하는 데 동의하게 돼요. 수집된 정보는 안전하게 보호되며, 설정에서 언제든지 동의를 철회할 수 있어요.",
     "permChooseNext": "다음 화면에서 선택하세요.",
     "permWhileUsing": "앱을 사용하는 동안",
-    "permAlwaysTitle": "항상 위치 엑세스를 허용하면 더 나은 서비스를 이용할 수 있습니다",
+    "permAlwaysTitle": "항상 위치 액세스를 허용하면 더 나은 서비스를 이용할 수 있습니다",
     "permAlwaysDesc": "'항상 허용'을 선택하시면 앱을 켜지 않아도 실시간 위치 공유와 도착 알림을 끊김 없이 받을 수 있습니다.",
     "permAlways": "항상 허용",
-    "permActivityScreen": "이 장치의 신체 활동 정보에 엑세스 하도록 허용합니다.",
+    "permActivityScreen": "이 장치의 신체 활동 정보에 액세스 하도록 허용합니다.",
     "permActivityTitle": "정밀한 이동 상태 감지를 위한 권한 안내",
     "permActivityDesc": "실시간 이동 상태(걷기·차량 이동 등)를 감지하여 정확한 위치 및 안전 서비스를 제공하기 위해 신체 활동 데이터에 접근합니다.",
     "permNotiScreen": "꼭 필요한 알림만 받아보세요.",
@@ -842,7 +891,7 @@
     "continue": "계속",
     "later": "나중에 하기",
     "openSettings": "설정 열기",
-    "singleTitle": "Ramupin에 오신것을 환영합니다.\n1인가구 이신가요?",
+    "singleTitle": "라무핀에 오신 것을 환영합니다.\n1인가구 이신가요?",
     "singleYes": "1인 가구 모드를 활성화 할게요",
     "singleNo": "아니요",
     "xFailed": "X 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.",
@@ -913,7 +962,7 @@
     "checkout": "결제 정보",
     "freeTrial": "1개월 무료 체험",
     "locationSettings": "위치 수집",
-    "sosReceived": "받은 SOS",
+    "sosReceived": "SOS 기록",
     "friendAlerts": "친구별 맞춤 알림 설정",
     "myPlan": "내 플랜",
     "emergency": "긴급전화 · SOS 문자",
@@ -923,7 +972,7 @@
   },
   "locationSettings": {
     "background": "앱을 꺼도 위치 알리기",
-    "backgroundDesc": "앱을 보고 있지 않을 때도 위치를 모아 보호자에게 알립니다. 켜면 알림 하나가 계속 표시됩니다.",
+    "backgroundDesc": "앱을 보고 있지 않을 때도 위치를 모아 가족·친구와 서로의 안전을 확인해요. 켜면 알림 하나가 계속 표시돼요.",
     "started": "위치 수집을 켰습니다",
     "stopped": "위치 수집을 껐습니다",
     "needForeground": "위치 권한을 허용해야 사용할 수 있어요",
@@ -937,7 +986,7 @@
     "sendNow": "지금 보내기",
     "sent": "전송했습니다",
     "disclosureTitle": "앱을 보고 있지 않을 때도 위치를 씁니다",
-    "disclosureMessage": "라무핀은 앱이 닫혀 있거나 사용 중이 아닐 때도 위치 정보를 모아, 가족·보호자에게 알리고 위험 지역 접근과 긴급 상황을 알려 드립니다.\n\n다음 화면에서 \"항상 허용\"을 선택해 주세요. 이 기능은 언제든지 여기서 끌 수 있습니다.",
+    "disclosureMessage": "라무핀은 앱이 닫혀 있거나 사용 중이 아닐 때도 위치 정보를 모아, 가족·친구와 서로의 안전을 확인하고 위험 지역 접근과 긴급 상황을 알려 드려요.\n\n다음 화면에서 \"항상 허용\"을 선택해 주세요. 이 기능은 언제든지 여기서 끌 수 있어요.",
     "interval": "지금 수집 주기"
   },
   "sosReceived": {
@@ -945,7 +994,24 @@
     "cancelled": "취소됨",
     "noPlace": "위치를 확인하지 못했어요",
     "empty": "받은 SOS가 없어요.",
-    "menu": "받은 SOS"
+    "menu": "받은 SOS",
+    "tabReceived": "받은 SOS",
+    "tabSent": "보낸 SOS",
+    "sentTitle": "내가 보낸 SOS",
+    "sentTo": "{{names}}에게 전송",
+    "sentToCount": "{{count}}명에게 전송",
+    "sentToMonitoring": "관제센터에 전송",
+    "sentEmpty": "보낸 SOS가 없어요.",
+    "status_sent": "도움 요청 중",
+    "status_cancelled": "취소됨",
+    "status_resolved": "안전 확인됨",
+    "factAt": "보낸 시각",
+    "factPlace": "위치",
+    "factCoords": "GPS 좌표",
+    "factAltitude": "고도",
+    "showSpot": "그 위치 보기",
+    "playVoice": "녹음 듣기",
+    "pauseVoice": "멈추기"
   },
   "friendAlerts": {
     "question": "{{name}}님의 어떤 소식을 받을까요?",
@@ -1172,5 +1238,9 @@
     "resend": "문자 다시 보내기 ({{count}}번 남음)",
     "resent": "보호자에게 문자를 다시 보냈어요.",
     "check": "동의했는지 확인"
+  },
+  "locationViews": {
+    "title": "위치 확인 기록",
+    "empty": "아직 기록이 없어요."
   }
 }

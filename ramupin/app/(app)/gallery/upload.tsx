@@ -1,16 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Asset, AssetField, MediaType, Query, requestPermissionsAsync, type AssetMetadata } from 'expo-media-library';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText, Button, Header } from '@/components/ui';
+import { libraryAssetLocation, pickerAssetLocation } from '@/features/gallery/photoLocation';
+import { describePlace } from '@/features/location/address';
 import { useUploadDraftStore } from '@/stores/uploadDraftStore';
 import { layout, makeStyles, useColors } from '@/theme';
-import type { MediaAsset } from '@/types/models';
+import type { LatLng, MediaAsset } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
 // TODO(정책): 한 번에 올릴 수 있는 개수·동영상 길이는 등급별 정책값 (WBS 5.6)
@@ -31,6 +33,8 @@ interface Tile {
   duration?: number | null;
   /** 기기 사진이면 id. 올릴 때 실제 파일 주소로 바꿉니다 (Asset.getUri) */
   libraryId?: string;
+  /** 사진 선택기에서 고른 사진의 찍은 위치 (EXIF) */
+  location?: LatLng | null;
 }
 
 const fromMetadata = (m: AssetMetadata): Tile => ({
@@ -39,7 +43,9 @@ const fromMetadata = (m: AssetMetadata): Tile => ({
   type: m.mediaType === MediaType.VIDEO ? 'video' : 'image',
   width: m.width ?? 0,
   height: m.height ?? 0,
-  duration: m.duration,
+  // 미디어 라이브러리는 동영상 길이를 **밀리초**로 줍니다 (안드로이드·iOS 모두). 초로 보고 비교해서
+  // 1초 넘는 동영상이 모두 '60초 넘음' 으로 막혔습니다 (대표 리포트 11)
+  duration: m.duration != null ? m.duration / 1000 : null,
   libraryId: m.id,
 });
 
@@ -50,6 +56,7 @@ const fromPicker = (a: ImagePicker.ImagePickerAsset): Tile => ({
   width: a.width,
   height: a.height,
   duration: a.duration != null ? a.duration / 1000 : null,
+  location: pickerAssetLocation(a),
 });
 
 /**
@@ -64,7 +71,9 @@ export default function GalleryUploadScreen() {
   const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
-  const { setMedia, reset } = useUploadDraftStore();
+  const { setMedia, reset, toggleGroup } = useUploadDraftStore();
+  /** 갤러리 탭에서 보고 있던 그룹방. 그 방을 미리 골라 둡니다 (대표 리포트 12 ①) */
+  const { groupId } = useLocalSearchParams<{ groupId?: string }>();
 
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [selected, setSelected] = useState<Tile[]>([]);
@@ -105,6 +114,7 @@ export default function GalleryUploadScreen() {
 
   useEffect(() => {
     reset();
+    if (groupId) toggleGroup(groupId);
     requestPermissionsAsync(false, ['photo', 'video'])
       .then((p) => {
         // '일부만 허용'도 읽을 수 있습니다 (허용한 사진만 보입니다)
@@ -116,7 +126,10 @@ export default function GalleryUploadScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** 권한이 없을 때: 기기 사진 선택기 */
+  /**
+   * 기기 사진 선택기 (앨범별로 찾기). 권한이 없을 때뿐 아니라 언제든 열 수 있습니다 —
+   * '최근' 격자에서 오래된 사진·동영상을 찾기 어렵다는 요청 (대표 리포트 30)
+   */
   const pickFromLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images', 'videos'],
@@ -124,9 +137,17 @@ export default function GalleryUploadScreen() {
       selectionLimit: SELECTION_LIMIT,
       videoMaxDuration: VIDEO_MAX_SECONDS,
       quality: 0.8,
+      // 찍은 위치로 '위치 추가' 를 미리 채우려고 받습니다 (대표 리포트 12 ③)
+      exif: true,
     });
     if (result.canceled) return;
-    const picked = result.assets.map(fromPicker);
+    const picked = result.assets.map(fromPicker).filter((tile) => {
+      // 선택기는 길이 제한을 안 지키는 기기가 있어 한 번 더 봅니다
+      const tooLong = tile.type === 'video' && tile.duration != null && tile.duration > VIDEO_MAX_SECONDS;
+      if (tooLong) showToast(t('gallery.videoTooLong', { seconds: VIDEO_MAX_SECONDS }));
+      return !tooLong;
+    });
+    if (picked.length === 0) return;
     setTiles((prev) => [...picked, ...prev.filter((p) => !picked.some((x) => x.key === p.key))]);
     setSelected(picked);
     setPreview(picked[0] ?? null);
@@ -178,6 +199,7 @@ export default function GalleryUploadScreen() {
       );
       setMedia(media);
       router.push('/gallery/upload-detail');
+      void prefillPlace(selected[0]);
     } catch {
       showToast(t('gallery.uploadFailed'));
     } finally {
@@ -185,13 +207,29 @@ export default function GalleryUploadScreen() {
     }
   };
 
+  /**
+   * 첫 사진의 찍은 위치로 '위치 추가' 를 미리 채웁니다 (대표 리포트 12 ③). 위치가 없으면 그대로 둡니다.
+   * 주소 찾기는 몇 초 걸릴 수 있어 다음 화면으로 먼저 넘어가고 뒤에서 채웁니다
+   */
+  const prefillPlace = async (first: Tile | undefined) => {
+    if (!first) return;
+    const location = first.libraryId ? await libraryAssetLocation(first.libraryId) : (first.location ?? null);
+    if (!location) return;
+    const place = await describePlace(location).catch(() => null);
+    const draft = useUploadDraftStore.getState();
+    // 그사이 사용자가 직접 고른 위치가 있으면 덮어쓰지 않습니다
+    if (place && !draft.place && draft.media.length) draft.setPlace(place);
+  };
+
   const tile = (width - 6) / 4;
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+      {/* 닫기 버튼을 화면 위에 따로 띄웠더니 제목 줄과 겹쳐 안 보였습니다 (대표 리포트 44). 머리줄 왼쪽 X 로 */}
       <Header
         title={t('gallery.newPhoto')}
-        showBack={false}
+        showBack
+        backIcon="close"
         right={
           <Pressable accessibilityRole="button" disabled={selected.length === 0 || preparing} onPress={onNext} hitSlop={8}>
             <AppText variant="body1Bold" color={selected.length && !preparing ? colors.primary : colors.textMuted}>
@@ -200,9 +238,6 @@ export default function GalleryUploadScreen() {
           </Pressable>
         }
       />
-      <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => router.back()} style={styles.close} hitSlop={8}>
-        <Ionicons name="close" size={26} color={colors.text} />
-      </Pressable>
 
       <View style={[styles.preview, { height: width * 0.95 }]}>
         {preview ? (
@@ -214,7 +249,17 @@ export default function GalleryUploadScreen() {
       </View>
 
       <View style={styles.bar}>
-        <AppText variant="body1Bold">{t('gallery.recent')}</AppText>
+        <AppText variant="body1Bold" style={styles.flex}>
+          {t('gallery.recent')}
+        </AppText>
+        {canRead !== false ? (
+          <Pressable accessibilityRole="button" onPress={pickFromLibrary} hitSlop={8} style={styles.albumButton}>
+            <Ionicons name="albums-outline" size={18} color={colors.primary} />
+            <AppText variant="body1Bold" color={colors.primary}>
+              {t('gallery.fromAlbum')}
+            </AppText>
+          </Pressable>
+        ) : null}
         {canRead === false ? (
           <Pressable accessibilityRole="button" onPress={pickFromLibrary} hitSlop={8}>
             <AppText variant="body1Bold" color={colors.primary}>
@@ -290,9 +335,10 @@ export default function GalleryUploadScreen() {
 
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
-  close: { position: 'absolute', top: 58, left: 16 },
+  flex: { flex: 1 },
+  albumButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   preview: { backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
-  bar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: layout.screenPadding, paddingVertical: 14 },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: layout.screenPadding, paddingVertical: 14 },
   gridRow: { gap: 2, marginBottom: 2 },
   camera: { backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   selectedOverlay: { ...StyleSheet.absoluteFill, borderWidth: 3, borderColor: colors.primary },

@@ -36,6 +36,8 @@ export interface ChatRoom {
   unreadCount?: number;
   /** 그룹을 나가 서버에는 없고 기기에만 남은 대화 (WBS 7.6) */
   archived?: boolean;
+  /** 1:1 대화방 */
+  isDirect?: boolean;
 }
 
 export interface SharedPlace extends LatLng {
@@ -190,6 +192,8 @@ export interface GroupDetail extends Group {
   defaultShareLevel?: 'exact' | 'blurred';
   /** 최대 인원 (방장 등급 기준) */
   memberLimit?: number;
+  /** 1:1 대화방 (서버 is_direct). 그룹 설정 대신 알림·차단·신고·나가기만 (대표 리포트 31) */
+  isDirect?: boolean;
 }
 
 export interface GroupInviteLink {
@@ -269,7 +273,9 @@ export type HistoryEventType =
   // 앱 안 알림 카드에서 온 것 (WBS 9.7: 받은 알림은 모두 기기에 보관)
   | 'nearby'
   | 'friendRequest'
-  | 'placeShared';
+  | 'placeShared'
+  // 공지·예약 메시지 같은 일반 알림
+  | 'notice';
 
 /** 설정 > 히스토리: 알림 내역 (WBS 9.7: 기기에 보관) */
 export interface HistoryEvent {

@@ -7,6 +7,8 @@ import { AppText, Avatar } from '@/components/ui';
 import { makeStyles, useColors } from '@/theme';
 import type { GalleryPost } from '@/types/models';
 
+import { VideoPlaceholder } from './MediaView';
+
 interface PostGridProps {
   posts: GalleryPost[];
   header?: ReactNode;
@@ -57,13 +59,16 @@ export function PostGrid({ posts, header, showAuthor, scope, emptyText }: PostGr
           onPress={() => router.push({ pathname: '/gallery/post/[postId]', params: { postId: item.id, scope } })}
           style={{ width: size, height: size * 1.33 }}
         >
-          <Image source={{ uri: item.media[0]?.uri }} style={StyleSheet.absoluteFill} />
+          {/* 동영상 주소는 <Image> 로 그릴 수 없어 검은 칸이었습니다 (대표 리포트 11) */}
+          {item.media[0]?.type === 'video' ? <VideoPlaceholder /> : <Image source={{ uri: item.media[0]?.uri }} style={StyleSheet.absoluteFill} />}
           {showAuthor ? (
             <View style={styles.author}>
               <Avatar name={item.author.nickname} imageUrl={item.author.avatarUrl} size={22} />
             </View>
           ) : null}
-          {item.media.some((m) => m.type === 'video') ? (
+          {item.media.length > 1 ? (
+            <Ionicons name="copy" size={16} color={colors.white} style={styles.video} />
+          ) : item.media[0]?.type !== 'video' && item.media.some((m) => m.type === 'video') ? (
             <Ionicons name="play" size={18} color={colors.white} style={styles.video} />
           ) : null}
         </Pressable>

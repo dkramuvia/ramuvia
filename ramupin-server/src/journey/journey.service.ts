@@ -76,8 +76,8 @@ export class JourneyService {
     await this.location.logAccess([targetId], viewerId, 'journey');
     if (rows.length === 0) return { userId: targetId, date: dateText, totalDistanceM: 0, stops: [], route: [] };
 
-    const journey = buildJourney(rows.map((r) => ({ latitude: r.latitude, longitude: r.longitude, measuredAt: r.measured_at })));
-    const stops = await Promise.all(journey.stops.map((stop) => this.describe(stop)));
+    const journey = buildJourney(rows.map((r) => ({ latitude: r.latitude, longitude: r.longitude, accuracy: r.accuracy, measuredAt: r.measured_at })));
+    const stops = mergeSameAddress(await Promise.all(journey.stops.map((stop) => this.describe(stop))));
 
     const status = await this.location.getStatus(targetId);
     return {
@@ -104,7 +104,7 @@ export class JourneyService {
       const from = new Date(today.from.getTime() - i * 24 * 60 * 60_000);
       const rows = await this.location.dayPoints(userId, from, new Date(from.getTime() + 24 * 60 * 60_000));
       if (rows.length === 0) continue;
-      const journey = buildJourney(rows.map((r) => ({ latitude: r.latitude, longitude: r.longitude, measuredAt: r.measured_at })));
+      const journey = buildJourney(rows.map((r) => ({ latitude: r.latitude, longitude: r.longitude, accuracy: r.accuracy, measuredAt: r.measured_at })));
       totalDistanceM += journey.totalDistanceM;
       stopCount += journey.stops.length;
       for (const stop of journey.stops) {
@@ -164,6 +164,25 @@ export class JourneyService {
  * 좌표를 소수 넷째 자리(약 11m)로 잘라 캐시 열쇠로 씁니다.
  * 같은 건물에서 몇 m 흔들린 좌표가 전부 다른 열쇠가 되면 캐시가 소용없습니다.
  */
+/**
+ * 주소가 같은 머문 곳이 연달아 나오면 하나로 (대표 리포트 82: 같은 주소가 반복 나열됨).
+ * 거리로는 100m 를 넘어도 같은 건물(큰 단지)이면 사람이 보기엔 한 곳입니다. 지도 경로선은 그대로 둡니다
+ */
+function mergeSameAddress<T extends Stop & { placeName?: string; address: string }>(stops: T[]): T[] {
+  const out: T[] = [];
+  for (const stop of stops) {
+    const prev = out[out.length - 1];
+    if (prev && stop.address && prev.address === stop.address && (prev.placeName ?? '') === (stop.placeName ?? '')) {
+      // 앞 장소에 도착한 시각은 그대로, 떠난 시각은 뒤 장소의 것으로 (뒤가 아직 머무는 중이면 비움)
+      if (stop.leftAt) prev.leftAt = stop.leftAt;
+      else delete prev.leftAt;
+      continue;
+    }
+    out.push({ ...stop });
+  }
+  return out;
+}
+
 const addressKey = (latitude: number, longitude: number) => `place:addr:${latitude.toFixed(4)},${longitude.toFixed(4)}`;
 
 /** 'YYYY-MM-DD' (한국 기준) 하루의 시작·끝 */

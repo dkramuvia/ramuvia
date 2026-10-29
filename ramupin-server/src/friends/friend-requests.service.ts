@@ -5,6 +5,7 @@ import { appError } from '../common/app-error.js';
 import { isBlockedBetween } from '../common/blocks.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { MainDatabase, ShareLevel } from '../database/main.schema.js';
+import { ChatGateway } from '../chat/chat.gateway.js';
 import { PushService } from '../push/push.service.js';
 import { toUserSummary, type UserSummary } from '../users/user-summary.js';
 
@@ -57,6 +58,7 @@ export class FriendRequestsService {
   constructor(
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly push: PushService,
+    private readonly gateway: ChatGateway,
   ) {}
 
   /** 대기 중인 요청: 받은 것 / 보낸 것 */
@@ -129,6 +131,7 @@ export class FriendRequestsService {
       .returning('id')
       .executeTakeFirst();
     if (inserted) {
+      this.gateway.emitFriendsChanged([me, targetId]);
       await this.notify(targetId, me, (name) => `${name}님이 친구 요청을 보냈어요`, `/friends/request/${inserted.id}`);
       return { requestId: inserted.id, status: 'pending' as const };
     }
@@ -189,6 +192,7 @@ export class FriendRequestsService {
       const singleHouseholdReleasable = false;
       return { friendId, singleHouseholdReleasable };
     });
+    this.gateway.emitFriendsChanged([me, friendId]);
     await this.notify(friendId, me, (name) => `${name}님이 친구 요청을 수락했어요`, '/people');
     return result;
   }

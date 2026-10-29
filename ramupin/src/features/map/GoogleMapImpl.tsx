@@ -4,7 +4,7 @@ import MapView, { Circle, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { DARK_MAP_STYLE } from './darkMapStyle';
 import { useMarkerPress } from './markerPress';
-import { MarkerRenderContext, SpriteOverlayContext, spriteSizeDp } from './spriteClock';
+import { MarkerRenderContext, pauseSprites, SpriteOverlayContext, spriteSizeDp } from './spriteClock';
 import { SpriteMarker, SpriteWarmup } from './SpriteMarker';
 import type { SpriteSheet } from './spriteTypes';
 import { BADGE_GEOMETRY } from './StatusBadge';
@@ -28,11 +28,13 @@ const MAP_TYPES: Record<Preferences['mapType'], 'standard' | 'satellite' | 'terr
 /** OS 기본 지도 (Android = Google, iOS = Apple). 무료 등급 기본값 */
 /** 3D 로 볼 때 기울기 (도). 45도면 건물이 입체로 보이고 길도 알아볼 만합니다 */
 const TILT_PITCH = 45;
+/** 카메라 이동 중 움직이는 그림을 멈추는 시간 (ms) */
+const CAMERA_PAUSE_MS = 700;
 /** 위도 범위 → 구글 줌 (256px 타일) */
 const zoomFromDelta = (delta: number) => Math.min(20, Math.max(1, Math.log2(360 / Math.max(delta, 0.0001))));
 
 export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function GoogleMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, initialDelta, mapType, nightMode, traffic, tilted = false, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, initialDelta, mapType, nightMode, traffic, tilted = false, style },
   ref,
 ) {
   const mapRef = useRef<MapView>(null);
@@ -48,6 +50,11 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
     if (ready.current) action();
     else pending.current = action;
   };
+  // 카메라가 움직이는 동안(400ms + 여유) 움직이는 그림을 멈춥니다 (spriteClock pauseSprites)
+  const move = (action: () => void) => {
+    pauseSprites(CAMERA_PAUSE_MS);
+    run(action);
+  };
 
   /**
    * 3D (설정 > 지도). 구글은 영역으로 옮기면(animateToRegion · fitToCoordinates) 기울기가 0 으로 돌아가서,
@@ -61,13 +68,15 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
 
   useImperativeHandle(ref, () => ({
     moveTo: (coordinate, zoomDelta = initialDelta) =>
-      run(() =>
+      move(() =>
         tilted
           ? mapRef.current?.animateCamera({ center: coordinate, zoom: zoomFromDelta(zoomDelta), pitch }, { duration: 400 })
           : mapRef.current?.animateToRegion({ ...coordinate, latitudeDelta: zoomDelta, longitudeDelta: zoomDelta }, 400),
       ),
+    // 확대 정도는 그대로 두고 가운데만 옮깁니다 (내 위치 따라가기, 대표 리포트 1)
+    panTo: (coordinate) => move(() => mapRef.current?.animateCamera({ center: coordinate }, { duration: 400 })),
     fitTo: (coordinates) =>
-      run(() => {
+      move(() => {
         mapRef.current?.fitToCoordinates(coordinates, {
           edgePadding: { top: 80, right: 60, bottom: 80, left: 60 },
           animated: true,
@@ -103,6 +112,8 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
       onPress={press.resolve}
       onMarkerPress={press.resolve}
       moveOnMarkerPress={false}
+      // 손으로 지도를 끌면 따라가기를 멈춥니다
+      onPanDrag={onUserGesture}
       onMapReady={() => {
         ready.current = true;
         pending.current?.();

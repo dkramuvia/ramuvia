@@ -4,10 +4,22 @@ import { AppState } from 'react-native';
 import { usePlan } from '@/features/policy/usePlan';
 import { DEFAULT_SNAPSHOT } from '@/features/policy/policySnapshot';
 import { enqueueLocation, flushIfDue, flushLocationOutbox } from './uploader';
+import { isSosActive } from './sosMode';
 import type { MyLocation } from './useMyLocation';
+import { isWatched } from './watchMode';
 
 /** 보낼 때가 됐는지 확인하는 간격(초). 실제 전송 주기는 정책값(uploadIntervalSec)입니다 */
 const TICK_SEC = 10;
+
+/**
+ * 누가 내 지도를 보고 있거나 SOS 중이면 기다리지 않고 바로(0초) 보냅니다.
+ * 대표 리포트 49: 포그라운드는 늘 정책 주기(60초)만 기다려, 상대 화면에서 내 위치·배터리가 늦게 바뀌고
+ * 보낼 위치가 9개씩 쌓여 보였습니다. 백그라운드 수집(backgroundTask)과 같은 규칙입니다.
+ */
+async function dueSec(uploadSec: number): Promise<number> {
+  const [watched, sos] = await Promise.all([isWatched(), isSosActive()]);
+  return watched || sos ? 0 : uploadSec;
+}
 
 /**
  * 화면이 받은 내 위치를 서버로 보냅니다 (포그라운드).
@@ -31,12 +43,17 @@ export function useLocationUpload(location: MyLocation | null) {
         ? { minGapSec: movingSec, minDistanceM: moveDistanceM, forceAfterSec: stillSec }
         : { minGapSec: moving ? movingSec : stillSec };
     enqueueLocation(location, rule)
-      .then(() => flushIfDue(uploadSec))
+      .then(() => dueSec(uploadSec))
+      .then((sec) => flushIfDue(sec))
       .catch((error) => console.warn('[location] 대기열 저장 실패', String(error)));
   }, [location, movingSec, stillSec, uploadSec, moveDistanceM]);
 
   useEffect(() => {
-    const timer = setInterval(() => void flushIfDue(uploadSec), TICK_SEC * 1000);
+    const timer = setInterval(() => {
+      void dueSec(uploadSec)
+        .then((sec) => flushIfDue(sec))
+        .catch(() => undefined);
+    }, TICK_SEC * 1000);
     // 앱으로 돌아왔을 때는 기다리지 않고 바로 보냅니다 (사용자가 지도를 보고 있음)
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') void flushLocationOutbox();

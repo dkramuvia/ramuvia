@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { placesApi } from '@/api/endpoints/places';
 import { AppText, Button, Popup } from '@/components/ui';
 import { useSendMessage } from '@/features/chat/queries';
-import { describePlace, searchPlace } from '@/features/location/address';
+import { coordinateText, describePlace, searchPlace } from '@/features/location/address';
 import { distanceM, useAreaName } from '@/features/location/useAreaName';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, type AppMapViewHandle } from '@/features/map/AppMapView';
@@ -25,6 +27,26 @@ const CURRENT_LOCATION_RADIUS_M = 30;
 const SUGGEST_DELAY_MS = 300;
 /** 고른 검색 결과에서 지도가 이만큼(m) 안에 있으면 그 장소 이름을 그대로 씁니다 (주소 다시 찾기 안 함) */
 const PICKED_RADIUS_M = 25;
+/** 지도를 멈추고 이만큼 지나면 주소를 찾습니다. 끄는 동안 매번 찾느라 결과가 늦게 왔습니다 (대표 리포트 46·71) */
+const CENTER_SETTLE_MS = 400;
+/** 네이버 지도 앱이 돌아올 때 쓰는 앱 이름 (패키지명) */
+const APP_ID = Constants.expoConfig?.android?.package ?? Constants.expoConfig?.ios?.bundleIdentifier ?? 'com.ramuviamanager.ramupin';
+
+/**
+ * 네이버 지도 길찾기 (대중교통). 앱이 없으면 모바일 웹으로 (대표 리포트 97).
+ * canOpenURL 은 안드로이드 11+ 에서 manifest queries 가 있어야 해서 쓰지 않고, 열기에 실패하면 웹으로 넘깁니다
+ */
+async function openNaverDirections(target: LatLng, name: string) {
+  const dname = encodeURIComponent(name);
+  const app = `nmap://route/public?dlat=${target.latitude}&dlng=${target.longitude}&dname=${dname}&appname=${APP_ID}`;
+  try {
+    await Linking.openURL(app);
+  } catch {
+    await Linking.openURL(
+      `https://m.map.naver.com/route.nhn?menu=route&pathType=1&ex=${target.longitude}&ey=${target.latitude}&ename=${dname}`,
+    ).catch(() => undefined);
+  }
+}
 
 /**
  * 피그마: 장소 지정 공유 (125:65169) / 현재 위치 공유 (125:65196) / 공유 완료 (283:35829)
@@ -40,15 +62,26 @@ export default function PlacePickerScreen() {
   const overlay = useMapOverlay();
   const mapIsDark = useMapIsDark();
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ mode?: 'share' | 'attach' | 'view'; roomId?: string; lat?: string; lng?: string }>();
+  // view 모드: name·address 를 주면 그 글자를 그대로 씁니다 (공유한 사람이 본 주소 — 다시 찾으면 조금 다를 수 있어서)
+  const params = useLocalSearchParams<{
+    mode?: 'share' | 'attach' | 'view';
+    roomId?: string;
+    lat?: string;
+    lng?: string;
+    name?: string;
+    address?: string;
+  }>();
   const setDraftPlace = useUploadDraftStore((s) => s.setPlace);
   const mode = params.mode ?? 'share';
   const viewTarget = params.lat && params.lng ? { latitude: Number(params.lat), longitude: Number(params.lng) } : null;
 
   const mapRef = useRef<AppMapViewHandle>(null);
   const { location } = useMyLocation();
-  const [center, setCenter] = useState<LatLng | null>(viewTarget);
-  const [place, setPlace] = useState<SharedPlace | null>(null);
+  // 위치를 기다리지 않고 바로 시작합니다. 첫 위치가 오면 그리로 옮깁니다 (대표 리포트 46·71)
+  const [center, setCenter] = useState<LatLng | null>(viewTarget ?? location ?? FALLBACK_CENTER);
+  const [place, setPlace] = useState<SharedPlace | null>(
+    viewTarget && params.address ? { ...viewTarget, address: params.address, placeName: params.name || undefined } : null,
+  );
   const [resolving, setResolving] = useState(false);
   const [query, setQuery] = useState('');
   const [shared, setShared] = useState<SharedPlace | null>(null);
@@ -60,18 +93,46 @@ export default function PlacePickerScreen() {
   const areaName = useAreaName(center);
   const send = useSendMessage(params.roomId ?? '');
 
+  /** 지금 주소를 찾고 있는 좌표와 그 결과. 주소가 오기 전에 공유를 누르면 이것을 기다립니다 */
+  const lookup = useRef<{ at: LatLng; promise: Promise<SharedPlace> } | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  /** 사용자가 지도를 직접 움직였으면 위치가 늦게 와도 끌어가지 않습니다 */
+  const userMoved = useRef(false);
+
   // 보기 모드가 아니면 처음 한 번 내 위치로 이동
   const movedToMe = useRef(!!viewTarget);
   useEffect(() => {
     if (!location || movedToMe.current) return;
     movedToMe.current = true;
+    if (userMoved.current) return;
     mapRef.current?.moveTo(location, 0.004);
     setCenter(location);
   }, [location]);
 
-  // 지도 중앙(핀) 좌표가 바뀌면 주소 다시 조회
+  // 새 위치(GPS)가 잡히기 전에, 오래됐더라도 마지막으로 알던 위치에서 먼저 시작합니다.
+  // useMyLocation 은 2분 넘은 위치를 버려서, 실내에서는 한참 강남(기본 위치)에 머물렀습니다
+  useEffect(() => {
+    if (viewTarget) return;
+    let cancelled = false;
+    Location.getLastKnownPositionAsync()
+      .then((last) => {
+        if (cancelled || !last || movedToMe.current || userMoved.current) return;
+        const approx = { latitude: last.coords.latitude, longitude: last.coords.longitude };
+        mapRef.current?.moveTo(approx, 0.004);
+        setCenter(approx);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 지도 중앙(핀) 좌표가 바뀌면 (멈춘 뒤 잠깐 기다렸다가) 주소 다시 조회
   useEffect(() => {
     if (!center) return;
+    // 보기 모드에서 공유한 주소를 받았으면 다시 찾지 않습니다
+    if (mode === 'view' && params.address) return;
     // 검색 결과를 골라 옮겨 온 자리면 그 장소 이름을 그대로 씁니다 (주소 찾기는 '삼성 코엑스' 같은 이름을 못 줍니다)
     if (picked.current && distanceM(picked.current, center) < PICKED_RADIUS_M) {
       setPlace(picked.current);
@@ -81,20 +142,42 @@ export default function PlacePickerScreen() {
     picked.current = null;
     let cancelled = false;
     setResolving(true);
-    describePlace(center)
-      .then((p) => {
+    const timer = setTimeout(() => {
+      const promise = describePlace(center)
+        // 주소를 못 찾아도 멈추면 안 됩니다. 좌표만으로도 공유할 수 있습니다
+        .catch((error: unknown): SharedPlace => {
+          console.warn('[place] 주소 찾기 실패', String(error));
+          return { ...center, address: coordinateText(center) };
+        });
+      lookup.current = { at: center, promise };
+      void promise.then((p) => {
         if (cancelled) return;
         setPlace(p);
-      })
-      // 주소를 못 찾아도 멈추면 안 됩니다. 좌표만으로도 공유할 수 있습니다
-      .catch((error: unknown) => console.warn('[place] 주소 찾기 실패', String(error)))
-      .finally(() => {
-        if (!cancelled) setResolving(false);
+        setResolving(false);
       });
+    }, CENTER_SETTLE_MS);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [center]);
+
+  /**
+   * 지금 핀 자리의 장소. 주소를 아직 찾는 중이면 그 결과를 기다립니다 (서버 3초 + 기기 3초 안에 끝남).
+   * 버튼을 막아 두면 주소가 늦을 때 아무것도 못 했습니다 (대표 리포트 46·71)
+   */
+  const currentPlace = async (): Promise<SharedPlace | null> => {
+    if (!center) return null;
+    if (place && !resolving) return place;
+    const pending = lookup.current && distanceM(lookup.current.at, center) < 1 ? lookup.current.promise : describePlace(center);
+    setWaiting(true);
+    try {
+      return await pending.catch(() => ({ ...center, address: coordinateText(center) }));
+    } finally {
+      setWaiting(false);
+    }
+  };
 
   const isCurrentLocation = !!(location && center && distanceM(location, center) < CURRENT_LOCATION_RADIUS_M);
 
@@ -152,10 +235,19 @@ export default function PlacePickerScreen() {
     setCenter(found);
   };
 
-  const onShare = () => {
-    if (!place || !params.roomId) return;
-    send.mutate({ type: 'location', place });
-    setShared(place);
+  const onShare = async () => {
+    if (!params.roomId) return;
+    const target = await currentPlace();
+    if (!target) return;
+    send.mutate({ type: 'location', place: target });
+    setShared(target);
+  };
+
+  const onAttach = async () => {
+    const target = await currentPlace();
+    if (!target) return;
+    setDraftPlace(target);
+    router.back();
   };
 
   return (
@@ -166,10 +258,14 @@ export default function PlacePickerScreen() {
         initialDelta={0.004}
         interactive
         onCenterChange={mode === 'view' ? undefined : setCenter}
-        padding={{ top: 0, right: 0, bottom: 200, left: 0 }}
+        onUserGesture={() => {
+          userMoved.current = true;
+        }}
+        // 지도 여백(padding)을 주지 않습니다. 구글 지도는 여백이 있으면 알려 주는 중앙 좌표가 핀보다 100m 쯤 아래로
+        // 어긋나 (여백 뺀 가운데가 아니라 화면 전체 가운데를 줌), 공유한 위치가 핀과 달랐습니다 (대표 리포트 41)
       />
 
-      {/* 화면 중앙 고정 핀 (바텀시트 높이만큼 위로) */}
+      {/* 화면 정중앙 고정 핀. 지도가 알려 주는 중앙 좌표와 같은 자리입니다 */}
       <View style={styles.pinWrap} pointerEvents="none">
         <Ionicons name="location" size={48} color={colors.brown} style={styles.pin} />
       </View>
@@ -272,18 +368,22 @@ export default function PlacePickerScreen() {
           <Button
             label={t(isCurrentLocation ? 'placePicker.shareCurrent' : 'placePicker.shareSelected')}
             size="lg"
-            disabled={!place || resolving || send.isPending}
-            onPress={onShare}
+            disabled={!center || waiting || send.isPending}
+            onPress={() => void onShare()}
           />
         ) : mode === 'attach' ? (
           <Button
             label={t(isCurrentLocation ? 'placePicker.addCurrent' : 'placePicker.addSelected')}
             size="lg"
-            disabled={!place || resolving}
-            onPress={() => {
-              setDraftPlace(place);
-              router.back();
-            }}
+            disabled={!center || waiting}
+            onPress={() => void onAttach()}
+          />
+        ) : viewTarget ? (
+          // 공유받은 위치로 길찾기 (대표 리포트 97)
+          <Button
+            label={t('placePicker.directions')}
+            size="lg"
+            onPress={() => void openNaverDirections(viewTarget, place?.placeName ?? place?.address ?? params.name ?? coordinateText(viewTarget))}
           />
         ) : null}
       </SafeAreaView>
@@ -302,12 +402,10 @@ export default function PlacePickerScreen() {
   );
 }
 
-const SHEET_OFFSET = 100; // 바텀시트 높이의 절반 정도만큼 핀을 위로
-
 const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: '#ECEAE4' },
   flex: { flex: 1 },
-  pinWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingBottom: SHEET_OFFSET * 2 },
+  pinWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   // 핀 끝이 좌표를 가리키도록 아이콘 높이의 절반만큼 위로
   pin: { marginBottom: 48 },
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: layout.screenPadding, gap: 16 },

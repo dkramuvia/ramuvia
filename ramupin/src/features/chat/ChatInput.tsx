@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
@@ -21,6 +22,8 @@ export function ChatInput({ onSend, onSharePlace, onShareCurrentLocation, onPick
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  // 대화방을 나갔다 오면 쓰던 글은 지웁니다 (대표 리포트 42)
+  useFocusEffect(useCallback(() => () => setText(''), []));
 
   const send = () => {
     const trimmed = text.trim();

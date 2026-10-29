@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, View, type ImageURISource } from 'react-native';
 
 import { AppText } from '@/components/ui';
 import { fontFamily, makeStyles } from '@/theme';
@@ -51,8 +51,43 @@ export function personPin({
     iconImage: 캐릭터,
     anchor: PIN_ANCHOR,
     trackKey: `${avatarUrl ?? ''}|${name}|${active ? 'active' : ''}|${tone}`,
-    children: 캐릭터 ? null : <NamePin name={name} active={active} tone={tone} />,
+    // 사진 핀(인터넷 그림)은 내려받기 전까지 이름 핀으로 보여 줍니다 (usePinImageReady)
+    children: typeof 캐릭터 === 'number' ? null : <NamePin name={name} active={active} tone={tone} />,
   };
+}
+
+/** 내려받아 둔 사진 핀 주소. 앱이 켜져 있는 동안 기억합니다 */
+const fetchedPins = new Set<string>();
+
+/**
+ * 마커 그림이 쓸 준비가 됐는지. 앱 안 그림(번호)은 늘 준비돼 있고, 인터넷 그림은 미리 받아 둔 뒤에 true.
+ *
+ * 받기 전에 그림 주소를 지도에 넘기면 구글 지도가 그동안 **빨간 기본 핀**을 그렸습니다 —
+ * 친구가 여럿이면 빨간 핀이 여러 개 떴다가 잠시 뒤 바뀌었습니다 (대표 리포트 66).
+ * 받기에 실패하면 계속 false 라 이름 핀이 남습니다.
+ */
+export function usePinImageReady(source: number | ImageURISource | undefined): boolean {
+  const uri = typeof source === 'object' ? source.uri : undefined;
+  const [ready, setReady] = useState(() => !uri || fetchedPins.has(uri));
+  useEffect(() => {
+    if (!uri || fetchedPins.has(uri)) {
+      setReady(true);
+      return;
+    }
+    setReady(false);
+    let alive = true;
+    Image.prefetch(uri)
+      .then((ok) => {
+        if (!ok) return;
+        fetchedPins.add(uri);
+        if (alive) setReady(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [uri]);
+  return ready;
 }
 
 /** 캐릭터 없는 사람: 검은 원 + 이름 (속성 1=5글자) */

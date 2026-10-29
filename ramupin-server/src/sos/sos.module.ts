@@ -32,6 +32,9 @@ const sendBody = z.object({
   audioAssetId: z.uuid().nullish(),
 });
 
+/** 보낸 SOS 에 나중에 붙이는 녹음 (대표 리포트 88) */
+const audioBody = z.object({ audioAssetId: z.uuid() });
+
 const safetyBody = z.object({
   sosEnabled: z.boolean(),
   recipientFriendIds: z.array(z.uuid()).max(50).default([]),
@@ -91,6 +94,18 @@ class SosController {
   @Get('received')
   received(@CurrentUser() user: AuthUser) {
     return this.sos.received(user.id);
+  }
+
+  /** 내가 보낸 SOS (대표 리포트 73) */
+  @Get('sent')
+  sent(@CurrentUser() user: AuthUser) {
+    return this.sos.sent(user.id);
+  }
+
+  /** 위치를 먼저 보낸 SOS 에 녹음을 붙입니다 (대표 리포트 88) */
+  @Post(':id/audio')
+  attachAudio(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
+    return this.sos.attachAudio(user.id, id, parseInput(audioBody, body).audioAssetId);
   }
 
   /** SOS 녹음 듣기 주소 (받은 사람·보낸 사람만) */

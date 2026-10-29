@@ -35,6 +35,11 @@ export const ANOMALY_RULES = {
   /** 배터리가 이 값 이하면 "부족" 알림 (WBS 9.1) */
   lowBatteryPercent: 10,
   /**
+   * 한 번 열린 "배터리 부족"은 이 값을 넘게 충전돼야 닫습니다.
+   * 대표 리포트 55: 10% 를 경계로 9↔11% 를 오가면 열고 닫기를 반복해 배터리 경고가 계속 왔습니다
+   */
+  lowBatteryClearPercent: 20,
+  /**
    * 신호가 끊겼을 때 마지막 배터리가 이 값 미만이면 배터리 트랙으로 봅니다 (09-17 확정).
    * 자연 방전으로 설명되므로 최우선 위험군(신호 두절)에서 뺍니다.
    */
@@ -65,6 +70,11 @@ export const ANOMALY_RULES = {
     { stage: '48h', afterMinutes: 48 * 60 },
   ] satisfies AnomalyStage[],
 } as const;
+
+/** 열려 있는 "배터리 부족"을 그대로 둘지 (닫는 기준은 여는 기준보다 높습니다) */
+export function keepLowBatteryOpen(battery: number | null): boolean {
+  return battery != null && battery <= ANOMALY_RULES.lowBatteryClearPercent;
+}
 
 /** 지난 시간으로 지금 몇 단계인지. 아직 첫 단계도 안 되면 null */
 export function stageFor(stages: readonly AnomalyStage[], elapsedMinutes: number): string | null {

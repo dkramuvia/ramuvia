@@ -71,6 +71,8 @@ export interface MapPadding {
 export interface MapImplHandle {
   moveTo: (coordinate: LatLng, zoomDelta?: number) => void;
   fitTo: (coordinates: LatLng[]) => void;
+  /** 확대 정도는 그대로 두고 가운데만 옮깁니다 (내 위치 따라가기) */
+  panTo: (coordinate: LatLng) => void;
 }
 
 /** 지도 구현(Google/네이버)이 공통으로 받는 값 */
@@ -85,6 +87,8 @@ export interface MapImplProps {
   interactive?: boolean;
   /** 지도 이동이 끝났을 때 화면 중앙 좌표 (핀 고정형 장소 선택) */
   onCenterChange?: (center: LatLng) => void;
+  /** 사용자가 손으로 지도를 움직였을 때 (끌기·확대 등). 내 위치 따라가기를 멈출 때 씁니다 */
+  onUserGesture?: () => void;
   /** 처음 확대 정도 (위도 범위). 작을수록 확대 */
   initialDelta: number;
   mapType: Preferences['mapType'];

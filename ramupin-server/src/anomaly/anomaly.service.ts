@@ -5,7 +5,7 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { PushService } from '../push/push.service.js';
 import { SoloService } from '../solo/solo.module.js';
-import { ANOMALY_RULES, detect, type AnomalyTarget, type AnomalyTrack, type Detection } from './anomaly.rules.js';
+import { ANOMALY_RULES, detect, keepLowBatteryOpen, type AnomalyTarget, type AnomalyTrack, type Detection } from './anomaly.rules.js';
 
 /**
  * 이상징후 감시 (docs/anomaly-alerts.md).
@@ -99,6 +99,10 @@ export class AnomalyService {
         await this.open(status.userId, user.nickname, detection, target, now);
         opened += 1;
       }
+
+      // 배터리 부족은 20% 를 넘게 충전될 때까지 닫지 않습니다 (경계에서 반복 알림 방지)
+      const lowKey = key(status.userId, 'battery', 'low');
+      if (openKeys.has(lowKey) && keepLowBatteryOpen(status.lastBattery)) stillOpen.add(lowKey);
     }
 
     // 더 이상 해당하지 않는 단계는 해제 (다시 움직였거나 전화기를 켰음).
@@ -141,6 +145,8 @@ export class AnomalyService {
           title: '라무핀 안전 알림',
           body: messageFor(nickname, detection),
           channel: 'anomaly',
+          // 대표 리포트 55: 배터리 알림은 [배터리 경고 알림] 설정·방해 금지를 따릅니다 (안 주면 SOS 로 봐 늘 울렸습니다)
+          ...(detection.track === 'battery' ? { category: 'battery' as const } : {}),
           route: `/journey/${userId}`,
           data: { track: detection.track, stage: detection.stage },
         })

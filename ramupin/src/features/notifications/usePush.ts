@@ -7,6 +7,8 @@ import { inbox } from '@/db/inbox';
 import { registerForPush } from './push';
 import { selectIsSignedIn, useAuthStore } from '@/stores/authStore';
 import { queryClient } from '@/api/queryClient';
+import { friendKeys } from '@/features/friends/queries';
+import type { HistoryCategory, HistoryEventType } from '@/types/models';
 
 /**
  * 푸시 알림 연결 (WBS 6단계, 9.7).
@@ -62,16 +64,43 @@ function speakIfAsked(request: Notifications.NotificationRequest) {
   Speech.speak([title, body].filter(Boolean).join('. '), { language: 'ko-KR' });
 }
 
+type PushData = { kind?: string; track?: string; route?: string; id?: string; sosId?: string; status?: string };
+
+const ANOMALY_TYPES: Record<string, HistoryEventType> = { battery: 'batteryLow', no_signal: 'gpsLost' };
+
+/**
+ * 푸시 종류로 히스토리 칸을 정합니다. 예전에는 모든 푸시를 '긴급/안전'으로 넣어
+ * 채팅·친구 요청·예약 메시지까지 섞였습니다 (대표 리포트 55·75).
+ * 채팅은 대화방에 남으므로 보관하지 않습니다.
+ */
+function classify(data: PushData): { type: HistoryEventType; category: HistoryCategory } | null {
+  if (data.kind === 'chat') return null;
+  if (data.sosId) return { type: 'sos', category: 'safety' };
+  if (data.track) return { type: ANOMALY_TYPES[data.track] ?? 'noMovement', category: 'safety' };
+  if (data.kind === 'speeding' || data.kind === 'speedingFriend') return { type: 'speeding', category: 'safety' };
+  if (data.kind === 'dangerZone') return { type: 'dangerZone', category: 'safety' };
+  if (data.kind === 'enter') return { type: 'geofenceArrive', category: 'safety' };
+  if (data.kind === 'leave') return { type: 'geofenceLeave', category: 'safety' };
+  if (data.kind === 'friendRequest') return { type: 'friendRequest', category: 'place' };
+  return { type: 'notice', category: 'place' };
+}
+
 /** 같은 알림을 두 번 받아도(수신 + 누름) 한 번만 남습니다 (id 기준) */
 function saveToInbox(content: Notifications.NotificationContent) {
-  const data = (content.data ?? {}) as { track?: string; route?: string; id?: string };
+  const data = (content.data ?? {}) as PushData;
+  if (data.kind === 'friendRequest') queryClient.invalidateQueries({ queryKey: friendKeys.list });
+  const kind = classify(data);
+  if (!kind) return;
+  // 제목이 앱 이름이 아니면(예약 메시지 제목·SOS 보낸 사람 등) 누가/무엇인지 보이게 함께 남깁니다
+  const title = content.title && content.title !== '라무핀' ? content.title : '';
+  const body = content.body ?? '';
+  const message = title && !body.includes(title) ? `${title} · ${body}` : body || title;
   try {
     inbox.add({
       id: data.id ?? `push-${content.title ?? ''}-${content.body ?? ''}`,
-      // 서버가 track 을 보내면 그대로, 아니면 일반 알림
-      type: (data.track ?? 'noMovement') as never,
-      category: 'safety',
-      message: content.body ?? content.title ?? '',
+      type: kind.type,
+      category: kind.category,
+      message,
       createdAt: new Date().toISOString(),
       payload: data,
     });

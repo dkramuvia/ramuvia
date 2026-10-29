@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
 import { formatTemperature, usePreferencesStore } from '@/stores/preferencesStore';
-import { useMapOverlay } from '@/theme';
+import { useMapIsDark, useMapOverlay } from '@/theme';
 import type { Weather, WeatherCondition } from './useWeather';
 
 /**
@@ -33,12 +33,14 @@ const ICON_COLORS: Record<WeatherCondition, string> = {
 export function WeatherBadge({ weather }: { weather?: Weather | null }) {
   // 지도 위 글자라 앱 화면 색이 아니라 지도 밝기를 따라갑니다
   const overlay = useMapOverlay();
+  const mapIsDark = useMapIsDark();
   const unit = usePreferencesStore((s) => s.temperatureUnit);
   if (!weather) return null;
   const condition = ICONS[weather.condition] ? weather.condition : 'clear';
 
   return (
-    <View style={styles.row}>
+    // 지도 바탕 위에서 글자가 묻혀 반투명 바탕을 깝니다 (대표 리포트 85)
+    <View style={[styles.row, { backgroundColor: mapIsDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.75)' }]}>
       <Ionicons name={ICONS[condition]} size={18} color={ICON_COLORS[condition]} />
       <AppText variant="microBold" color={overlay.text}>
         {formatTemperature(weather.temperature, unit)}
@@ -48,5 +50,5 @@ export function WeatherBadge({ weather }: { weather?: Weather | null }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  row: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
 });

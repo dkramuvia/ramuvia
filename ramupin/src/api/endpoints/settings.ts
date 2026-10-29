@@ -31,8 +31,11 @@ import type {
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
-/** 프로필 사진 형식. 서버 storage.service 의 허용 목록과 같습니다 */
-const AVATAR_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' };
+/**
+ * 프로필 사진 형식. 서버 storage.service 의 AVATAR_TYPES (jpg·png) 와 같습니다 — 지도 핀 그림을 만들 수 있는 형식만.
+ * webp·heic 를 그대로 올리면 서버가 거절해 사진이 안 바뀌었습니다 (대표 리포트 15). 고를 때 jpg 로 받아 옵니다 (profile-edit)
+ */
+const AVATAR_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
 
 export const profileApi = {
   /** 닉네임 중복 확인 (WBS 3.9) */

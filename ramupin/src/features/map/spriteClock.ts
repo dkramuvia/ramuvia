@@ -24,10 +24,23 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let foreground = AppState.currentState === 'active';
 const listeners = new Set<(tick: number) => void>();
 
+/** 이 시각(ms)까지는 그림을 바꾸지 않습니다 (pauseSprites) */
+let pausedUntil = 0;
+
+/**
+ * 지도 카메라가 움직이는 동안 잠깐 그림 바꾸기를 멈춥니다.
+ * 구글 지도는 그림을 바꿀 때마다 마커 아이콘을 새로 올리는데, 카메라 이동과 겹치면
+ * 지도가 가끔 멈춘 것처럼 굳었습니다 (대표 리포트 18, 나의 위치 버튼 뒤).
+ */
+export function pauseSprites(ms: number) {
+  pausedUntil = Math.max(pausedUntil, Date.now() + ms);
+}
+
 function sync() {
   const run = foreground && listeners.size > 0;
   if (run && !timer) {
     timer = setInterval(() => {
+      if (Date.now() < pausedUntil) return;
       tick += 1;
       listeners.forEach((l) => l(tick));
     }, TICK_MS);

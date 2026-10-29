@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, Share, StyleSheet, View } from 'react-native';
@@ -11,11 +13,12 @@ import { groupsApi } from '@/api/endpoints/groups';
 import { AppText, Header, Popup } from '@/components/ui';
 import { ChatInput } from '@/features/chat/ChatInput';
 import { MessageItem } from '@/features/chat/MessageItem';
-import { retryInput, useChatMessages, useChatRooms, useReadState, useSendMessage } from '@/features/chat/queries';
+import { forgetRoom, retryInput, useChatMessages, useChatRooms, useReadState, useSendMessage } from '@/features/chat/queries';
 import { useGroup } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
 import { ReportSheet, type ReportTarget } from '@/features/safety/ReportSheet';
 import { useIsMe } from '@/stores/authStore';
+import type { ChatMessage } from '@/types/models';
 import { makeStyles, useColors } from '@/theme';
 import { useKeyboardPadding } from '@/utils/useKeyboardPadding';
 import { showToast } from '@/utils/toast';
@@ -33,6 +36,10 @@ export default function ChatRoomScreen() {
   const isMe = useIsMe();
   // 상대 메시지를 길게 누르면 신고 (보완 4.11)
   const [reporting, setReporting] = useState<ReportTarget | null>(null);
+  // 메시지를 길게 누르면 복사·신고 (대표 리포트 34)
+  const [actionFor, setActionFor] = useState<ChatMessage | null>(null);
+  const [confirmForget, setConfirmForget] = useState(false);
+  const queryClient = useQueryClient();
   const keyboardPadding = useKeyboardPadding();
   const { data: group } = useGroup(roomId);
   const { data: messages = [] } = useChatMessages(roomId);
@@ -52,7 +59,8 @@ export default function ChatRoomScreen() {
   const members = useMemo(() => new Map(group?.members.map((m) => [m.id, m])), [group]);
   // 인버티드 리스트: 최신 메시지가 0번
   const reversed = useMemo(() => [...messages].reverse(), [messages]);
-  const isGroupRoom = (group?.memberCount ?? 0) > 2;
+  // 1:1 방은 서버 is_direct 로 구분합니다. 인원(2명)으로 보면 두 명짜리 그룹을 1:1 로 착각합니다 (대표 리포트 31)
+  const isGroupRoom = group ? !group.isDirect : (room?.memberCount ?? 0) > 2;
   // 1:1 읽음 표시: 상대가 이 방을 연 시각보다 먼저 보낸 내 메시지는 읽은 것 (보완 4.18)
   const otherReadAt = !isGroupRoom ? readState[0]?.lastReadAt ?? null : null;
 
@@ -93,6 +101,7 @@ export default function ChatRoomScreen() {
       const position = recent ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }));
       const place = await describePlace({ latitude: position.coords.latitude, longitude: position.coords.longitude });
       send.mutate({ type: 'location', place });
+      showToast(t('chat.locationShared'));
     } catch {
       showToast(t('chat.locateFailed'));
     }
@@ -114,7 +123,12 @@ export default function ChatRoomScreen() {
       <Header
         title={title}
         right={
-          archived ? undefined : (
+          archived ? (
+            // 나간 대화는 기기에서 지울 수 있게 (대표 리포트 13)
+            <Pressable accessibilityRole="button" accessibilityLabel={t('chat.forgetRoom')} hitSlop={8} onPress={() => setConfirmForget(true)}>
+              <Ionicons name="trash-outline" size={24} color={colors.text} />
+            </Pressable>
+          ) : (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('screens.groupSettings')}
@@ -181,20 +195,15 @@ export default function ChatRoomScreen() {
                 isMine={isMine}
                 sender={member}
                 showSender={!sameAsOlder}
-                showTime={!sameAsNewer && !isMine}
-                onLongPress={
-                  !isMine && item.type !== 'system'
-                    ? () =>
-                        setReporting({
-                          userId: item.senderId,
-                          nickname: member?.nickname ?? '',
-                          kind: 'message',
-                          targetId: item.id,
-                          preview: item.type === 'text' ? item.text : undefined,
-                        })
+                // 내 메시지도 보낸 시각을 보여 줍니다 (대표 리포트 33)
+                showTime={!sameAsNewer}
+                onLongPress={item.type !== 'system' && !item.pending ? () => setActionFor(item) : undefined}
+                read={isMine && !item.pending && !item.failed && !!otherReadAt && otherReadAt >= item.createdAt}
+                unreadBy={
+                  isMine && isGroupRoom && !item.pending && !item.failed
+                    ? readState.filter((r) => !r.lastReadAt || r.lastReadAt < item.createdAt).length
                     : undefined
                 }
-                read={isMine && !item.pending && !item.failed && !!otherReadAt && otherReadAt >= item.createdAt}
                 onRetry={
                   item.failed
                     ? () => {
@@ -240,6 +249,68 @@ export default function ChatRoomScreen() {
           <AppText variant="body2">{t('chat.includeLocation')}</AppText>
         </Pressable>
       </Popup>
+      <Popup
+        visible={!!actionFor}
+        title={t('chat.messageMenu')}
+        confirmLabel={t('common.close')}
+        onConfirm={() => setActionFor(null)}
+        onDismiss={() => setActionFor(null)}
+      >
+        <View style={styles.actions}>
+          {actionFor?.type === 'text' || actionFor?.type === 'location' ? (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={async () => {
+                const m = actionFor;
+                setActionFor(null);
+                const text = m.type === 'location' ? [m.place?.placeName, m.place?.address].filter(Boolean).join(' ') : (m.text ?? '');
+                await Clipboard.setStringAsync(text);
+                showToast(t('chat.copied'));
+              }}
+            >
+              <Ionicons name="copy-outline" size={20} color={colors.text} />
+              <AppText variant="body2">{t('chat.copy')}</AppText>
+            </Pressable>
+          ) : null}
+          {actionFor && !isMe(actionFor.senderId) ? (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={() => {
+                const m = actionFor;
+                setActionFor(null);
+                setReporting({
+                  userId: m.senderId,
+                  nickname: members.get(m.senderId)?.nickname ?? '',
+                  kind: 'message',
+                  targetId: m.id,
+                  preview: m.type === 'text' ? m.text : undefined,
+                });
+              }}
+            >
+              <Ionicons name="alert-circle-outline" size={20} color={colors.danger} />
+              <AppText variant="body2" color={colors.danger}>
+                {t('chat.report')}
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
+      </Popup>
+      <Popup
+        visible={confirmForget}
+        title={t('chat.forgetTitle')}
+        message={t('chat.forgetMessage')}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setConfirmForget(false)}
+        onDismiss={() => setConfirmForget(false)}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => {
+          setConfirmForget(false);
+          forgetRoom(roomId, queryClient);
+          router.back();
+        }}
+      />
       <ReportSheet target={reporting} onClose={() => setReporting(null)} onDone={(blocked) => blocked && room?.memberCount === 2 && router.back()} />
     </SafeAreaView>
   );
@@ -262,6 +333,8 @@ const useStyles = makeStyles((colors) => ({
   archivedNotice: { paddingHorizontal: 20, paddingVertical: 18 },
   container: { flex: 1, backgroundColor: colors.chatBackground },
   flex: { flex: 1 },
+  actions: { gap: 4, alignSelf: 'stretch' },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 4 },
   list: { paddingVertical: 16 },
   dateDivider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12 },
   dateLine: { flex: 1, height: 1, backgroundColor: 'rgba(133,147,168,0.25)' },

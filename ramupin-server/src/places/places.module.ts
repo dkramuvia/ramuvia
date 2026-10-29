@@ -22,7 +22,11 @@ const SEARCH_LIMIT = 5;
 const SEARCH_CACHE_MS = 10 * 60 * 1000;
 
 const NAVER_API = 'https://maps.apigw.ntruss.com';
-const TIMEOUT_MS = 5000;
+/**
+ * 앱은 주소를 3초까지만 기다리고 기기 변환으로 넘어갑니다 (대표 리포트 46·71: 주소 확인이 너무 오래 걸림).
+ * 서버가 그보다 먼저 포기해야 앱이 빈손으로 기다리지 않습니다
+ */
+const TIMEOUT_MS = 2500;
 
 export interface PlaceResult {
   address: string;

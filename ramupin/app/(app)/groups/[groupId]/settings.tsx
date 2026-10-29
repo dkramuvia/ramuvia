@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
 import { groupsApi } from '@/api/endpoints/groups';
-import { AppText, ChipTabs, MenuItem, Popup, QueryState, Screen } from '@/components/ui';
+import { AppText, Avatar, ChipTabs, MenuItem, Popup, QueryState, Screen } from '@/components/ui';
+import { forgetRoom } from '@/features/chat/queries';
 import { useGroup, useGroupAdmin, useInviteLink, useLeaveGroup } from '@/features/groups/queries';
+import { ReportSheet, type ReportTarget } from '@/features/safety/ReportSheet';
 import { useIsMe } from '@/stores/authStore';
 import { makeStyles, radius, useColors } from '@/theme';
 import { showToast } from '@/utils/toast';
@@ -22,10 +25,85 @@ type LinkDays = '1' | '7' | '30';
  * 그룹 프리미엄은 없앴습니다 (10-26 대표님: 혜택은 개인 등급 플래티넘·트리니티만).
  */
 export default function GroupSettingsScreen() {
+  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const { data: group } = useGroup(groupId);
+  // 1:1 대화방은 그룹 설정(인원·초대 링크·권한)이 아니라 상대 기준 설정만 (대표 리포트 31)
+  if (group?.isDirect) return <DirectRoomSettings groupId={groupId} />;
+  return <GroupRoomSettings groupId={groupId} />;
+}
+
+/** 1:1 대화방 설정: 상대 공유 설정 · 신고/차단 · 대화방 나가기 */
+function DirectRoomSettings({ groupId }: { groupId: string }) {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const isMe = useIsMe();
+  const queryClient = useQueryClient();
+  const { data: group } = useGroup(groupId);
+  const leave = useLeaveGroup(groupId);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [reporting, setReporting] = useState<ReportTarget | null>(null);
+  const other = group?.members.find((m) => !isMe(m.id));
+
+  const onLeave = () =>
+    leave.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmLeave(false);
+        // 1:1 방은 나가면 기기에도 남기지 않습니다. 남기면 같은 이름 방이 목록에 둘 보입니다 (대표 리포트 13·45)
+        forgetRoom(groupId, queryClient);
+        router.dismissTo('/people');
+      },
+      onError: () => {
+        setConfirmLeave(false);
+        showToast(t('common.requestFailed'));
+      },
+    });
+
+  return (
+    <Screen title={t('chat.directSettings')} tab="people" contentStyle={styles.content}>
+      {other ? (
+        <View style={styles.header}>
+          <Avatar name={other.nickname} imageUrl={other.avatarUrl} size={64} />
+          <AppText variant="listTitle">{other.nickname}</AppText>
+        </View>
+      ) : null}
+      {other?.myShareLevel ? (
+        <MenuItem label={t('chat.directShare')} onPress={() => router.push(`/settings/share/${other.id}?from=people`)} />
+      ) : null}
+      {other ? (
+        <MenuItem
+          variant="plain"
+          label={t('chat.reportBlock', { name: other.nickname })}
+          color={colors.danger}
+          icon={<Ionicons name="alert-circle-outline" size={22} color={colors.danger} />}
+          onPress={() => setReporting({ userId: other.id, nickname: other.nickname, kind: 'profile' })}
+        />
+      ) : null}
+      <MenuItem
+        variant="plain"
+        label={t('chat.leaveDirect')}
+        icon={<Ionicons name="log-out-outline" size={22} color={colors.text} />}
+        onPress={() => setConfirmLeave(true)}
+      />
+      <Popup
+        visible={confirmLeave}
+        title={t('chat.leaveDirectTitle')}
+        message={t('chat.leaveDirectMessage')}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setConfirmLeave(false)}
+        onDismiss={() => setConfirmLeave(false)}
+        confirmLabel={t('chat.leaveDirect')}
+        onConfirm={onLeave}
+      />
+      <ReportSheet target={reporting} onClose={() => setReporting(null)} onDone={(blocked) => blocked && router.dismissTo('/people')} />
+    </Screen>
+  );
+}
+
+function GroupRoomSettings({ groupId }: { groupId: string }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
   const isMe = useIsMe();
   const { data: group, isLoading, isError, refetch } = useGroup(groupId);
   const { data: link, refetch: refetchLink } = useInviteLink(groupId);

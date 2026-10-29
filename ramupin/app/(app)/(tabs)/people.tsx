@@ -25,7 +25,16 @@ export default function PeopleScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.container}>
-      <Header title={t('screens.people')} showBack={false} />
+      <Header
+        title={t('screens.people')}
+        showBack={false}
+        // 친구 추가는 사람들 화면에서 (대표 리포트 16·25)
+        right={
+          <Pressable accessibilityRole="button" accessibilityLabel={t('people.addFriend')} hitSlop={8} onPress={() => router.push('/friends/add')}>
+            <Ionicons name="person-add-outline" size={24} color={colors.text} />
+          </Pressable>
+        }
+      />
       <View style={styles.top}>
         <SegmentedTabs
           value={segment}
@@ -70,7 +79,7 @@ function FriendsList() {
       renderItem={({ item }) => (
         <FriendRow
           friend={item}
-          onPress={() => router.push(`/settings/share/${item.id}`)}
+          onPress={() => router.push(`/settings/share/${item.id}?from=people`)}
           action={
             <Pressable
               accessibilityRole="button"
@@ -93,7 +102,9 @@ function ChatRoomList() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const { data: rooms = [], isLoading, isError, refetch } = useChatRooms();
+  const { data: allRooms = [], isLoading, isError, refetch } = useChatRooms();
+  // 나간 대화는 지금 쓰는 방 아래로 (대표 리포트 40). 방 안에서 지울 수 있습니다
+  const rooms = [...allRooms.filter((r) => !r.archived), ...allRooms.filter((r) => r.archived)];
 
   if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
 
@@ -115,7 +126,8 @@ function ChatRoomList() {
               <AppText variant="listTitle" numberOfLines={1} style={styles.flex}>
                 {item.name}
               </AppText>
-              {item.memberCount > 2 ? (
+              {/* 1:1 이 아닌 방은 인원을 보여 줘야 같은 이름의 1:1 방과 구분됩니다 (대표 리포트 31) */}
+              {!item.archived && (item.isDirect === false || item.memberCount > 2) ? (
                 <AppText variant="caption" color={colors.textTertiary}>
                   {t('people.roomMembers', { count: item.memberCount })}
                 </AppText>

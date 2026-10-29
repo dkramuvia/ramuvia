@@ -12,13 +12,18 @@ import { useTranslation } from 'react-i18next';
 import { Animated, Easing, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sosApi, type SosDeliveries } from '@/api/endpoints/sos';
+import { sosApi, type SendSosResult, type SosDeliveries } from '@/api/endpoints/sos';
 import { AppText, Button, ThemedStatusBar } from '@/components/ui';
+import { useFriends } from '@/features/friends/queries';
+import { useMyGroups } from '@/features/groups/queries';
 import { describePlace } from '@/features/location/address';
 import { setSosMode } from '@/features/location/sosMode';
+import { usePlan } from '@/features/policy/usePlan';
 import { useSafetySetting } from '@/features/settings/queries';
 import { SlideToCancel } from '@/features/sos/SlideToCancel';
+import { countSosRecipients } from '@/features/sos/recipientCount';
 import { openOfflineSosSms } from '@/features/sos/sosContactsSnapshot';
+import type { SharedPlace } from '@/types/models';
 import { useAuthStore } from '@/stores/authStore';
 import { showToast } from '@/utils/toast';
 import { makeStyles, radius, useColors } from '@/theme';
@@ -42,9 +47,13 @@ async function deleteRecording(uri: string | null) {
   }
 }
 
+/** 받는 사람 이름을 화면에 보일 만큼만 (3명 넘으면 "외 N명") */
+const NAMES_SHOWN = 3;
+
 /**
  * 피그마: SOS (99:35983 대기 / 99:36017 취소됨 / 99:36053 카운트다운 / 99:36579 녹음)
- * 흐름: 탭(또는 길게 누름) → 10초 카운트다운(밀어서 취소) → 10초 녹음 → 위치·녹음 전송
+ * 흐름: 탭(또는 길게 누름) → 10초 카운트다운(밀어서 취소) → 위치 바로 전송 + 10초 녹음 → 녹음을 같은 SOS 에 붙임
+ * 대표 리포트 88: 예전에는 녹음까지 끝나야 보내서 위치가 20초 늦게 갔습니다
  * WBS 7.9: 취소하면 경보 해제, 녹음 파일 삭제
  * TODO(6단계): 지도에서 두 손가락 탭으로 SOS 진입, 앱이 백그라운드여도 전송 유지
  */
@@ -54,6 +63,7 @@ export default function SosScreen() {
   const { t } = useTranslation();
   const { data: safety } = useSafetySetting();
   const nickname = useAuthStore((s) => s.user?.nickname ?? '');
+  const recipients = useRecipientSummary();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const [phase, setPhase] = useState<Phase>('idle');
@@ -67,6 +77,8 @@ export default function SosScreen() {
   /** 전송 완료 화면에 "무엇을 보냈는지" 를 그대로 보여 줍니다 (피그마 2026-09-28) */
   const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
   const [micDenied, setMicDenied] = useState(false);
+  /** 위치 전송 결과. 녹음하는 동안 이미 보내 두고, 녹음이 끝나면 이 SOS 에 붙입니다 */
+  const sendPromise = useRef<Promise<SentResult> | null>(null);
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAt = useRef<string>('');
@@ -115,36 +127,17 @@ export default function SosScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       if (left <= 0) {
         clearTimer();
-        // 녹음을 끈 사람은 카운트다운이 끝나면 바로 보냅니다 (보완 4.6)
-        if (safety?.recordEnabled === false) void finish(false);
+        // 위치는 기다리지 않고 바로 보냅니다 (대표 리포트 88)
+        sendPromise.current = sendLocation();
+        // 녹음을 끈 사람(보완 4.6)이나 마이크 권한이 없으면 녹음 없이 끝냅니다
+        if (safety?.recordEnabled === false || !micGranted.current) void finish(false);
         else void startRecording();
       }
     }, 1000);
   };
 
-  const startRecording = async () => {
-    setPhase('recording');
-    setRemaining(RECORD_SECONDS);
-    const granted = micGranted.current;
-    if (granted) {
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-    }
-    let left = RECORD_SECONDS;
-    timer.current = setInterval(async () => {
-      left -= 1;
-      setRemaining(left);
-      if (left <= 0) {
-        clearTimer();
-        await finish(granted);
-      }
-    }, 1000);
-  };
-
-  const finish = async (recorded: boolean) => {
-    setPhase('sending');
-    if (recorded) await recorder.stop();
+  /** 위치만 먼저 보냅니다. 실패해도 throw 하지 않고 결과로 돌려줍니다 */
+  const sendLocation = async (): Promise<SentResult> => {
     const position = await locationPromise.current;
     const coords = position ? { latitude: position.coords.latitude, longitude: position.coords.longitude } : null;
     const place = coords ? await describePlace(coords).catch(() => null) : null;
@@ -152,31 +145,71 @@ export default function SosScreen() {
       const result = await sosApi.send({
         place,
         altitude: position?.coords.altitude ?? null,
-        audioUri: recorded ? recorder.uri : null,
+        audioUri: null,
         startedAt: startedAt.current,
       });
       setRecipientCount(result.recipientCount);
       setToMonitoring(result.toMonitoring);
       setSosId(result.sosId);
+      return { kind: 'ok', result, position, place, coords };
     } catch (error) {
-      // 서버에 닿지 못했을 때만(인터넷 끊김) 문자 창을 엽니다. 사용자가 [보내기]를 눌러야 갑니다 (C1·C9)
-      if (isAxiosError(error) && !error.response) {
-        setOffline(true);
-        const opened = await openOfflineSosSms(nickname, coords);
-        if (!opened) showToast(t('sos.offlineNoContacts'));
-      } else {
-        showToast(t('sos.sendFailed'));
-        setPhase('idle');
-        return;
+      // 서버에 닿지 못했을 때만(인터넷 끊김) 문자 창을 엽니다 (C1·C9)
+      return { kind: isAxiosError(error) && !error.response ? 'offline' : 'failed', position, place, coords };
+    }
+  };
+
+  const startRecording = async () => {
+    setPhase('recording');
+    setRemaining(RECORD_SECONDS);
+    try {
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+    } catch (error) {
+      // 녹음이 안 돼도 위치는 이미 갔습니다. 녹음 없이 끝냅니다
+      console.warn('[sos] 녹음 시작 실패', String(error));
+      void finish(false);
+      return;
+    }
+    let left = RECORD_SECONDS;
+    timer.current = setInterval(async () => {
+      left -= 1;
+      setRemaining(left);
+      if (left <= 0) {
+        clearTimer();
+        await finish(true);
       }
+    }, 1000);
+  };
+
+  const finish = async (recorded: boolean) => {
+    setPhase('sending');
+    if (recorded) await recorder.stop();
+    const sent = await (sendPromise.current ?? sendLocation());
+    sendPromise.current = null;
+    if (sent.kind === 'offline') {
+      setOffline(true);
+      // 사용자가 문자 창에서 [보내기]를 눌러야 갑니다
+      const opened = await openOfflineSosSms(nickname, sent.coords);
+      if (!opened) showToast(t('sos.offlineNoContacts'));
+      if (recorded) await deleteRecording(recorder.uri);
+    } else if (sent.kind === 'failed') {
+      showToast(t('sos.sendFailed'));
+      if (recorded) await deleteRecording(recorder.uri);
+      setPhase('idle');
+      return;
+    }
+    let audioAttached = false;
+    if (sent.kind === 'ok' && recorded && recorder.uri) {
+      audioAttached = await sosApi.attachAudio(sent.result.sosId, recorder.uri).catch(() => false);
     }
     setSentInfo({
-      address: place?.address ?? null,
-      latitude: position?.coords.latitude ?? null,
-      longitude: position?.coords.longitude ?? null,
-      altitude: position?.coords.altitude ?? null,
+      address: sent.place?.address ?? null,
+      latitude: sent.position?.coords.latitude ?? null,
+      longitude: sent.position?.coords.longitude ?? null,
+      altitude: sent.position?.coords.altitude ?? null,
       sentAt: new Date(),
-      recorded,
+      recorded: audioAttached,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setPhase('sent');
@@ -200,6 +233,10 @@ export default function SosScreen() {
       await recorder.stop();
       await deleteRecording(recorder.uri);
     }
+    // 녹음 중이면 위치는 이미 갔습니다. 받은 사람에게 "취소됨"을 알립니다
+    const sent = sendPromise.current ? await sendPromise.current : null;
+    sendPromise.current = null;
+    if (sent?.kind === 'ok') await sosApi.cancel(sent.result.sosId).catch(() => undefined);
     await setSosMode(false);
     setPhase('idle');
     setCancelledBanner(true);
@@ -238,6 +275,7 @@ export default function SosScreen() {
               <Button label={t('sos.openSettings')} variant="danger" onPress={() => router.replace('/settings/safety')} />
             </View>
           ) : (
+            <>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(longPress ? 'sos.holdToSend' : 'sos.tapToSend')}
@@ -256,6 +294,18 @@ export default function SosScreen() {
                 </AppText>
               </View>
             </Pressable>
+            {/* 대표 리포트 74·88: 누르기 전에 누구에게 가는지 보여 줍니다 */}
+            <View style={styles.recipientsBox}>
+              <AppText variant="body2" color={colors.textSecondary} align="center">
+                {recipients.names ? t('sos.recipientsIdle', { names: recipients.names }) : t('sos.recipientsIdleNone')}
+              </AppText>
+              {recipients.overLimit ? (
+                <AppText variant="label2" color={colors.danger} align="center">
+                  {t('sos.overLimit', { count: recipients.count, limit: recipients.limit })}
+                </AppText>
+              ) : null}
+            </View>
+            </>
           )}
         </View>
       </SafeAreaView>
@@ -287,8 +337,20 @@ export default function SosScreen() {
               {t(phase === 'countdown' ? 'sos.requestTitle' : 'sos.recordingTitle')}
             </AppText>
             <AppText variant="body2" color="#D0D0D0" align="center">
-              {phase === 'countdown' ? t('sos.requestDesc', { seconds: COUNTDOWN_SECONDS }) : t('sos.recordingDesc', { seconds: RECORD_SECONDS })}
+              {/* 대표 리포트 74: "그룹 및 비상 연락처" 대신 실제로 받을 사람 이름 */}
+              {phase === 'countdown'
+                ? recipients.names
+                  ? t('sos.requestDescTo', { seconds: COUNTDOWN_SECONDS, names: recipients.names })
+                  : t('sos.requestDescMonitoring', { seconds: COUNTDOWN_SECONDS })
+                : recipients.names
+                  ? t('sos.recordingDescTo', { seconds: RECORD_SECONDS, names: recipients.names })
+                  : t('sos.recordingDescMonitoring', { seconds: RECORD_SECONDS })}
             </AppText>
+            {recipients.overLimit ? (
+              <AppText variant="caption" color="#FFB4A8" align="center">
+                {t('sos.overLimit', { count: recipients.count, limit: recipients.limit })}
+              </AppText>
+            ) : null}
             {micDenied ? (
               <AppText variant="caption" color="#FFB4A8" align="center">
                 {t('sos.micDenied')}
@@ -455,6 +517,11 @@ function SentView({
         ) : (
           <Button label={t('sos.registerEmergency')} variant="danger" onPress={() => router.push('/settings/emergency')} />
         )}
+        {/* 대표 리포트 88: 112 옆에 119 도 바로 걸 수 있게 */}
+        <View style={styles.callRow}>
+          <Button label={t('sos.call112')} variant="danger" onPress={() => Linking.openURL('tel:112')} style={styles.flex} />
+          <Button label={t('sos.call119')} variant="danger" onPress={() => Linking.openURL('tel:119')} style={styles.flex} />
+        </View>
         <Button label={t('sos.resolve')} variant="white" onPress={onResolve} />
         <AppText variant="caption" color={FACT_COLOR} align="center">
           {t('sos.resolveNote')}
@@ -513,6 +580,40 @@ function DeliveryRow({
   );
 }
 
+type Coords = { latitude: number; longitude: number };
+
+type SentResult =
+  | { kind: 'ok'; result: SendSosResult; position: Location.LocationObject | null; place: SharedPlace | null; coords: Coords | null }
+  | { kind: 'offline' | 'failed'; position: Location.LocationObject | null; place: SharedPlace | null; coords: Coords | null };
+
+/**
+ * SOS 설정에서 고른 받는 사람 이름 (친구 · 그룹 · 비회원 연락처).
+ * 등급 한도를 넘으면 서버가 앞에서부터 한도만큼만 보내므로 미리 알려 줍니다 (대표 리포트 74)
+ */
+function useRecipientSummary() {
+  const { t } = useTranslation();
+  const { data: safety } = useSafetySetting();
+  const { data: friends = [] } = useFriends();
+  const { data: groups = [] } = useMyGroups();
+  const { limit, policy } = usePlan();
+  const myId = useAuthStore((s) => s.user?.id);
+  if (!safety) return { names: '', count: 0, limit: 0, overLimit: false };
+
+  const labels = [
+    ...safety.recipientFriendIds.map((id) => friends.find((f) => f.id === id)?.nickname).filter((n): n is string => !!n),
+    ...safety.recipientGroupIds.map((id) => groups.find((g) => g.id === id)?.name).filter((n): n is string => !!n),
+    ...safety.contacts.map((c) => c.name),
+  ];
+  const names =
+    labels.length > NAMES_SHOWN
+      ? t('sos.namesMore', { names: labels.slice(0, NAMES_SHOWN).join(', '), count: labels.length - NAMES_SHOWN })
+      : labels.join(', ');
+  const count = countSosRecipients(safety, groups, myId);
+  const max = limit('sosRecipientLimit');
+  // 정책을 아직 못 받았으면 경고하지 않습니다
+  return { names, count, limit: max, overLimit: !!policy && max > 0 && count > max };
+}
+
 interface SentInfo {
   address: string | null;
   latitude: number | null;
@@ -563,6 +664,7 @@ const useStyles = makeStyles((colors) => ({
   underline: { textDecorationLine: 'underline' },
   sentBadge: { alignSelf: 'flex-start', borderRadius: radius.full, backgroundColor: colors.danger, paddingHorizontal: 14, paddingVertical: 4 },
   sentFacts: { gap: 4, marginTop: 8 },
+  recipientsBox: { marginTop: 24, paddingHorizontal: 32, gap: 6 },
   sentActions: { marginTop: 24, gap: 10 },
   callRow: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
   doneButton: { alignSelf: 'stretch' },

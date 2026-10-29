@@ -83,7 +83,7 @@ export default function GroupMembersScreen() {
                   <FriendRow
                     friend={member}
                     tag={<RoleTag role={member.role} />}
-                    onPress={member.myShareLevel ? () => router.push(`/settings/share/${member.id}`) : undefined}
+                    onPress={member.myShareLevel ? () => router.push(`/settings/share/${member.id}?from=people`) : undefined}
                     action={
                       hasMenu ? (
                         <Pressable accessibilityRole="button" accessibilityLabel={t('groups.memberMenu')} hitSlop={10} onPress={() => setMenuId(menuId === member.id ? null : member.id)}>

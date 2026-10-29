@@ -28,6 +28,17 @@ export function useChatRooms() {
   });
 }
 
+/**
+ * 나간 대화(기기에만 남은 방)를 기기에서도 지웁니다.
+ * 예전에는 지울 방법이 없어 나간 방이 목록에 계속 남았습니다 (대표 리포트 13·40)
+ */
+export function forgetRoom(roomId: string, queryClient: ReturnType<typeof useQueryClient>) {
+  messageStore.remove(roomId);
+  roomStore.remove(roomId);
+  queryClient.removeQueries({ queryKey: chatKeys.messages(roomId) });
+  void queryClient.invalidateQueries({ queryKey: chatKeys.rooms, exact: true });
+}
+
 export function useChatMessages(roomId: string) {
   const query = useQuery({
     queryKey: chatKeys.messages(roomId),

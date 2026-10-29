@@ -63,7 +63,8 @@ export function StatusBadge({ text, kind, battery, tone = 'dark', who }: StatusB
       ) : (
         <MaterialCommunityIcons name={KIND_ICONS[kind]} size={15} color={fg} />
       )}
-      <AppText variant="micro" color={fg} numberOfLines={1}>
+      {/* 지도 마커는 크기가 고정이라 글자 크기 설정을 따르지 않습니다 — 키우면 잘렸습니다 (대표 리포트 77, NamePin 과 같게) */}
+      <AppText variant="micro" color={fg} numberOfLines={1} allowFontScaling={false} style={styles.text}>
         {text}
       </AppText>
       {battery != null ? (
@@ -73,7 +74,7 @@ export function StatusBadge({ text, kind, battery, tone = 'dark', who }: StatusB
             size={14}
             color={battery <= BATTERY_LOW ? colors.danger : BATTERY_OK}
           />
-          <AppText variant="micro" color={fg}>
+          <AppText variant="micro" color={fg} allowFontScaling={false} style={styles.text}>
             {battery}%
           </AppText>
         </>
@@ -124,5 +125,6 @@ const useStyles = makeStyles((colors) => ({
     borderColor: BADGE_BORDER,
   },
   light: { height: BADGE_GEOMETRY.height, paddingHorizontal: BADGE_GEOMETRY.paddingX, backgroundColor: colors.white },
+  text: { fontSize: 11, lineHeight: 16, includeFontPadding: false },
   dark: { height: BADGE_GEOMETRY.height, paddingHorizontal: BADGE_GEOMETRY.paddingX, backgroundColor: BADGE_DARK },
 }));

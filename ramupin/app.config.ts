@@ -91,7 +91,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         photosPermission: '갤러리에 올릴 사진을 앱 안에서 고르기 위해 사진에 접근합니다.',
         savePhotosPermission: '사진을 기기에 저장하기 위해 사진에 접근합니다.',
-        isAccessMediaLocationEnabled: false,
+        // 사진에 찍힌 위치(EXIF GPS)로 '위치 추가' 를 미리 채웁니다 (대표 리포트 12 ③). 안드로이드는 이 권한이 없으면 위치를 지우고 줍니다
+        isAccessMediaLocationEnabled: true,
         granularPermissions: ['photo', 'video'],
       },
     ],

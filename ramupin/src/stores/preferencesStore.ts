@@ -33,6 +33,8 @@ export interface Preferences {
   showWeather: boolean;
   /** 지도를 열면 모든 친구가 보이도록 축소 */
   fitAllFriends: boolean;
+  /** 갤러리 탭에서 마지막으로 고른 그룹방. 없으면 전체 (대표 리포트 98: 다시 켜도 그 방) */
+  galleryGroupId?: string;
 }
 
 interface PreferencesState extends Preferences {
@@ -58,6 +60,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       showTraffic: false,
       showWeather: false,
       fitAllFriends: false,
+      galleryGroupId: undefined,
       set: (patch) => set(patch),
     }),
     { name: 'preferences', storage: createJSONStorage(() => Storage) },
@@ -82,7 +85,7 @@ export function formatSpeed(kmh: number, unit: Preferences['speedUnit']): string
   return unit === 'mph' ? `${Math.round(kmh * 0.621371)}mph` : `${Math.round(kmh)}km/h`;
 }
 
-/** 온도 표시 (°C · °F) */
+/** 온도 표시 (°C · °F). 휴대폰 날씨처럼 정수로만 — 13°C 와 12.9°C 가 섞여 보였습니다 (대표 리포트 65) */
 export function formatTemperature(celsius: number, unit: Preferences['temperatureUnit']): string {
-  return unit === 'f' ? `${Math.round(celsius * 1.8 + 32)}°F` : `${celsius}°C`;
+  return unit === 'f' ? `${Math.round(celsius * 1.8 + 32)}°F` : `${Math.round(celsius)}°C`;
 }

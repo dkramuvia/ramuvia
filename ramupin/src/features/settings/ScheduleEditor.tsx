@@ -60,6 +60,16 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
             <Field label={t('scheduled.title')}>
               <TextInput value={title} onChangeText={setTitle} maxLength={20} style={styles.input} placeholderTextColor={colors.textPlaceholder} />
             </Field>
+            <Calendar value={date} onChange={(d) => {
+              const next = new Date(d);
+              next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+              setDate(next);
+            }} />
+
+            <AppText variant="label1Bold">{t('scheduled.time')}</AppText>
+            <TimeWheels hours24={date.getHours()} minutes={date.getMinutes()} onChange={setTime} />
+
+            {/* 대표 리포트 22: 제목 → 달력·시간 → 내용 순서 */}
             <Field label={t('scheduled.body')}>
               <TextInput
                 value={body}
@@ -71,15 +81,6 @@ export function ScheduleEditor({ visible, initial, onCancel, onSave }: ScheduleE
                 placeholderTextColor={colors.textPlaceholder}
               />
             </Field>
-
-            <Calendar value={date} onChange={(d) => {
-              const next = new Date(d);
-              next.setHours(date.getHours(), date.getMinutes(), 0, 0);
-              setDate(next);
-            }} />
-
-            <AppText variant="label1Bold">{t('scheduled.time')}</AppText>
-            <TimeWheels hours24={date.getHours()} minutes={date.getMinutes()} onChange={setTime} />
 
             <View style={styles.ttsRow}>
               <AppText variant="body2Bold" style={styles.flex}>

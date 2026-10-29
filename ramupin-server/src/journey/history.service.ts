@@ -30,12 +30,13 @@ export class HistoryService {
   constructor(@Inject(MAIN_DB) private readonly db: MainDb) {}
 
   async list(viewerId: string, category?: HistoryCategory): Promise<HistoryEvent[]> {
-    const [sos, zones, anomalies] = await Promise.all([
+    const [sos, sosSent, zones, anomalies] = await Promise.all([
       category === 'place' ? [] : this.sosReceived(viewerId),
+      category === 'place' ? [] : this.sosSent(viewerId),
       category === 'safety' ? [] : this.zoneEvents(viewerId),
       category === 'place' ? [] : this.anomalies(viewerId),
     ]);
-    return [...sos, ...zones, ...anomalies].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, LIMIT);
+    return [...sos, ...sosSent, ...zones, ...anomalies].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, LIMIT);
   }
 
   /** 내가 받은 SOS */
@@ -54,6 +55,32 @@ export class HistoryService {
       type: 'sos',
       category: 'safety' as const,
       message: r.status === 'cancelled' ? `${r.nickname}님이 SOS를 취소했어요` : `${r.nickname}님이 SOS를 보냈어요`,
+      createdAt: r.created_at.toISOString(),
+    }));
+  }
+
+  /**
+   * 내가 보낸 SOS (대표 리포트 73: 보낸 기록이 히스토리에 없었습니다).
+   * id 를 받은 SOS 와 다르게 붙여, 내가 보내고 받기도 한 경우에도 겹치지 않게 합니다
+   */
+  private async sosSent(viewerId: string): Promise<HistoryEvent[]> {
+    const rows = await this.db
+      .selectFrom('member.sos_events')
+      .select(['id', 'status', 'recipient_count', 'to_monitoring', 'created_at'])
+      .where('user_id', '=', viewerId)
+      .orderBy('created_at', 'desc')
+      .limit(LIMIT)
+      .execute();
+    return rows.map((r) => ({
+      id: `sos-sent-${r.id}`,
+      type: 'sos',
+      category: 'safety' as const,
+      message:
+        r.status === 'cancelled'
+          ? 'SOS를 보냈다가 취소했어요'
+          : r.to_monitoring
+            ? 'SOS를 보냈어요 · 관제센터에 전송'
+            : `SOS를 보냈어요 · ${r.recipient_count}명에게 전송`,
       createdAt: r.created_at.toISOString(),
     }));
   }
@@ -116,13 +143,25 @@ const TYPE_BY_TRACK: Record<string, string> = {
   fixed_charging: 'noMovement',
 };
 
+/**
+ * 단계 이름을 사람이 읽는 말로 ('48h' → '48시간', '30m' → '30분').
+ * 대표 리포트 55: 히스토리에 '48h 동안' 처럼 기록용 이름이 그대로 보였습니다
+ */
+export function stageText(stage: string): string {
+  const match = /^(\d+)([hm])$/.exec(stage);
+  if (!match) return stage;
+  return `${match[1]}${match[2] === 'h' ? '시간' : '분'}`;
+}
+
 function anomalyMessage(nickname: string, track: string, stage: string): string {
   switch (track) {
     case 'battery':
-      return stage === 'zero' ? `${nickname}님의 전화기 배터리가 다 떨어졌어요` : `${nickname}님의 배터리가 얼마 남지 않았어요`;
+      if (stage === 'zero') return `${nickname}님의 전화기 배터리가 다 떨어졌어요`;
+      if (stage === 'low') return `${nickname}님의 배터리가 얼마 남지 않았어요`;
+      return `${nickname}님의 전화기가 꺼진 지 ${stageText(stage)}이 지났어요`;
     case 'no_signal':
-      return `${nickname}님의 위치가 ${stage} 동안 확인되지 않아요`;
+      return `${nickname}님의 위치가 ${stageText(stage)} 동안 확인되지 않아요`;
     default:
-      return `${nickname}님이 ${stage} 동안 같은 자리에 계세요`;
+      return `${nickname}님이 ${stageText(stage)} 동안 같은 자리에 계세요`;
   }
 }

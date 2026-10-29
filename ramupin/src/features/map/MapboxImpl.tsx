@@ -1,8 +1,10 @@
 import Mapbox, { Camera, CircleLayer, MapView, MarkerView, ShapeSource, LineLayer, VectorSource } from '@rnmapbox/maps';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Image, StyleSheet, View } from 'react-native';
 
 import { iconSizeDp, useMarkerPress } from './markerPress';
+import { isInKorea } from './region';
 import { MarkerRenderContext } from './spriteClock';
 import { LiveSprite } from './StatusBadge';
 import type { MapImplHandle, MapImplProps } from './types';
@@ -54,6 +56,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
     onPress,
     interactive = true,
     onCenterChange,
+    onUserGesture,
     initialDelta,
     mapType,
     nightMode,
@@ -64,6 +67,12 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
   ref,
 ) {
   const camera = useRef<Camera>(null);
+  /**
+   * 지도 글자 언어. Mapbox 기본 스타일은 영어 이름을 먼저 써서 국내에서도 영어로 나왔습니다 (대표 리포트 8).
+   * 국내면 한국어, 그 밖에서는 앱 언어로 둡니다
+   */
+  const { i18n } = useTranslation();
+  const labelLocale = isInKorea(initialCenter) ? 'ko' : i18n.language.startsWith('en') ? 'en' : 'ko';
   const mapRef = useRef<MapView>(null);
   /**
    * 누가 눌렸는지는 앱이 판정합니다 (markerPress.ts — 세 지도 공통).
@@ -95,6 +104,9 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
           animationDuration: 400,
         }),
       ),
+    // 확대 정도는 그대로 두고 가운데만 옮깁니다 (내 위치 따라가기)
+    panTo: (coordinate) =>
+      run(() => camera.current?.setCamera({ centerCoordinate: [coordinate.longitude, coordinate.latitude], animationDuration: 400 })),
     fitTo: (coordinates) => {
       if (coordinates.length === 0) return;
       const lats = coordinates.map((c) => c.latitude);
@@ -145,6 +157,9 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       styleURL={nightMode && mapType === 'road' ? Mapbox.StyleURL.Dark : STYLES[mapType]}
+      localizeLabels={{ locale: labelLocale }}
+      // GLSurfaceView 는 다른 탭 화면 위로 비쳐 보였습니다 (대표 리포트 72). TextureView 로 그립니다
+      surfaceView={false}
       scaleBarEnabled={false}
       logoEnabled
       attributionEnabled
@@ -165,8 +180,11 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
         pending.current = null;
       }}
       onCameraChanged={
-        onCenterChange
-          ? (state) => onCenterChange({ latitude: state.properties.center[1], longitude: state.properties.center[0] })
+        onCenterChange || onUserGesture
+          ? (state) => {
+              if (state.gestures.isGestureActive) onUserGesture?.();
+              onCenterChange?.({ latitude: state.properties.center[1], longitude: state.properties.center[0] });
+            }
           : undefined
       }
     >
@@ -281,7 +299,8 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
                 >
                   {/* 판정에 쓸 크기는 여백을 뺀 내용만 */}
                   <View onLayout={(e) => press.setSize(m.id, { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
-                    {m.children ?? (m.iconImage ? <IconImage source={m.iconImage} /> : null)}
+                    {/* Mapbox 는 그림을 실제 Image 로 그려 기본 핀이 뜨지 않으므로 그림을 먼저 씁니다 (사진 핀은 이름 핀 children 도 같이 옴) */}
+                    {m.iconImage ? <IconImage source={m.iconImage} /> : m.children}
                   </View>
                 </View>
               </MarkerView>

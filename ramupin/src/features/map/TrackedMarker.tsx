@@ -5,6 +5,7 @@ import { Marker } from 'react-native-maps';
 import { anchorFor } from './markerPress';
 import type { MapMarkerItem } from './types';
 import { MarkerReadyProvider } from './markerReady';
+import { usePinImageReady } from './PinMarker';
 
 /**
  * 마커 안의 **그림이 다 뜬 뒤에 한 번 더 그리게** 하는 마커.
@@ -44,6 +45,8 @@ export function TrackedMarker({
   // 그림이 캐시에 들어온 뒤 **마커를 다시 만들기** 위한 값입니다 (아래 설명)
   const [gen, setGen] = useState(0);
   const remade = useRef(false);
+  // 사진 핀 그림을 다 받기 전에는 뷰(이름 핀)로 그립니다 (PinMarker usePinImageReady)
+  const imageReady = usePinImageReady(item.iconImage);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopSoon = useCallback((delay: number) => {
@@ -73,7 +76,7 @@ export function TrackedMarker({
   }, [stopSoon]);
 
   // 그림 아이콘이 있으면 뷰를 굽지 않습니다 (가장 확실하게 보이는 길)
-  if (item.iconImage) {
+  if (item.iconImage && (imageReady || !item.children)) {
     return (
       <Marker
       coordinate={item.coordinate}

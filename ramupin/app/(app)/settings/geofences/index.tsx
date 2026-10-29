@@ -17,6 +17,8 @@ import { showToast } from '@/utils/toast';
 
 const FALLBACK_CENTER = { latitude: 37.4979, longitude: 127.0276 };
 const SHEET_HEIGHT = 440;
+/** 내린 패널 높이: 손잡이 + 등록 개수 + 하단 탭 */
+const COLLAPSED_HEIGHT = 150;
 
 /**
  * 피그마: 지오펜스 설정 (125:56753) / 메뉴 (125:56811) / 삭제 확인 (125:56812)
@@ -31,12 +33,14 @@ export default function GeofencesScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const mapRef = useRef<AppMapViewHandle>(null);
-  const { data: geofences = [] } = useGeofences();
+  const { data: geofences = [], isFetched } = useGeofences();
   const save = useSaveGeofence();
   const remove = useRemoveGeofence();
-  const { limit } = usePlan();
+  const { limit, policy } = usePlan();
   const [menuId, setMenuId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Geofence | null>(null);
+  /** 대표 리포트 19: 아래 패널을 내려 지도를 넓게 볼 수 있게 */
+  const [collapsed, setCollapsed] = useState(false);
 
   // 등록된 안심존이 모두 보이게 한 번 맞춤
   const fitted = useRef(false);
@@ -47,6 +51,28 @@ export default function GeofencesScreen() {
     else mapRef.current?.fitTo(geofences.map((g) => g.center));
   }, [geofences]);
 
+  // 대표 리포트 19: 추가하고 돌아오면 새 안심존으로 지도를 옮기고 패널을 내립니다
+  const knownIds = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    // 처음 불러온 목록은 "새로 추가" 가 아닙니다
+    if (!isFetched) return;
+    const known = knownIds.current;
+    knownIds.current = new Set(geofences.map((g) => g.id));
+    if (!known) return;
+    const added = geofences.find((g) => !known.has(g.id));
+    if (!added) return;
+    setCollapsed(true);
+    mapRef.current?.moveTo(added.center, 0.01);
+  }, [geofences, isFetched]);
+
+  const focusZone = (g: Geofence) => {
+    setCollapsed(true);
+    mapRef.current?.moveTo(g.center, 0.01);
+  };
+
+  // 대표 리포트 76: 정책을 못 받았을 때 0개로 보여 "0개 중 0개 남음" 이 되고 추가가 막혔습니다.
+  // 받기 전에는 '-' 로 보이고 추가는 막지 않습니다 (한도는 서버가 다시 확인합니다)
+  const policyLoaded = !!policy;
   const placeLimit = limit('placeLimit');
   const remaining = Math.max(0, placeLimit - geofences.length);
   const alertLimit = limit('geofenceAlertLimit');
@@ -79,8 +105,8 @@ export default function GeofencesScreen() {
   );
 
   const add = () => {
-    if (remaining <= 0) {
-      showToast(t('geofence.limitReached'));
+    if (policyLoaded && remaining <= 0) {
+      showToast(t('geofence.limitReachedUpgrade', { limit: placeLimit }));
       return;
     }
     router.push('/settings/geofences/edit');
@@ -94,7 +120,7 @@ export default function GeofencesScreen() {
         initialDelta={0.3}
         markers={markers}
         circles={circles}
-        padding={{ top: 120, right: 0, bottom: SHEET_HEIGHT, left: 0 }}
+        padding={{ top: 120, right: 0, bottom: collapsed ? COLLAPSED_HEIGHT : SHEET_HEIGHT, left: 0 }}
       />
 
       <View style={styles.top} pointerEvents="box-none">
@@ -105,18 +131,30 @@ export default function GeofencesScreen() {
         </View>
         <View style={styles.remaining}>
           <AppText variant="label1" color={colors.textSecondary}>
-            {t('geofence.remaining', { limit: placeLimit, remaining })} · {t('geofence.alertCount', { count: alertCount, limit: alertLimit })}
+            {policyLoaded
+              ? `${t('geofence.usage', { limit: placeLimit, used: geofences.length })} · ${t('geofence.alertCount', { count: alertCount, limit: alertLimit })}`
+              : t('geofence.usage', { limit: '-', used: geofences.length })}
           </AppText>
         </View>
       </View>
 
-      <View style={styles.sheet}>
-        <View style={styles.grabber} />
-        <View style={styles.countBar}>
+      <View style={[styles.sheet, collapsed && styles.sheetCollapsed]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(collapsed ? 'geofence.expandPanel' : 'geofence.collapsePanel')}
+          onPress={() => setCollapsed(!collapsed)}
+          hitSlop={12}
+          style={styles.grabberHit}
+        >
+          <View style={styles.grabber} />
+        </Pressable>
+        <Pressable style={[styles.countBar, collapsed && styles.countBarCollapsed]} onPress={() => setCollapsed(!collapsed)}>
           <AppText variant="label1Bold" color={colors.white}>
             {t('geofence.registered', { count: geofences.length })}
           </AppText>
-        </View>
+        </Pressable>
+        {collapsed ? null : (
+        <>
         <ScrollView contentContainerStyle={styles.list}>
           {geofences.length === 0 ? (
             <AppText variant="label1" color={colors.textMuted} align="center">
@@ -126,7 +164,7 @@ export default function GeofencesScreen() {
           {geofences.map((g) => (
             <View key={g.id} style={styles.item}>
               <View style={styles.itemTitle}>
-                <Pressable onPress={() => mapRef.current?.moveTo(g.center, 0.01)} style={styles.flex}>
+                <Pressable onPress={() => focusZone(g)} style={styles.flex}>
                   <AppText variant="body2Bold" color={g.enabled ? colors.text : colors.textMuted}>
                     {g.name}
                     {g.enabled ? '' : ` · ${t('geofence.disabled')}`}
@@ -184,6 +222,8 @@ export default function GeofencesScreen() {
         <View style={styles.addWrap}>
           <Button label={t('geofence.add')} variant="brownLight" size="lg" onPress={add} />
         </View>
+        </>
+        )}
         <BottomNav active="map" />
       </View>
 
@@ -237,7 +277,9 @@ const useStyles = makeStyles((colors) => ({
     borderTopRightRadius: 24,
     backgroundColor: colors.background,
   },
-  grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginVertical: 12 },
+  sheetCollapsed: { height: undefined },
+  grabberHit: { alignSelf: 'stretch', alignItems: 'center' },
+  grabber: { width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginVertical: 12 },
   countBar: {
     marginHorizontal: 24,
     height: 32,
@@ -265,4 +307,6 @@ const useStyles = makeStyles((colors) => ({
   },
   menuItem: { paddingHorizontal: 20, paddingVertical: 10 },
   addWrap: { paddingHorizontal: 16, paddingBottom: 8 },
+  // 내린 상태에서 등록 개수와 하단 탭 사이 간격
+  countBarCollapsed: { marginBottom: 12 },
 }));

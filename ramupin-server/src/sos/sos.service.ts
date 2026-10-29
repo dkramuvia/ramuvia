@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { ChatGateway } from '../chat/chat.gateway.js';
 import { appError } from '../common/app-error.js';
+import { decryptOptional } from '../common/location-crypto.js';
 import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
@@ -188,7 +189,10 @@ export class SosService {
     return { ok: true };
   }
 
-  /** 내가 받은 SOS 목록 (앱 알림 보관함) */
+  /**
+   * 내가 받은 SOS 목록 (앱 알림 보관함).
+   * 대표 리포트 68: 받은 시각·당시 위치만으로는 부족해 고도와 녹음 유무도 함께 줍니다
+   */
   async received(userId: string, limit = 50) {
     const rows = await this.db
       .selectFrom('member.sos_events as e')
@@ -199,6 +203,7 @@ export class SosService {
         'e.user_id as userId',
         'u.nickname',
         ...SOS_PLACE_COLUMNS,
+        'e.audio_asset_id',
         'e.status',
         'e.started_at as startedAt',
         'e.created_at as createdAt',
@@ -208,7 +213,105 @@ export class SosService {
       .orderBy('e.created_at', 'desc')
       .limit(limit)
       .execute();
-    return rows.map(withSosPlace);
+    return rows.map(withPlaceDetail);
+  }
+
+  /**
+   * 내가 보낸 SOS 목록 (대표 리포트 73).
+   * 받은 사람 이름은 앱 알림을 받은 친구만 셉니다. 문자는 [전달 상태](deliveries)에서 봅니다
+   */
+  async sent(userId: string, limit = 50) {
+    const rows = await this.db
+      .selectFrom('member.sos_events as e')
+      .select([
+        'e.id',
+        ...SOS_PLACE_COLUMNS,
+        'e.audio_asset_id',
+        'e.status',
+        'e.recipient_count as recipientCount',
+        'e.to_monitoring as toMonitoring',
+        'e.started_at as startedAt',
+        'e.created_at as createdAt',
+      ])
+      .where('e.user_id', '=', userId)
+      .orderBy('e.created_at', 'desc')
+      .limit(limit)
+      .execute();
+    if (rows.length === 0) return [];
+
+    const names = await this.db
+      .selectFrom('member.sos_deliveries as d')
+      .innerJoin('member.users as u', 'u.id', 'd.recipient_user_id')
+      .select(['d.sos_id', 'u.nickname'])
+      .where(
+        'd.sos_id',
+        'in',
+        rows.map((r) => r.id),
+      )
+      .execute();
+    const namesBySos = new Map<string, string[]>();
+    for (const n of names) namesBySos.set(n.sos_id, [...(namesBySos.get(n.sos_id) ?? []), n.nickname]);
+
+    return rows.map((r) => ({ ...withPlaceDetail(r), recipientNames: namesBySos.get(r.id) ?? [] }));
+  }
+
+  /**
+   * 보낸 SOS 에 녹음을 나중에 붙입니다 (대표 리포트 88).
+   *
+   * 예전에는 10초 대기 + 10초 녹음이 끝나야 SOS 가 나가 위치가 20초 늦었습니다.
+   * 이제 위치는 대기 직후 바로 보내고, 녹음은 끝나는 대로 이 주소로 올려 같은 SOS 에 붙입니다.
+   * 받은 사람에게는 같은 SOS 를 hasAudio 로 다시 알리고(audioAdded), 푸시로도 알립니다.
+   */
+  async attachAudio(userId: string, sosId: string, audioAssetId: string) {
+    const asset = await this.db
+      .selectFrom('media.assets')
+      .select('id')
+      .where('id', '=', audioAssetId)
+      .where('owner_id', '=', userId)
+      .executeTakeFirst();
+    if (!asset) throw appError(404, 'ASSET_NOT_FOUND', '녹음 파일을 찾을 수 없습니다');
+
+    const event = await this.db
+      .updateTable('member.sos_events')
+      .set({ audio_asset_id: audioAssetId })
+      .where('id', '=', sosId)
+      .where('user_id', '=', userId)
+      // 이미 붙은 녹음은 바꾸지 않습니다 (나중 기록이 처음 기록을 덮으면 안 됩니다)
+      .where('audio_asset_id', 'is', null)
+      .returning(['id', 'status', 'started_at'])
+      .executeTakeFirst();
+    if (!event) throw appError(404, 'SOS_NOT_FOUND', '녹음을 붙일 SOS 가 없습니다');
+
+    const recipients = await this.deliveredTo(sosId);
+    if (recipients.length > 0 && event.status === 'sent') {
+      const me = await this.db.selectFrom('member.users').select('nickname').where('id', '=', userId).executeTakeFirst();
+      const place = await this.db
+        .selectFrom('member.sos_events as e')
+        .select([...SOS_PLACE_COLUMNS])
+        .where('e.id', '=', sosId)
+        .executeTakeFirstOrThrow()
+        .then(withSosPlace);
+      this.gateway.emitSos(recipients, {
+        sosId,
+        userId,
+        nickname: me?.nickname ?? '',
+        ...place,
+        startedAt: event.started_at.toISOString(),
+        hasAudio: true,
+        // 같은 SOS 의 갱신입니다. 앱은 새 SOS 로 보지 말고 열린 팝업·목록만 바꾸면 됩니다
+        audioAdded: true,
+      });
+      await this.push
+        .sendToUsers(recipients, {
+          title: `${me?.nickname ?? '친구'}님의 SOS 녹음`,
+          body: 'SOS 에 음성 녹음이 추가되었어요. 눌러서 들어 보세요',
+          channel: 'sos',
+          route: '/sos-received',
+          data: { sosId, userId, kind: 'sosAudio' },
+        })
+        .catch((error: unknown) => this.logger.error(`SOS 녹음 알림 실패: ${String(error)}`));
+    }
+    return { ok: true };
   }
 
   /**
@@ -287,4 +390,14 @@ export class SosService {
       })
       .catch((error: unknown) => this.logger.error(`SOS 푸시 실패: ${String(error)}`));
   }
+}
+
+/** 화면에 보여 줄 SOS 장소 + 고도 + 녹음 유무 (withSosPlace 는 관제·문자에서도 써서 고도를 빼 둡니다) */
+function withPlaceDetail<T extends Parameters<typeof withSosPlace>[0] & { audio_asset_id: string | null }>(row: T) {
+  const { audio_asset_id, ...rest } = row;
+  return {
+    ...withSosPlace(rest),
+    altitude: decryptOptional<number>(row.altitude_enc),
+    hasAudio: audio_asset_id != null,
+  };
 }

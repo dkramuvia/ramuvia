@@ -39,8 +39,9 @@ export function useMyLocation() {
       setPermission('granted');
 
       // 마지막으로 알려진 위치를 먼저 보여주고, 이후 실시간으로 갱신
-      const last = await Location.getLastKnownPositionAsync();
-      if (last && !cancelled) setLocation(toMyLocation(last));
+      // 오래됐거나 오차가 큰 마지막 위치는 버립니다. 엉뚱한 곳에 먼저 떴다가 나중에 옮겨 갔습니다 (대표 리포트 66)
+      const last = await Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS, requiredAccuracy: LAST_KNOWN_MAX_ACCURACY_M });
+      if (last && !cancelled && isFreshEnough(last)) setLocation(toMyLocation(last));
 
       subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.Balanced, distanceInterval: 10, timeInterval: 5000 },
@@ -56,6 +57,14 @@ export function useMyLocation() {
   }, []);
 
   return { permission, location };
+}
+
+const LAST_KNOWN_MAX_AGE_MS = 2 * 60_000;
+const LAST_KNOWN_MAX_ACCURACY_M = 100;
+
+/** 기기마다 maxAge·requiredAccuracy 를 지키지 않을 수 있어 한 번 더 봅니다 */
+function isFreshEnough({ coords, timestamp }: Location.LocationObject) {
+  return Date.now() - timestamp <= LAST_KNOWN_MAX_AGE_MS && (coords.accuracy == null || coords.accuracy <= LAST_KNOWN_MAX_ACCURACY_M);
 }
 
 function toMyLocation({ coords, timestamp }: Location.LocationObject): MyLocation {

@@ -54,7 +54,7 @@ export default function GalleryGroupScreen() {
       />
       <Fab
         accessibilityLabel={t('gallery.write')}
-        onPress={() => router.push('/gallery/upload')}
+        onPress={() => router.push({ pathname: '/gallery/upload', params: { groupId } })}
         icon={<Ionicons name="pencil" size={26} color={colors.white} />}
         bottom={24}
       />

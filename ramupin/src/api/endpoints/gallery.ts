@@ -147,8 +147,23 @@ export const galleryApi = {
     return data;
   },
 
+  /** 그룹방별 게시물 수 (대표 리포트 12 ④). 게시물이 없는 방은 목록에 없습니다 */
+  async groupCounts(): Promise<Record<string, number>> {
+    if (!isLive('gallery')) {
+      const counts: Record<string, number> = {};
+      for (const p of mockPosts) counts[p.groupId] = (counts[p.groupId] ?? 0) + 1;
+      return mockResponse(counts);
+    }
+    const { data } = await apiClient.get<{ groupId: string; count: number }[]>('/gallery/groups/counts');
+    return Object.fromEntries(data.map((r) => [r.groupId, r.count]));
+  },
+
   async remove(postId: string): Promise<void> {
-    if (!isLive('gallery')) return mockResponse(undefined);
+    if (!isLive('gallery')) {
+      const i = mockPosts.findIndex((p) => p.id === postId);
+      if (i >= 0) mockPosts.splice(i, 1);
+      return mockResponse(undefined);
+    }
     await apiClient.delete(`/gallery/posts/${postId}`);
   },
 };

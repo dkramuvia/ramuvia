@@ -1,3 +1,4 @@
+import { RealtimeModule } from '../chat/chat.gateway.js';
 import {
   Body,
   Controller,
@@ -470,7 +471,7 @@ class BlocksController {
 }
 
 @Module({
-  imports: [LocationModule, PushModule],
+  imports: [LocationModule, PushModule, RealtimeModule],
   controllers: [FriendsController, BlocksController],
   providers: [FriendsService, BlocksService, FriendRequestsService, ShareSettingsService, QrTokenService, NearbyService, ContactsService],
 })

@@ -3,7 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ChatGateway } from '../chat/chat.gateway.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
-import { PushService } from '../push/push.service.js';
+import { PushService, type PushChannel } from '../push/push.service.js';
 import { SoloService } from '../solo/solo.module.js';
 import { ANOMALY_RULES, detect, keepLowBatteryOpen, type AnomalyTarget, type AnomalyTrack, type Detection } from './anomaly.rules.js';
 
@@ -80,6 +80,7 @@ export class AnomalyService {
     const openKeys = new Set(open.map((e) => key(e.user_id, e.track, e.stage)));
     const stillOpen = new Set<string>();
     let opened = 0;
+    const inZone = await this.usersInsideSafeZone(userIds);
 
     for (const status of statuses) {
       const user = userById.get(status.userId);
@@ -89,6 +90,10 @@ export class AnomalyService {
       const found = detect(
         status,
         now,
+      ).filter(
+        // 10-30 확정: 집 등 안심존 안에 있으면 "오래 안 움직임"은 보내지 않습니다 (배터리·신호 두절은 그대로).
+        // 1인 가구는 집에서 안 움직이는 게 바로 위험 신호라 그대로 둡니다
+        (d) => user.single_household || !inZone.has(status.userId) || !LONG_STAY_TRACKS.has(d.track),
       );
 
       for (const detection of found) {
@@ -144,7 +149,7 @@ export class AnomalyService {
         .sendToUsers(friendIds, {
           title: '라무핀 안전 알림',
           body: messageFor(nickname, detection),
-          channel: 'anomaly',
+          channel: soundChannelFor(detection),
           // 대표 리포트 55: 배터리 알림은 [배터리 경고 알림] 설정·방해 금지를 따릅니다 (안 주면 SOS 로 봐 늘 울렸습니다)
           ...(detection.track === 'battery' ? { category: 'battery' as const } : {}),
           route: `/journey/${userId}`,
@@ -179,6 +184,20 @@ export class AnomalyService {
       .where('friend_id', '=', userId)
       .execute();
     return rows.map((r) => r.user_id);
+  }
+
+  /** 지금 자기 안심존(켜 둔 것) 안에 있는 사람 */
+  private async usersInsideSafeZone(userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+    const rows = await this.db
+      .selectFrom('member.safe_zones')
+      .select('user_id')
+      .distinct()
+      .where('user_id', 'in', userIds)
+      .where('enabled', '=', true)
+      .where('inside', '=', true)
+      .execute();
+    return new Set(rows.map((r) => r.user_id));
   }
 
   /** 모니터링 사이트 목록: 아직 안 풀린 이상징후 */
@@ -242,6 +261,16 @@ export class AnomalyService {
 }
 
 const key = (userId: string, track: string, stage: string) => `${userId}|${track}|${stage}`;
+
+/** "한 자리에 오래 있음" 트랙 (안심존 안이면 보내지 않음). 배터리 0% 가 겹친 조합은 위험이라 뺍니다 */
+const LONG_STAY_TRACKS = new Set<AnomalyTrack>(['gps_fixed', 'fixed_charging']);
+
+/** 알람별 알림음 (요금제 안내 10-30 4-1) */
+function soundChannelFor(detection: Detection): PushChannel {
+  if (detection.track === 'battery' && detection.stage === 'low') return 'battery';
+  if (LONG_STAY_TRACKS.has(detection.track)) return 'longStay';
+  return 'anomaly';
+}
 
 export type { AnomalyTrack };
 

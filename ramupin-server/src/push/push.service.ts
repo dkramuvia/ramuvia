@@ -17,8 +17,47 @@ import { NotificationSettingsService, type NotificationCategory } from './notifi
  * 서비스 계정 키가 없으면 발송을 건너뜁니다 (개발 중에 키 없이도 서버가 뜨도록).
  */
 
-/** 알림 채널 (앱의 CHANNELS 와 같아야 합니다) */
-export type PushChannel = 'sos' | 'danger' | 'anomaly' | 'general' | 'chat';
+/**
+ * 알림 채널 (앱의 CHANNELS 와 같아야 합니다).
+ * 알람마다 소리가 다릅니다 (요금제 안내 10-30, 4-1 알람별 알림음)
+ */
+export type PushChannel =
+  | 'sos'
+  | 'danger'
+  | 'anomaly'
+  | 'battery'
+  | 'longStay'
+  | 'safeZone'
+  | 'geofence'
+  | 'scheduled'
+  | 'general'
+  | 'chat';
+
+/**
+ * 안드로이드 채널 id 와 소리 파일 (앱 app.config 의 sounds 와 같은 이름).
+ * 안드로이드는 한 번 만든 채널의 소리를 바꿀 수 없어서, 소리가 붙은 채널은 새 id 를 씁니다
+ */
+const ANDROID_CHANNEL: Record<PushChannel, { id: string; sound?: string }> = {
+  sos: { id: 'sos_alarm', sound: 'sos_alarm.wav' },
+  danger: { id: 'danger_alarm', sound: 'danger_zone_alarm.wav' },
+  anomaly: { id: 'anomaly_alarm', sound: 'anomaly_alarm.wav' },
+  battery: { id: 'battery_alarm', sound: 'battery_alarm.wav' },
+  longStay: { id: 'long_stay_alarm', sound: 'long_stay_alarm.wav' },
+  safeZone: { id: 'safe_zone_alarm', sound: 'safe_zone_alarm.wav' },
+  geofence: { id: 'geofence_alarm', sound: 'geofence_alarm.wav' },
+  scheduled: { id: 'scheduled_alarm', sound: 'scheduled_alarm.wav' },
+  general: { id: 'general' },
+  chat: { id: 'chat' },
+};
+
+/** 채널별 플랫폼 설정 (안드로이드 채널, iOS 소리) */
+function platformOptions(channel: PushChannel, priority: 'high' | 'normal') {
+  const { id, sound } = ANDROID_CHANNEL[channel];
+  return {
+    android: { priority, notification: { channelId: id, ...(sound ? { sound } : {}) } },
+    apns: { payload: { aps: { sound: sound ?? 'default' } } },
+  };
+}
 
 export interface PushMessage {
   title: string;
@@ -41,6 +80,11 @@ const CATEGORY_OF_CHANNEL: Record<PushChannel, NotificationCategory> = {
   sos: 'sos',
   danger: 'sos',
   anomaly: 'sos',
+  battery: 'battery',
+  longStay: 'sos',
+  safeZone: 'geofence',
+  geofence: 'geofence',
+  scheduled: 'scheduledMessage',
   general: 'notice',
   // 설정 > 알림 의 "그룹 활동 알림" 으로 끕니다
   chat: 'groupActivity',
@@ -127,10 +171,7 @@ export class PushService implements OnModuleInit {
     const response = await this.messaging.sendEachForMulticast({
       tokens,
       notification: { title: message.title, body: message.body },
-      android: {
-        priority: message.channel === 'sos' ? 'high' : 'normal',
-        notification: { channelId: message.channel },
-      },
+      ...platformOptions(message.channel, message.channel === 'general' || message.channel === 'chat' ? 'normal' : 'high'),
       // 알림을 누르면 어디로 갈지. 값은 모두 문자열이어야 합니다
       data: { ...(message.data ?? {}), ...(message.route ? { route: message.route } : {}) },
     });
@@ -148,7 +189,7 @@ export class PushService implements OnModuleInit {
     const response = await this.messaging.sendEachForMulticast({
       tokens,
       notification: { title: message.title, body: message.body },
-      android: { priority: 'high', notification: { channelId: message.channel } },
+      ...platformOptions(message.channel, 'high'),
       data: { ...(message.data ?? {}), ...(message.route ? { route: message.route } : {}) },
     });
     return { sent: response.successCount };

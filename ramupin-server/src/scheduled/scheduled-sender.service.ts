@@ -128,7 +128,7 @@ export class ScheduledSenderService implements OnModuleInit, OnApplicationShutdo
         .sendToUsers([row.target_id], {
           title: row.title,
           body: row.body,
-          channel: 'general',
+          channel: 'scheduled',
           // 대표 리포트 23: 공지사항을 꺼도 예약 메시지는 와야 합니다
           category: 'scheduledMessage',
           // 받는 사람 화면은 알림 보관함입니다. 예약 메시지 목록은 보낸 사람(보호자)의 것입니다

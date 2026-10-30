@@ -57,6 +57,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
     interactive = true,
     onCenterChange,
     onUserGesture,
+    onVisibleDelta,
     initialDelta,
     mapType,
     nightMode,
@@ -179,6 +180,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
         pending.current?.();
         pending.current = null;
       }}
+      onMapIdle={onVisibleDelta ? (state) => onVisibleDelta(Math.abs(state.properties.bounds.ne[1] - state.properties.bounds.sw[1])) : undefined}
       onCameraChanged={
         onCenterChange || onUserGesture
           ? (state) => {

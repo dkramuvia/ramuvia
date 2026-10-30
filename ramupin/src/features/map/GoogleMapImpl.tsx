@@ -34,7 +34,7 @@ const CAMERA_PAUSE_MS = 700;
 const zoomFromDelta = (delta: number) => Math.min(20, Math.max(1, Math.log2(360 / Math.max(delta, 0.0001))));
 
 export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function GoogleMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, initialDelta, mapType, nightMode, traffic, tilted = false, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, onVisibleDelta, initialDelta, mapType, nightMode, traffic, tilted = false, style },
   ref,
 ) {
   const mapRef = useRef<MapView>(null);
@@ -119,7 +119,14 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
         pending.current?.();
         pending.current = null;
       }}
-      onRegionChangeComplete={onCenterChange ? (region) => onCenterChange({ latitude: region.latitude, longitude: region.longitude }) : undefined}
+      onRegionChangeComplete={
+        onCenterChange || onVisibleDelta
+          ? (region) => {
+              onCenterChange?.({ latitude: region.latitude, longitude: region.longitude });
+              onVisibleDelta?.(region.latitudeDelta);
+            }
+          : undefined
+      }
     >
       {circles.map((c) => (
         <Circle key={c.id} center={c.center} radius={c.radiusM} fillColor={c.fillColor} strokeColor={c.strokeColor} strokeWidth={1} />

@@ -419,7 +419,7 @@ export class SafeZoneService {
       .sendToUsers(to, {
         title: '라무핀',
         body,
-        channel: 'general',
+        channel: 'safeZone',
         category: 'geofence',
         route: `/journey/${userId}`,
         data: { zoneId, kind },

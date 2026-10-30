@@ -75,21 +75,31 @@ function FriendsList() {
           {t('people.activeCount', { count: activeCount })}
         </AppText>
       }
-      // 기획: 친구 아바타 클릭 → 친구별 상세 공유. 오른쪽 말풍선 → 1:1 대화
+      // 10-30 대표님 확정 (리포트 81): 친구를 누르면 지도에서 그 친구 위치. 공유 설정은 톱니, 말풍선은 1:1 대화
       renderItem={({ item }) => (
         <FriendRow
           friend={item}
-          onPress={() => router.push(`/settings/share/${item.id}?from=people`)}
+          onPress={() => router.navigate({ pathname: '/map', params: { focus: item.id } })}
           action={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('people.openChat')}
-              hitSlop={8}
-              disabled={directRoom.isPending}
-              onPress={() => directRoom.mutate(item.id, { onSuccess: (group) => router.push(`/chat/${group.id}`) })}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textSecondary} />
-            </Pressable>
+            <View style={styles.rowActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('people.shareSettings')}
+                hitSlop={8}
+                onPress={() => router.push(`/settings/share/${item.id}?from=people`)}
+              >
+                <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('people.openChat')}
+                hitSlop={8}
+                disabled={directRoom.isPending}
+                onPress={() => directRoom.mutate(item.id, { onSuccess: (group) => router.push(`/chat/${group.id}`) })}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textSecondary} />
+              </Pressable>
+            </View>
           }
         />
       )}
@@ -155,6 +165,7 @@ const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   top: { paddingHorizontal: layout.screenPadding, paddingTop: 20 },
   list: { paddingHorizontal: layout.screenPadding, paddingTop: 20, paddingBottom: 96, gap: 12 },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   caption: { marginBottom: 8 },
   loading: { marginTop: 40 },
   roomCard: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, paddingRight: 16 },

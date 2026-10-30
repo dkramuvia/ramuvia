@@ -12,15 +12,27 @@ import { isLive } from '@/config/env';
  * SOS·이상징후처럼 정작 중요한 순간에는 앱이 꺼져 있습니다.
  */
 
-/** 상황별 알림 채널 (WBS 7.8: 채널마다 다른 소리). 중요도가 달라 사용자가 따로 끌 수 있습니다 */
+/**
+ * 상황별 알림 채널. 알람마다 소리가 다릅니다 (요금제 안내 10-30, 4-1 알람별 알림음).
+ * id·소리는 서버 push.service 의 ANDROID_CHANNEL 과 같아야 합니다.
+ * 안드로이드는 한 번 만든 채널의 소리를 바꿀 수 없어, 소리를 붙이면서 id 를 새로 정했습니다
+ */
 export const CHANNELS = {
-  sos: { id: 'sos', name: 'SOS 긴급', importance: Notifications.AndroidImportance.MAX },
-  danger: { id: 'danger', name: '위험 지역·과속', importance: Notifications.AndroidImportance.HIGH },
-  anomaly: { id: 'anomaly', name: '이상징후', importance: Notifications.AndroidImportance.HIGH },
-  general: { id: 'general', name: '일반 알림', importance: Notifications.AndroidImportance.DEFAULT },
+  sos: { id: 'sos_alarm', name: 'SOS 긴급', importance: Notifications.AndroidImportance.MAX, sound: 'sos_alarm.wav' },
+  danger: { id: 'danger_alarm', name: '위험 지역', importance: Notifications.AndroidImportance.HIGH, sound: 'danger_zone_alarm.wav' },
+  anomaly: { id: 'anomaly_alarm', name: '이상 동작', importance: Notifications.AndroidImportance.HIGH, sound: 'anomaly_alarm.wav' },
+  battery: { id: 'battery_alarm', name: '배터리 부족', importance: Notifications.AndroidImportance.HIGH, sound: 'battery_alarm.wav' },
+  longStay: { id: 'long_stay_alarm', name: '장시간 위치 고정', importance: Notifications.AndroidImportance.HIGH, sound: 'long_stay_alarm.wav' },
+  safeZone: { id: 'safe_zone_alarm', name: '안심지역', importance: Notifications.AndroidImportance.HIGH, sound: 'safe_zone_alarm.wav' },
+  geofence: { id: 'geofence_alarm', name: '지오펜스', importance: Notifications.AndroidImportance.HIGH, sound: 'geofence_alarm.wav' },
+  scheduled: { id: 'scheduled_alarm', name: '예약 메시지', importance: Notifications.AndroidImportance.HIGH, sound: 'scheduled_alarm.wav' },
+  general: { id: 'general', name: '일반 알림', importance: Notifications.AndroidImportance.DEFAULT, sound: undefined },
   // 채팅은 따로 둡니다. 사용자가 휴대폰 설정에서 채팅만 끌 수 있게 (서버 PushChannel 'chat')
-  chat: { id: 'chat', name: '채팅', importance: Notifications.AndroidImportance.HIGH },
+  chat: { id: 'chat', name: '채팅', importance: Notifications.AndroidImportance.HIGH, sound: undefined },
 } as const;
+
+/** 소리 없이 만들었던 옛 채널. 남겨 두면 휴대폰 알림 설정에 빈 항목이 남습니다 */
+const OLD_CHANNEL_IDS = ['sos', 'danger', 'anomaly'];
 
 /** 앱이 켜져 있을 때 알림이 오면 어떻게 보여줄지 */
 Notifications.setNotificationHandler({
@@ -39,9 +51,13 @@ async function ensureChannels() {
     await Notifications.setNotificationChannelAsync(channel.id, {
       name: channel.name,
       importance: channel.importance,
-      // TODO(7.8): 상황별 알림음 파일을 채널마다 지정
+      // 소리 없는 채널은 휴대폰 기본 알림음
+      ...(channel.sound ? { sound: channel.sound } : {}),
       vibrationPattern: [0, 250, 250, 250],
     });
+  }
+  for (const id of OLD_CHANNEL_IDS) {
+    await Notifications.deleteNotificationChannelAsync(id).catch(() => undefined);
   }
 }
 

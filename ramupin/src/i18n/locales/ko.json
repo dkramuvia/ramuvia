@@ -53,7 +53,11 @@
     "durationHours": "{{hours}}시간",
     "durationHoursMinutes": "{{hours}}시간 {{minutes}}분",
     "hiding": "위치 숨김 중",
-    "hidingOff": "끄기"
+    "hidingOff": "끄기",
+    "noFriendLocation": "{{name}}님의 위치를 아직 받지 못했어요",
+    "clusterCount": "{{count}}명",
+    "clusterTitle": "이 자리에 {{count}}명이 있어요",
+    "streetViewOf": "{{name}} 위치 로드뷰"
   },
   "streetView": {
     "openInNaver": "네이버 지도에서 보기",
@@ -70,7 +74,8 @@
     "openChat": "1:1 대화",
     "unread": "안 읽음 {{count}}",
     "archived": "나간 대화",
-    "addFriend": "친구 추가"
+    "addFriend": "친구 추가",
+    "shareSettings": "위치 공유 설정"
   },
   "groups": {
     "registeredFriends": "{{count}}명의 친구 등록됨",

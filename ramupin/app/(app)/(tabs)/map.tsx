@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { router, useIsFocused } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, Pressable, View } from 'react-native';
+import { Dimensions, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, Avatar, SheetScrollView, SnapSheet } from '@/components/ui';
+import { AppText, Avatar, SheetScrollView, SnapSheet, type SnapSheetHandle } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriendRequests, useFriends } from '@/features/friends/queries';
 import { gpsSignal, type GpsSignal } from '@/features/location/signal';
@@ -19,6 +19,8 @@ import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
 import { AppMapView, useMapProvider, type AppMapViewHandle, type MapCircleItem, type MapMarkerItem } from '@/features/map/AppMapView';
 import { BADGE_BOTTOM_GAP, BadgeMarker, badgeAnchor } from '@/features/map/BadgeMarker';
+import { centerOf, clusterByDistance, overlapDistanceM, spreadM } from '@/features/map/cluster';
+import { StreetViewWeb } from '@/features/map/StreetViewWeb';
 import { personPin } from '@/features/map/PinMarker';
 import { badgeSprite } from '@/features/map/spriteClock';
 import { SPRITES } from '@/features/map/sprites';
@@ -31,7 +33,7 @@ import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { layout, makeMapStyles, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, useThemeName, type Palette } from '@/theme';
-import type { LatLng } from '@/types/models';
+import type { Friend, LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
 import { useWatchFriends } from '@/features/location/useWatchFriends';
 import { useHideMode, useSaveHideMode } from '@/features/settings/queries';
@@ -46,6 +48,10 @@ const SHEET_COLLAPSED = 78;
 const TOP_ROW_HEIGHT = 100;
 /** 시트 윗변과 내 마커 사이 여유 (마커·배지 높이) */
 const SHEET_GAP = 40;
+/** 처음 확대 정도 (AppMapView 기본값과 같음). 지도가 범위를 알려 주기 전까지 묶음 계산에 씁니다 */
+const INITIAL_DELTA = 0.012;
+/** 묶음을 눌렀을 때 사람들이 이보다 떨어져 있으면 확대해서 펼치고, 더 가까우면 목록으로 고르게 합니다 */
+const SPREAD_TO_ZOOM_M = 15;
 
 const signalColors = (colors: Palette): Record<GpsSignal, { fill: string; stroke: string; icon: string }> => ({
   good: { fill: 'rgba(0,149,255,0.12)', stroke: 'rgba(0,149,255,0.5)', icon: colors.battery },
@@ -87,6 +93,11 @@ export default function MapScreen() {
    * 손으로 지도를 움직이거나 친구를 활성화하면 꺼지고, 나의 위치 버튼으로 다시 켭니다
    */
   const [following, setFollowing] = useState(true);
+  const sheetRef = useRef<SnapSheetHandle>(null);
+  // 화면에 보이는 위도 범위. 겹친 친구를 묶는 데 씁니다 (대표 리포트 78)
+  const [visibleDelta, setVisibleDelta] = useState(INITIAL_DELTA);
+  // 거의 같은 자리라 확대해도 안 갈라지는 묶음을 눌렀을 때 고를 사람들
+  const [clusterPick, setClusterPick] = useState<Friend[] | null>(null);
 
   const { permission, location } = useMyLocation();
   const { can, minPlanFor } = usePlan();
@@ -152,6 +163,40 @@ export default function MapScreen() {
   const streetView = useMapProvider(location ?? FALLBACK_CENTER) === 'naver';
   // 로드뷰는 활성화된 사람 자리에서 엽니다. 친구를 눌러 두었으면 그 친구 위치 (대표 리포트 5)
   const activeFriend = activeId === 'me' ? undefined : friends.find((f) => f.id === activeId);
+
+  /**
+   * 친구를 지도에서 보여 줍니다 (10-30 대표님 확정: 친구를 누르면 지도에 그 친구 위치,
+   * 네이버 지도면 그 자리 로드뷰). 시트는 접어 지도가 보이게 합니다
+   */
+  const focusFriend = (friend: Friend) => {
+    setClusterPick(null);
+    if (!friend.location) {
+      showToast(t('map.noFriendLocation', { name: friend.nickname }));
+      return;
+    }
+    setActiveId(friend.id);
+    mapRef.current?.moveTo(friend.location, 0.006);
+    sheetRef.current?.snapToIndex(0);
+  };
+
+  // People 탭에서 친구를 누르면 /map?focus=친구id 로 옵니다
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
+  useEffect(() => {
+    if (!focus) return;
+    const friend = friends.find((f) => f.id === focus);
+    // 친구 목록을 아직 못 받았으면 받은 뒤에 다시 봅니다
+    if (!friend) return;
+    router.setParams({ focus: undefined });
+    focusFriend(friend);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, friends]);
+
+  // 로드뷰 미리보기는 친구를 고른 순간의 자리로 엽니다. 친구가 움직일 때마다 다시 불러오지 않게
+  const previewAt = useMemo(
+    () => (activeFriend?.location ? { latitude: activeFriend.location.latitude, longitude: activeFriend.location.longitude } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeId, !!activeFriend?.location],
+  );
   const streetViewTarget = activeFriend?.location
     ? { latitude: activeFriend.location.latitude, longitude: activeFriend.location.longitude, name: activeFriend.nickname }
     : location
@@ -236,18 +281,48 @@ export default function MapScreen() {
       });
     };
 
-    for (const f of friends) {
-      if (!f.location) continue;
+    const 친구 = (f: Friend, coordinate: LatLng) =>
       사람({
         id: f.id,
-        coordinate: f.location,
+        coordinate,
         name: f.nickname,
         avatarUrl: f.avatarUrl,
         // 친구 배지는 이동 속도·머문 시간만 (피그마: 검은 배지)
         status: statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince }),
         onOpen: () => router.push(`/journey/${f.id}`),
       });
+
+    /**
+     * 겹친 친구는 "3명" 하나로 묶습니다 (대표 리포트 78, 10-30 대표님 확정). 누르면 확대해서 펼치고,
+     * 거의 같은 자리라 확대해도 안 갈라지면 목록에서 고릅니다. 활성화된 친구는 묶지 않고 늘 따로 보입니다
+     */
+    const located = friends.flatMap((f) => (f.location && f.id !== activeId ? [{ friend: f, coordinate: f.location as LatLng }] : []));
+    const 겹침 = overlapDistanceM(visibleDelta, Dimensions.get('window').height);
+    const 묶음색 = mapIsDark || appIsDark ? 'dark' : 'light';
+    for (const group of clusterByDistance(located, 겹침)) {
+      if (group.length === 1) {
+        친구(group[0].friend, group[0].coordinate);
+        continue;
+      }
+      const coords = group.map((g) => g.coordinate);
+      items.push({
+        id: `cluster:${group.map((g) => g.friend.id).sort().join(',')}`,
+        coordinate: centerOf(coords),
+        zIndex: 2,
+        trackKey: `${group.length}|${묶음색}`,
+        children: <ClusterPin count={group.length} tone={묶음색} label={t('map.clusterCount', { count: group.length })} />,
+        onPress: () => {
+          if (spreadM(coords) > SPREAD_TO_ZOOM_M) {
+            setFollowing(false);
+            mapRef.current?.fitTo(coords);
+          } else {
+            setClusterPick(group.map((g) => g.friend));
+          }
+        },
+      });
     }
+    const active = friends.find((f) => f.id === activeId);
+    if (active?.location) 친구(active, active.location);
     if (location && me) {
       사람({
         id: 'me',
@@ -270,7 +345,7 @@ export default function MapScreen() {
       }
     }
     return items;
-  }, [friends, location, me, myStatus, myBattery, activeId, mapIsDark, appIsDark]);
+  }, [friends, location, me, myStatus, myBattery, activeId, mapIsDark, appIsDark, visibleDelta, t]);
 
   // GPS 감도 원 (WBS 2.6): 오차 반경이 클수록 원이 커짐
   const circles = useMemo<MapCircleItem[]>(() => {
@@ -289,8 +364,12 @@ export default function MapScreen() {
         markers={markers}
         circles={circles}
         // 빈 곳을 누르면 다시 나를 활성화. 누가 눌렸는지는 지도가 판정합니다 (GoogleMapImpl useMarkerPress)
-        onPress={() => setActiveId('me')}
+        onPress={() => {
+          setActiveId('me');
+          setClusterPick(null);
+        }}
         onUserGesture={() => setFollowing(false)}
+        onVisibleDelta={setVisibleDelta}
         padding={{
           top: insets.top + TOP_ROW_HEIGHT + (hiding ? 40 : 0),
           right: 0,
@@ -409,10 +488,18 @@ export default function MapScreen() {
       <TrackingPrompt />
 
       <SnapSheet
+        ref={sheetRef}
         snapPoints={[SHEET_COLLAPSED, SHEET_HEIGHT]}
         // 처음엔 지도만 보이게 친구 목록은 접어 둡니다. 끌어 올리면 펼쳐집니다 (대표님 10-08)
         initialIndex={0}
         onIndexChange={setSheetIndex}
+        above={
+          clusterPick ? (
+            <ClusterPicker friends={clusterPick} onPick={focusFriend} onClose={() => setClusterPick(null)} />
+          ) : activeFriend && previewAt && streetView && can('premiumMap') ? (
+            <StreetViewPreview key={activeFriend.id} coordinate={previewAt} name={activeFriend.nickname} onClose={() => setActiveId('me')} />
+          ) : null
+        }
         // 광고 자리 글자·GPS 신호 아이콘은 뺐습니다 (대표 리포트 83). 광고가 붙으면 above 에 배너를 넣습니다
         // TODO(7단계): AdMob 배너. 광고 없는 등급(정책 ads = none: 유료·케어)은 표시하지 않습니다
         header={
@@ -438,17 +525,83 @@ export default function MapScreen() {
             <FriendRow
               key={friend.id}
               friend={friend}
-              // 기획: 친구 리스트에서 친구를 누르면 그 친구의 하루 여정과 상호작용 기록
-              onPress={() => {
-                if (friend.location) mapRef.current?.moveTo(friend.location, 0.006);
-                router.push(`/journey/${friend.id}`);
-              }}
+              // 10-30 대표님 확정: 친구를 누르면 지도에서 그 친구 위치 (동선은 지도에서 그 친구를 한 번 더 누르면)
+              onPress={() => focusFriend(friend)}
             />
           ))}
         </SheetScrollView>
       </SnapSheet>
       </>
       ) : null}
+    </View>
+  );
+}
+
+/** 겹친 친구 묶음 핀 ("3명") */
+function ClusterPin({ count, tone, label }: { count: number; tone: 'light' | 'dark'; label: string }) {
+  const styles = useStyles();
+  const dark = tone === 'dark';
+  return (
+    <View accessibilityLabel={label} style={[styles.clusterPin, dark ? styles.clusterPinDark : styles.clusterPinLight]}>
+      <Ionicons name="people" size={16} color={dark ? '#FFFFFF' : '#0C0D0E'} />
+      <AppText variant="body2Bold" color={dark ? '#FFFFFF' : '#0C0D0E'}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
+
+/** 거의 같은 자리에 있는 친구들 중 고르기 */
+function ClusterPicker({ friends, onPick, onClose }: { friends: Friend[]; onPick: (f: Friend) => void; onClose: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  return (
+    <View style={styles.floatCard}>
+      <View style={styles.floatHeader}>
+        <AppText variant="body2Bold" style={styles.flex}>
+          {t('map.clusterTitle', { count: friends.length })}
+        </AppText>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={8} onPress={onClose}>
+          <Ionicons name="close" size={20} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+      {friends.map((f) => (
+        <Pressable key={f.id} accessibilityRole="button" onPress={() => onPick(f)} style={styles.pickRow}>
+          <Avatar name={f.nickname} imageUrl={f.avatarUrl} />
+          <AppText variant="body2" style={styles.flex} numberOfLines={1}>
+            {f.nickname}
+          </AppText>
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** 고른 친구 자리의 로드뷰 미리보기 (네이버 지도일 때). 누르면 크게 봅니다 */
+function StreetViewPreview({ coordinate, name, onClose }: { coordinate: LatLng; name: string; onClose: () => void }) {
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const open = () => router.push({ pathname: '/street-view', params: { lat: coordinate.latitude, lng: coordinate.longitude, name } });
+  return (
+    <View style={[styles.floatCard, styles.previewCard]}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <StreetViewWeb coordinate={coordinate} />
+      </View>
+      {/* 미리보기 안에서 돌리지 않고, 누르면 큰 화면으로 */}
+      <Pressable accessibilityRole="button" accessibilityLabel={t('map.streetViewOf', { name })} onPress={open} style={StyleSheet.absoluteFill} />
+      <View style={styles.previewTop} pointerEvents="box-none">
+        <View style={styles.previewLabel}>
+          <Ionicons name="man-outline" size={14} color="#FFFFFF" />
+          <AppText variant="label2Bold" color="#FFFFFF" numberOfLines={1}>
+            {t('map.streetViewOf', { name })}
+          </AppText>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={8} onPress={onClose} style={styles.previewClose}>
+          <Ionicons name="close" size={16} color="#FFFFFF" />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -490,6 +643,46 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'center',
   },
   sheetContent: { paddingHorizontal: layout.screenPadding, paddingBottom: 24, gap: 12 },
+  clusterPin: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  clusterPinDark: { backgroundColor: '#0C0D0E' },
+  clusterPinLight: { backgroundColor: '#FFFFFF' },
+  floatCard: {
+    marginHorizontal: layout.screenPadding,
+    marginBottom: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    padding: 12,
+    gap: 4,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  floatHeader: { flexDirection: 'row', alignItems: 'center', paddingBottom: 4 },
+  pickRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  previewCard: { height: 160, padding: 0, overflow: 'hidden', backgroundColor: '#000000' },
+  previewTop: { position: 'absolute', top: 8, left: 8, right: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  previewLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
+    paddingHorizontal: 10,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  previewClose: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },
 }));
 
 /**

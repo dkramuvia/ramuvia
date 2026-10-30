@@ -89,6 +89,11 @@ export interface MapImplProps {
   onCenterChange?: (center: LatLng) => void;
   /** 사용자가 손으로 지도를 움직였을 때 (끌기·확대 등). 내 위치 따라가기를 멈출 때 씁니다 */
   onUserGesture?: () => void;
+  /**
+   * 지도 움직임이 끝났을 때 화면에 보이는 위도 범위(도). 확대 정도를 알려 줍니다.
+   * 겹친 친구 마커를 묶을 때 씁니다 (대표 리포트 78)
+   */
+  onVisibleDelta?: (latitudeDelta: number) => void;
   /** 처음 확대 정도 (위도 범위). 작을수록 확대 */
   initialDelta: number;
   mapType: Preferences['mapType'];

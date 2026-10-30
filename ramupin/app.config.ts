@@ -54,6 +54,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isIosBackgroundLocationEnabled: false,
       },
     ],
+    [
+      // 알람별 알림음 (요금제 안내 10-30, 4-1). 이름은 서버 push.service 의 ANDROID_CHANNEL 과 같아야 합니다
+      'expo-notifications',
+      {
+        sounds: [
+          './assets/sounds/sos_alarm.wav',
+          './assets/sounds/danger_zone_alarm.wav',
+          './assets/sounds/anomaly_alarm.wav',
+          './assets/sounds/battery_alarm.wav',
+          './assets/sounds/long_stay_alarm.wav',
+          './assets/sounds/safe_zone_alarm.wav',
+          './assets/sounds/geofence_alarm.wav',
+          './assets/sounds/scheduled_alarm.wav',
+        ],
+      },
+    ],
     // X·네이버·구글 로그인은 브라우저(Custom Tabs)로 인증 화면을 엽니다
     'expo-web-browser',
     [

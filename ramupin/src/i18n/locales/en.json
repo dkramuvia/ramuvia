@@ -79,5 +79,14 @@
     "plans": "Subscription plans",
     "checkout": "Checkout",
     "freeTrial": "Free trial"
+  },
+  "map": {
+    "noFriendLocation": "We haven't received {{name}}'s location yet",
+    "clusterCount": "{{count}}",
+    "clusterTitle": "{{count}} people here",
+    "streetViewOf": "Street view at {{name}}'s location"
+  },
+  "people": {
+    "shareSettings": "Location sharing settings"
   }
 }

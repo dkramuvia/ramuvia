@@ -641,6 +641,19 @@ export interface DangerZoneVisitsTable {
   notified_at: Date | null;
 }
 
+/** 지도에 띄울 병원 (심평원 병원정보서비스, 일주일마다 갈아 끼움) */
+export interface HospitalsTable {
+  ykiho: string;
+  name: string;
+  kind_code: string | null;
+  kind_name: string | null;
+  address: string | null;
+  phone: string | null;
+  latitude: number;
+  longitude: number;
+  synced_at: Generated<Date>;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -688,5 +701,6 @@ export interface MainDatabase {
   'media.post_shares': PostSharesTable;
   'social.group_invites': GroupInvitesTable;
   'config.danger_zones': DangerZonesTable;
+  'config.hospitals': HospitalsTable;
   'member.danger_zone_visits': DangerZoneVisitsTable;
 }

@@ -85,6 +85,8 @@ const schema = z.object({
    * 지도 키(NCP)와는 다른 곳에서 발급되는 키입니다
    */
   NAVER_SEARCH_CLIENT_ID: z.string().default(''),
+  /** 공공데이터포털 '건강보험심사평가원_병원정보서비스' 일반 인증키 (Decoding). 비우면 병원 목록을 받지 않습니다 */
+  HOSPITAL_API_KEY: z.string().default(''),
   NAVER_SEARCH_CLIENT_SECRET: z.string().default(''),
   // 전화번호 암호화·중복 확인 키 (32바이트 base64). 바뀌면 기존 번호를 읽지 못함
   // 사진·동영상 저장소. 개발은 Docker MinIO, 운영은 AWS S3 — 규격이 같아 주소·키만 바뀝니다

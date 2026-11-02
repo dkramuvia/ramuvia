@@ -34,7 +34,7 @@ const CAMERA_PAUSE_MS = 700;
 const zoomFromDelta = (delta: number) => Math.min(20, Math.max(1, Math.log2(360 / Math.max(delta, 0.0001))));
 
 export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function GoogleMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, onVisibleDelta, initialDelta, mapType, nightMode, traffic, tilted = false, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, onVisibleDelta, onVisibleArea, initialDelta, mapType, nightMode, traffic, tilted = false, style },
   ref,
 ) {
   const mapRef = useRef<MapView>(null);
@@ -120,10 +120,16 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
         pending.current = null;
       }}
       onRegionChangeComplete={
-        onCenterChange || onVisibleDelta
+        onCenterChange || onVisibleDelta || onVisibleArea
           ? (region) => {
               onCenterChange?.({ latitude: region.latitude, longitude: region.longitude });
               onVisibleDelta?.(region.latitudeDelta);
+              onVisibleArea?.({
+                south: region.latitude - region.latitudeDelta / 2,
+                north: region.latitude + region.latitudeDelta / 2,
+                west: region.longitude - region.longitudeDelta / 2,
+                east: region.longitude + region.longitudeDelta / 2,
+              });
             }
           : undefined
       }

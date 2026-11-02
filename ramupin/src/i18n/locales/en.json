@@ -84,7 +84,11 @@
     "noFriendLocation": "We haven't received {{name}}'s location yet",
     "clusterCount": "{{count}}",
     "clusterTitle": "{{count}} people here",
-    "streetViewOf": "Street view at {{name}}'s location"
+    "streetViewOf": "Street view at {{name}}'s location",
+    "hospitalCount": "{{count}} hospitals",
+    "hospitalCall": "Call",
+    "hospitalNoPhone": "No phone number",
+    "hospitalSource": "HIRA hospital data"
   },
   "people": {
     "shareSettings": "Location sharing settings"

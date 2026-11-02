@@ -33,6 +33,8 @@ export interface Preferences {
   showWeather: boolean;
   /** 지도를 열면 모든 친구가 보이도록 축소 */
   fitAllFriends: boolean;
+  /** 지도에 병원 표시 (피그마 지도 설정 839, 11-02 대표님) */
+  showHospitals: boolean;
   /** 갤러리 탭에서 마지막으로 고른 그룹방. 없으면 전체 (대표 리포트 98: 다시 켜도 그 방) */
   galleryGroupId?: string;
 }
@@ -60,6 +62,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       showTraffic: false,
       showWeather: false,
       fitAllFriends: false,
+      showHospitals: false,
       galleryGroupId: undefined,
       set: (patch) => set(patch),
     }),

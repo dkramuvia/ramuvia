@@ -57,7 +57,11 @@
     "noFriendLocation": "{{name}}님의 위치를 아직 받지 못했어요",
     "clusterCount": "{{count}}명",
     "clusterTitle": "이 자리에 {{count}}명이 있어요",
-    "streetViewOf": "{{name}} 위치 로드뷰"
+    "streetViewOf": "{{name}} 위치 로드뷰",
+    "hospitalCount": "병원 {{count}}곳",
+    "hospitalCall": "전화",
+    "hospitalNoPhone": "전화번호가 없어요",
+    "hospitalSource": "건강보험심사평가원 병원정보"
   },
   "streetView": {
     "openInNaver": "네이버 지도에서 보기",
@@ -745,6 +749,8 @@
     "weatherDesc": "현재 지역의 날씨 보기",
     "fitAll": "한 번에 모든 친구 보기",
     "fitAllDesc": "지도를 열면 모두가 보이도록 자동으로 축소돼요.",
+    "hospitals": "병원",
+    "hospitalsDesc": "지도에 주변 병원을 이름과 함께 보여줘요.",
     "appTheme": "앱 화면 색",
     "appThemeDesc": "기기 설정을 따라가거나, 직접 고를 수 있어요.",
     "themeAuto": "기기 설정",

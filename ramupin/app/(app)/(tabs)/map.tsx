@@ -10,6 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { AppText, Avatar, SheetScrollView, SnapSheet, type SnapSheetHandle } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
+import { useHospitals, type Hospital } from '@/features/hospitals/useHospitals';
 import { useFriendRequests, useFriends } from '@/features/friends/queries';
 import { gpsSignal, type GpsSignal } from '@/features/location/signal';
 import { getActivity } from '../../../modules/ramupin-gps';
@@ -33,6 +34,7 @@ import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { layout, makeMapStyles, makeStyles, radius, useColors, useMapIsDark, useMapOverlay, useThemeName, type Palette } from '@/theme';
+import type { MapArea } from '@/features/map/types';
 import type { Friend, LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
 import { useWatchFriends } from '@/features/location/useWatchFriends';
@@ -72,6 +74,7 @@ export default function MapScreen() {
   const appIsDark = useThemeName() === 'dark';
   const showTraffic = usePreferencesStore((s) => s.showTraffic);
   const fitAllFriends = usePreferencesStore((s) => s.fitAllFriends);
+  const showHospitals = usePreferencesStore((s) => s.showHospitals);
   const focused = useIsFocused();
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
@@ -98,6 +101,9 @@ export default function MapScreen() {
   const [visibleDelta, setVisibleDelta] = useState(INITIAL_DELTA);
   // 거의 같은 자리라 확대해도 안 갈라지는 묶음을 눌렀을 때 고를 사람들
   const [clusterPick, setClusterPick] = useState<Friend[] | null>(null);
+  // 화면에 보이는 영역. 그 안의 병원을 불러옵니다 (설정 > 지도 > 병원)
+  const [visibleArea, setVisibleArea] = useState<MapArea | null>(null);
+  const [hospitalPick, setHospitalPick] = useState<Hospital | null>(null);
 
   const { permission, location } = useMyLocation();
   const { can, minPlanFor } = usePlan();
@@ -347,6 +353,45 @@ export default function MapScreen() {
     return items;
   }, [friends, location, me, myStatus, myBattery, activeId, mapIsDark, appIsDark, visibleDelta, t]);
 
+  /**
+   * 병원 (11-02 대표님: 전국 모든 병원을 이름과 함께). 확대하면 병원마다 이름 핀,
+   * 넓게 보면 서버가 묶어 준 "병원 120곳" — 누르면 그쪽으로 확대합니다. 사람보다 아래에 깔립니다
+   */
+  const { data: hospitalData } = useHospitals(visibleArea, showHospitals && focused);
+  const hospitalMarkers = useMemo<MapMarkerItem[]>(() => {
+    if (!showHospitals || !hospitalData) return [];
+    const 색 = mapIsDark || appIsDark ? 'dark' : 'light';
+    const items: MapMarkerItem[] = hospitalData.hospitals.map((h) => ({
+      id: `hospital:${h.id}`,
+      coordinate: { latitude: h.latitude, longitude: h.longitude },
+      zIndex: 0,
+      // 십자 동그라미 아래 끝이 병원 자리
+      anchor: { x: 0.5, y: 1 },
+      trackKey: `${h.name}|${색}`,
+      children: <HospitalPin name={h.name} tone={색} />,
+      onPress: () => {
+        setClusterPick(null);
+        setHospitalPick(h);
+      },
+    }));
+    for (const c of hospitalData.clusters) {
+      const label = t('map.hospitalCount', { count: c.count });
+      items.push({
+        id: `hospitals:${c.latitude.toFixed(4)},${c.longitude.toFixed(4)}`,
+        coordinate: { latitude: c.latitude, longitude: c.longitude },
+        zIndex: 0,
+        trackKey: `${c.count}|${색}`,
+        children: <HospitalClusterPin label={label} tone={색} />,
+        onPress: () => {
+          setFollowing(false);
+          mapRef.current?.moveTo({ latitude: c.latitude, longitude: c.longitude }, Math.max(visibleDelta / 3, 0.004));
+        },
+      });
+    }
+    return items;
+  }, [showHospitals, hospitalData, mapIsDark, appIsDark, visibleDelta, t]);
+  const allMarkers = useMemo(() => (hospitalMarkers.length ? [...hospitalMarkers, ...markers] : markers), [hospitalMarkers, markers]);
+
   // GPS 감도 원 (WBS 2.6): 오차 반경이 클수록 원이 커짐
   const circles = useMemo<MapCircleItem[]>(() => {
     if (!location?.accuracy) return [];
@@ -361,15 +406,17 @@ export default function MapScreen() {
       <AppMapView
         ref={mapRef}
         initialCenter={location ?? FALLBACK_CENTER}
-        markers={markers}
+        markers={allMarkers}
         circles={circles}
         // 빈 곳을 누르면 다시 나를 활성화. 누가 눌렸는지는 지도가 판정합니다 (GoogleMapImpl useMarkerPress)
         onPress={() => {
           setActiveId('me');
           setClusterPick(null);
+          setHospitalPick(null);
         }}
         onUserGesture={() => setFollowing(false)}
         onVisibleDelta={setVisibleDelta}
+        onVisibleArea={setVisibleArea}
         padding={{
           top: insets.top + TOP_ROW_HEIGHT + (hiding ? 40 : 0),
           right: 0,
@@ -496,6 +543,8 @@ export default function MapScreen() {
         above={
           clusterPick ? (
             <ClusterPicker friends={clusterPick} onPick={focusFriend} onClose={() => setClusterPick(null)} />
+          ) : hospitalPick && showHospitals ? (
+            <HospitalCard hospital={hospitalPick} onClose={() => setHospitalPick(null)} />
           ) : activeFriend && previewAt && streetView && can('premiumMap') ? (
             <StreetViewPreview key={activeFriend.id} coordinate={previewAt} name={activeFriend.nickname} onClose={() => setActiveId('me')} />
           ) : null
@@ -546,6 +595,88 @@ function ClusterPin({ count, tone, label }: { count: number; tone: 'light' | 'da
       <Ionicons name="people" size={16} color={dark ? '#FFFFFF' : '#0C0D0E'} />
       <AppText variant="body2Bold" color={dark ? '#FFFFFF' : '#0C0D0E'}>
         {label}
+      </AppText>
+    </View>
+  );
+}
+
+/** 지도 위 병원: 이름표 + 빨간 십자 동그라미. 피그마가 나오면 모양을 맞춥니다 */
+function HospitalPin({ name, tone }: { name: string; tone: 'light' | 'dark' }) {
+  const styles = useStyles();
+  const dark = tone === 'dark';
+  return (
+    <View style={styles.hospitalPin}>
+      <View style={[styles.hospitalLabel, dark ? styles.clusterPinDark : styles.clusterPinLight]}>
+        <AppText variant="microBold" color={dark ? '#FFFFFF' : '#0C0D0E'} numberOfLines={1}>
+          {name}
+        </AppText>
+      </View>
+      <View style={styles.hospitalDot}>
+        <Ionicons name="medical" size={13} color="#FFFFFF" />
+      </View>
+    </View>
+  );
+}
+
+/** 넓게 볼 때 병원 묶음 ("병원 120곳") */
+function HospitalClusterPin({ label, tone }: { label: string; tone: 'light' | 'dark' }) {
+  const styles = useStyles();
+  const dark = tone === 'dark';
+  return (
+    <View accessibilityLabel={label} style={[styles.hospitalCluster, dark ? styles.clusterPinDark : styles.clusterPinLight]}>
+      <View style={styles.hospitalDotSmall}>
+        <Ionicons name="medical" size={10} color="#FFFFFF" />
+      </View>
+      <AppText variant="label2Bold" color={dark ? '#FFFFFF' : '#0C0D0E'}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
+
+/** 누른 병원: 이름·종별·주소와 전화 */
+function HospitalCard({ hospital, onClose }: { hospital: Hospital; onClose: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  const phone = hospital.phone?.replace(/[^0-9+]/g, '');
+  return (
+    <View style={styles.floatCard}>
+      <View style={styles.floatHeader}>
+        <View style={styles.flex}>
+          <AppText variant="body2Bold" numberOfLines={1}>
+            {hospital.name}
+          </AppText>
+          {hospital.kind ? (
+            <AppText variant="caption" color={colors.textTertiary}>
+              {hospital.kind}
+            </AppText>
+          ) : null}
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={8} onPress={onClose}>
+          <Ionicons name="close" size={20} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+      {hospital.address ? (
+        <AppText variant="label2" color={colors.textSecondary}>
+          {hospital.address}
+        </AppText>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        disabled={!phone}
+        onPress={() => {
+          if (phone) void Linking.openURL(`tel:${phone}`);
+        }}
+        style={[styles.hospitalCall, !phone && styles.disabled]}
+      >
+        <Ionicons name="call" size={16} color="#FFFFFF" />
+        <AppText variant="label1Bold" color="#FFFFFF">
+          {phone ? `${t('map.hospitalCall')} ${hospital.phone}` : t('map.hospitalNoPhone')}
+        </AppText>
+      </Pressable>
+      <AppText variant="micro" color={colors.textTertiary}>
+        {t('map.hospitalSource')}
       </AppText>
     </View>
   );
@@ -654,6 +785,21 @@ const useStyles = makeStyles((colors) => ({
     borderColor: colors.primary,
   },
   clusterPinDark: { backgroundColor: '#0C0D0E' },
+  hospitalPin: { alignItems: 'center', gap: 2 },
+  hospitalLabel: { maxWidth: 110, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, borderWidth: 1, borderColor: '#E5484D' },
+  hospitalDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E5484D',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hospitalDotSmall: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' },
+  hospitalCluster: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: 2, borderColor: '#E5484D' },
+  hospitalCall: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, marginTop: 8, borderRadius: radius.sm, backgroundColor: '#E5484D' },
   clusterPinLight: { backgroundColor: '#FFFFFF' },
   floatCard: {
     marginHorizontal: layout.screenPadding,

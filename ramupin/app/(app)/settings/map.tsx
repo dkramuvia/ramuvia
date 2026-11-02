@@ -132,6 +132,13 @@ export default function MapSettingsScreen() {
         value={prefs.showTraffic}
         onValueChange={(showTraffic) => prefs.set({ showTraffic })}
       />
+      {/* 피그마 지도 설정 839 (11-02): 날씨 자리에 병원. 날씨는 지도에 늘 보여 스위치가 없습니다 */}
+      <ToggleRow
+        title={t('mapSettings.hospitals')}
+        description={t('mapSettings.hospitalsDesc')}
+        value={prefs.showHospitals}
+        onValueChange={(showHospitals) => prefs.set({ showHospitals })}
+      />
       <ToggleRow
         title={t('mapSettings.fitAll')}
         description={t('mapSettings.fitAllDesc')}

@@ -58,6 +58,7 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
     onCenterChange,
     onUserGesture,
     onVisibleDelta,
+    onVisibleArea,
     initialDelta,
     mapType,
     nightMode,
@@ -180,7 +181,15 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
         pending.current?.();
         pending.current = null;
       }}
-      onMapIdle={onVisibleDelta ? (state) => onVisibleDelta(Math.abs(state.properties.bounds.ne[1] - state.properties.bounds.sw[1])) : undefined}
+      onMapIdle={
+        onVisibleDelta || onVisibleArea
+          ? (state) => {
+              const { ne, sw } = state.properties.bounds;
+              onVisibleDelta?.(Math.abs(ne[1] - sw[1]));
+              onVisibleArea?.({ south: Math.min(sw[1], ne[1]), north: Math.max(sw[1], ne[1]), west: Math.min(sw[0], ne[0]), east: Math.max(sw[0], ne[0]) });
+            }
+          : undefined
+      }
       onCameraChanged={
         onCenterChange || onUserGesture
           ? (state) => {

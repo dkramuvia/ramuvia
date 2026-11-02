@@ -60,6 +60,14 @@ export interface MapPolylineItem {
   width?: number;
 }
 
+/** 화면에 보이는 영역 (위도·경도 범위) */
+export interface MapArea {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
 /** 지도 위를 덮는 UI(바텀시트 등) 만큼 안쪽 여백 */
 export interface MapPadding {
   top: number;
@@ -94,6 +102,8 @@ export interface MapImplProps {
    * 겹친 친구 마커를 묶을 때 씁니다 (대표 리포트 78)
    */
   onVisibleDelta?: (latitudeDelta: number) => void;
+  /** 지도 움직임이 끝났을 때 화면에 보이는 영역. 그 안의 병원을 불러올 때 씁니다 */
+  onVisibleArea?: (area: MapArea) => void;
   /** 처음 확대 정도 (위도 범위). 작을수록 확대 */
   initialDelta: number;
   mapType: Preferences['mapType'];

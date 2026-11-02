@@ -10,6 +10,7 @@ import { ChatModule } from './chat/chat.module.js';
 import { FriendsModule } from './friends/friends.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { HealthModule } from './health/health.module.js';
+import { HospitalsModule } from './hospitals/hospitals.module.js';
 import { LocationModule } from './location/location.module.js';
 import { MediaModule } from './media/media.module.js';
 import { PhoneModule } from './phone/phone.module.js';
@@ -25,6 +26,6 @@ import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, FeedModule, JourneyModule, WeatherModule, AnomalyModule, AdminModule, HealthModule, PrivacyModule, SoloModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, FeedModule, JourneyModule, WeatherModule, HospitalsModule, AnomalyModule, AdminModule, HealthModule, PrivacyModule, SoloModule],
 })
 export class AppModule {}

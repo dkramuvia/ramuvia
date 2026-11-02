@@ -36,7 +36,7 @@ type Size = { width: number; height: number };
  * 그려진 크기를 재서 넘깁니다. 구글과 다른 점: 띄우기는 여백으로, 움직이는 그림은 뷰 안에서 (아래 설명).
  */
 export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function NaverMapImpl(
-  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, onVisibleDelta, initialDelta, mapType, nightMode, traffic, tilted = false, style },
+  { initialCenter, markers = [], circles = [], polylines = [], padding, onPress, interactive = true, onCenterChange, onUserGesture, onVisibleDelta, onVisibleArea, initialDelta, mapType, nightMode, traffic, tilted = false, style },
   ref,
 ) {
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -103,7 +103,20 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
         isTiltGesturesEnabled={interactive}
         // 탭 위치는 픽셀로 옵니다 (좌표 변환 coordinateToScreen 은 dp). dp 로 맞춥니다
         onTapMap={(e) => press.resolveAt({ x: e.x / PixelRatio.get(), y: e.y / PixelRatio.get() })}
-        onCameraIdle={onVisibleDelta ? (e) => onVisibleDelta(e.region.latitudeDelta) : undefined}
+        onCameraIdle={
+          onVisibleDelta || onVisibleArea
+            ? (e) => {
+                onVisibleDelta?.(e.region.latitudeDelta);
+                // region 의 위도·경도는 남서쪽 모서리입니다
+                onVisibleArea?.({
+                  south: e.region.latitude,
+                  west: e.region.longitude,
+                  north: e.region.latitude + e.region.latitudeDelta,
+                  east: e.region.longitude + e.region.longitudeDelta,
+                });
+              }
+            : undefined
+        }
         onCameraChanged={
           onCenterChange || onUserGesture
             ? (e) => {

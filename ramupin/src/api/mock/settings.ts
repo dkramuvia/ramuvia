@@ -26,6 +26,8 @@ export const mockSafety: SafetySetting = {
   smsEnabled: true,
   recordEnabled: true,
   longPressStart: true,
+  fixedAlertHours: 48,
+  lowBatteryPercent: 10,
 };
 
 export const mockGeofences: Geofence[] = [

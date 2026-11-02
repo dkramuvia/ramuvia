@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, TextInput, View } from 'react-native';
 
 import { AppText, Avatar, Button, MenuItem, Screen, TextField, ToggleRow } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
@@ -12,7 +12,7 @@ import { usePlan } from '@/features/policy/usePlan';
 import { useSafetySetting, useSaveSafetySetting } from '@/features/settings/queries';
 import { countSosRecipients } from '@/features/sos/recipientCount';
 import { useAuthStore } from '@/stores/authStore';
-import { makeStyles, radius, useColors, withAlpha } from '@/theme';
+import { makeStyles, radius, typography, useColors, withAlpha } from '@/theme';
 import type { SafetySetting } from '@/types/models';
 import { showToast } from '@/utils/toast';
 
@@ -181,8 +181,98 @@ export default function SafetyScreen() {
         {t('safety.sentContent')}
       </AppText>
 
+      {/* 긴급 연락 시간 수정 (피그마 v2.5 878). 서버 anomaly.rules.ts ALERT_PREF_LIMITS 와 같은 범위 */}
+      <View style={styles.gap}>
+        <AppText variant="body2Bold">{t('safety.alertTitle')}</AppText>
+        <ThresholdRow
+          label={t('safety.fixedHours')}
+          unit={t('safety.hoursUnit')}
+          value={setting.fixedAlertHours === undefined ? 48 : setting.fixedAlertHours}
+          min={3}
+          max={168}
+          onSave={(fixedAlertHours) => update({ fixedAlertHours })}
+        />
+        <ThresholdRow
+          label={t('safety.batteryPercent')}
+          unit={t('safety.percentUnit')}
+          value={setting.lowBatteryPercent === undefined ? 10 : setting.lowBatteryPercent}
+          min={5}
+          max={50}
+          onSave={(lowBatteryPercent) => update({ lowBatteryPercent })}
+        />
+        <AppText variant="label2Bold">{t('safety.alertEmptyNote')}</AppText>
+        <AppText variant="caption" color={colors.textTertiary}>
+          {t('safety.alertDesc')}
+        </AppText>
+      </View>
+
       <ContactModal visible={contactModal} onClose={() => setContactModal(false)} onAdd={addContact} />
     </Screen>
+  );
+}
+
+/** 숫자 입력란. 비우면 null(경고 안 보냄), 범위를 벗어나면 저장하지 않고 되돌립니다 */
+function ThresholdRow({
+  label,
+  unit,
+  value,
+  min,
+  max,
+  onSave,
+}: {
+  label: string;
+  unit: string;
+  value: number | null;
+  min: number;
+  max: number;
+  onSave: (value: number | null) => void;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  const [text, setText] = useState(value === null ? '' : String(value));
+  const [lastValue, setLastValue] = useState(value);
+  // 서버 값이 바뀌면(다시 불러옴) 입력란도 따라갑니다
+  if (lastValue !== value) {
+    setLastValue(value);
+    setText(value === null ? '' : String(value));
+  }
+
+  const commit = () => {
+    const trimmed = text.trim();
+    if (trimmed === '') {
+      if (value !== null) onSave(null);
+      return;
+    }
+    const next = Number(trimmed);
+    if (!Number.isInteger(next) || next < min || next > max) {
+      showToast(t('safety.alertRange', { min, max }));
+      setText(value === null ? '' : String(value));
+      return;
+    }
+    if (next !== value) onSave(next);
+  };
+
+  return (
+    <View style={styles.row}>
+      <AppText variant="body2" style={styles.flex}>
+        {label}
+      </AppText>
+      <TextInput
+        value={text}
+        onChangeText={(v) => setText(v.replace(/\D/g, ''))}
+        onEndEditing={commit}
+        keyboardType="number-pad"
+        returnKeyType="done"
+        maxLength={3}
+        accessibilityLabel={label}
+        placeholderTextColor={colors.textPlaceholder}
+        style={styles.thresholdInput}
+      />
+      <AppText variant="body2" style={styles.unit}>
+        {unit}
+      </AppText>
+    </View>
   );
 }
 
@@ -277,4 +367,16 @@ const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 20 },
   modal: { borderRadius: 10, backgroundColor: colors.popup, padding: 24, gap: 16 },
   modalButtons: { flexDirection: 'row', gap: 8 },
+  thresholdInput: {
+    width: 56,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    textAlign: 'center',
+    ...typography.body2,
+    color: colors.text,
+  },
+  unit: { width: 32, textAlign: 'right' },
 }));

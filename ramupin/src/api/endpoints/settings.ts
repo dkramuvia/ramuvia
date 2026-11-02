@@ -127,6 +127,8 @@ export const safetyApi = {
       smsEnabled: setting.smsEnabled,
       recordEnabled: setting.recordEnabled,
       longPressStart: setting.longPressStart,
+      fixedAlertHours: setting.fixedAlertHours,
+      lowBatteryPercent: setting.lowBatteryPercent,
     });
   },
 };

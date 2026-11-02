@@ -5,7 +5,17 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { PushService, type PushChannel } from '../push/push.service.js';
 import { SoloService } from '../solo/solo.module.js';
-import { ANOMALY_RULES, detect, keepLowBatteryOpen, type AnomalyTarget, type AnomalyTrack, type Detection } from './anomaly.rules.js';
+import {
+  ALERT_PREF_LIMITS,
+  ANOMALY_RULES,
+  alertPrefsFor,
+  detect,
+  keepLowBatteryOpen,
+  type AlertPrefs,
+  type AnomalyTarget,
+  type AnomalyTrack,
+  type Detection,
+} from './anomaly.rules.js';
 
 /**
  * 이상징후 감시 (docs/anomaly-alerts.md).
@@ -24,6 +34,7 @@ import { ANOMALY_RULES, detect, keepLowBatteryOpen, type AnomalyTarget, type Ano
  * ANOMALY_RULES 의 **가장 이른 단계**를 씁니다. 이보다 늦게 잡으면 첫 단계를 놓치고,
  * 이르게 잡으면 쓸데없이 많이 가져옵니다. 규칙을 바꾸면 여기도 같이 바꿔야 합니다
  * (anomaly.rules.spec.ts 가 어긋나면 잡아 줍니다).
+ * 사용자가 기준을 바꿨으면(긴급 연락 시간 수정) 그중 가장 이른 시간·가장 높은 %까지 넓힙니다
  */
 const SWEEP_THRESHOLDS = {
   noSignalMinutes: ANOMALY_RULES.noSignal[0].afterMinutes,
@@ -55,7 +66,7 @@ export class AnomalyService {
     // 2) 조건에 해당하는 사람 + 열려 있는 사람만 가져옵니다.
     //    열려 있는 사람을 빼면 "다시 움직였으니 해제" 를 영영 못 합니다
     const openUserIds = [...new Set(open.map((e) => e.user_id))];
-    const statuses = await this.location.listStatusesToCheck(SWEEP_THRESHOLDS, openUserIds);
+    const statuses = await this.location.listStatusesToCheck(await this.sweepThresholds(), openUserIds);
     if (statuses.length === 0) return { opened: 0, cleared: 0 };
 
     const userIds = statuses.map((s) => s.userId);
@@ -81,16 +92,15 @@ export class AnomalyService {
     const stillOpen = new Set<string>();
     let opened = 0;
     const inZone = await this.usersInsideSafeZone(userIds);
+    const prefsById = await this.alertSettings(userIds);
 
     for (const status of statuses) {
       const user = userById.get(status.userId);
       // 탈퇴·정지된 사용자는 감시하지 않습니다
       if (!user) continue;
 
-      const found = detect(
-        status,
-        now,
-      ).filter(
+      const prefs: AlertPrefs = alertPrefsFor(prefsById.get(status.userId), user.single_household);
+      const found = detect(status, now, prefs).filter(
         // 10-30 확정: 집 등 안심존 안에 있으면 "오래 안 움직임"은 보내지 않습니다 (배터리·신호 두절은 그대로).
         // 1인 가구는 집에서 안 움직이는 게 바로 위험 신호라 그대로 둡니다
         (d) => user.single_household || !inZone.has(status.userId) || !LONG_STAY_TRACKS.has(d.track),
@@ -105,9 +115,9 @@ export class AnomalyService {
         opened += 1;
       }
 
-      // 배터리 부족은 20% 를 넘게 충전될 때까지 닫지 않습니다 (경계에서 반복 알림 방지)
+      // 배터리 부족은 20%(기준+10%) 를 넘게 충전될 때까지 닫지 않습니다 (경계에서 반복 알림 방지)
       const lowKey = key(status.userId, 'battery', 'low');
-      if (openKeys.has(lowKey) && keepLowBatteryOpen(status.lastBattery)) stillOpen.add(lowKey);
+      if (openKeys.has(lowKey) && keepLowBatteryOpen(status.lastBattery, prefs.lowBatteryPercent)) stillOpen.add(lowKey);
     }
 
     // 더 이상 해당하지 않는 단계는 해제 (다시 움직였거나 전화기를 켰음).
@@ -174,6 +184,32 @@ export class AnomalyService {
     } else if (detection.track === 'battery' && detection.stage === 'low') {
       await this.solo.notifyAgencies(userId, `[라무핀] ${nickname}님의 휴대폰 배터리가 ${ANOMALY_RULES.lowBatteryPercent}% 이하예요. 곧 연락이 끊길 수 있어요.`, '배터리 기관');
     }
+  }
+
+  /** 기준을 바꾼 사람이 있으면 그만큼 넓혀서 가져옵니다. 안 넓히면 그 사람은 영영 안 잡힙니다 */
+  private async sweepThresholds() {
+    const row = await this.db
+      .selectFrom('member.safety_settings')
+      .select((eb) => [eb.fn.min('fixed_alert_hours').as('minHours'), eb.fn.max('low_battery_percent').as('maxPercent')])
+      .executeTakeFirst();
+    const minHours = row?.minHours == null ? null : Number(row.minHours);
+    const maxPercent = row?.maxPercent == null ? null : Number(row.maxPercent);
+    return {
+      ...SWEEP_THRESHOLDS,
+      fixedMinutes: Math.min(SWEEP_THRESHOLDS.fixedMinutes, (minHours ?? ALERT_PREF_LIMITS.defaultFixedHours) * 60),
+      lowBatteryPercent: Math.max(SWEEP_THRESHOLDS.lowBatteryPercent, maxPercent ?? 0),
+    };
+  }
+
+  /** 긴급 연락 시간 수정 값. 설정한 적이 없는 사람은 목록에 없고 기본값(48시간·10%)을 씁니다 */
+  private async alertSettings(userIds: string[]) {
+    if (userIds.length === 0) return new Map<string, { fixedHours: number | null; lowBatteryPercent: number | null }>();
+    const rows = await this.db
+      .selectFrom('member.safety_settings')
+      .select(['user_id', 'fixed_alert_hours', 'low_battery_percent'])
+      .where('user_id', 'in', userIds)
+      .execute();
+    return new Map(rows.map((r) => [r.user_id, { fixedHours: r.fixed_alert_hours, lowBatteryPercent: r.low_battery_percent }]));
   }
 
   /** 나를 친구로 등록한 사람들 (내 이상징후를 받아야 할 사람) */

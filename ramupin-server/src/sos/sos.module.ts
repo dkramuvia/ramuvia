@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Inject, Module, Param, ParseUUIDPipe, Post, Put, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
+import { ALERT_PREF_LIMITS } from '../anomaly/anomaly.rules.js';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { RealtimeModule } from '../chat/chat.gateway.js';
 import { parseInput } from '../common/app-error.js';
@@ -55,6 +56,15 @@ const safetyBody = z.object({
   smsEnabled: z.boolean().optional(),
   recordEnabled: z.boolean().optional(),
   longPressStart: z.boolean().optional(),
+  /** 긴급 연락 시간 수정. null = 입력란을 비움(경고 안 보냄), 안 보내면 그대로 */
+  fixedAlertHours: z.number().int().min(ALERT_PREF_LIMITS.minFixedHours).max(ALERT_PREF_LIMITS.maxFixedHours).nullable().optional(),
+  lowBatteryPercent: z
+    .number()
+    .int()
+    .min(ALERT_PREF_LIMITS.minLowBatteryPercent)
+    .max(ALERT_PREF_LIMITS.maxLowBatteryPercent)
+    .nullable()
+    .optional(),
 });
 
 @Controller('sos')
@@ -140,7 +150,7 @@ class SafetyController {
     const [setting, recipients, contacts] = await Promise.all([
       this.db
         .selectFrom('member.safety_settings')
-        .select(['sos_enabled', 'emergency_name', 'emergency_number', 'sms_enabled', 'record_enabled', 'long_press_start'])
+        .select(['sos_enabled', 'emergency_name', 'emergency_number', 'sms_enabled', 'record_enabled', 'long_press_start', 'fixed_alert_hours', 'low_battery_percent'])
         .where('user_id', '=', user.id)
         .executeTakeFirst(),
       // 지금도 친구이거나 내가 속한 그룹만 돌려줍니다. 수신인 표는 사용자·그룹과 외래키가 없어,
@@ -187,6 +197,9 @@ class SafetyController {
       smsEnabled: setting?.sms_enabled ?? true,
       recordEnabled: setting?.record_enabled ?? true,
       longPressStart: setting?.long_press_start ?? true,
+      // 설정한 적이 없으면 기본값. 행이 있는데 null 이면 사용자가 비운 것입니다
+      fixedAlertHours: setting ? setting.fixed_alert_hours : ALERT_PREF_LIMITS.defaultFixedHours,
+      lowBatteryPercent: setting ? setting.low_battery_percent : ALERT_PREF_LIMITS.defaultLowBatteryPercent,
     };
   }
 
@@ -202,6 +215,8 @@ class SafetyController {
       ...(input.smsEnabled !== undefined ? { sms_enabled: input.smsEnabled } : {}),
       ...(input.recordEnabled !== undefined ? { record_enabled: input.recordEnabled } : {}),
       ...(input.longPressStart !== undefined ? { long_press_start: input.longPressStart } : {}),
+      ...(input.fixedAlertHours !== undefined ? { fixed_alert_hours: input.fixedAlertHours } : {}),
+      ...(input.lowBatteryPercent !== undefined ? { low_battery_percent: input.lowBatteryPercent } : {}),
       updated_at: new Date(),
     };
     await this.db.transaction().execute(async (trx) => {

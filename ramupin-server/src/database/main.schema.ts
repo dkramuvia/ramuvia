@@ -221,6 +221,10 @@ export interface SafetySettingsTable {
   record_enabled: Generated<boolean>;
   /** 2초 길게 눌러야 SOS 시작 */
   long_press_start: Generated<boolean>;
+  /** 이 시간 넘게 한자리에 있으면 친구에게 경고 (기본 48). null 이면 보내지 않음 */
+  fixed_alert_hours: Generated<number | null>;
+  /** 배터리가 이 % 이하면 친구에게 경고 (기본 10). null 이면 보내지 않음 */
+  low_battery_percent: Generated<number | null>;
   updated_at: Timestamp;
 }
 

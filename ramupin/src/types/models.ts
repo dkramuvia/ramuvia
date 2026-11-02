@@ -325,6 +325,13 @@ export interface SafetySetting {
   recordEnabled: boolean;
   /** 2초 길게 눌러야 SOS 시작 (오작동 방지) */
   longPressStart: boolean;
+  /**
+   * 긴급 연락 시간 수정 (피그마 v2.5 878, 11-02 대표님 확정 기본 48시간 · 10%).
+   * 이 시간 넘게 한자리에 있거나 배터리가 이 % 이하면 친구에게 경고. null 이면 보내지 않음.
+   * 예전 서버는 주지 않아 undefined 일 수 있습니다
+   */
+  fixedAlertHours?: number | null;
+  lowBatteryPercent?: number | null;
 }
 
 /** 알림 설정 (WBS 8.1). 앱 [설정 > 알림] 화면 */

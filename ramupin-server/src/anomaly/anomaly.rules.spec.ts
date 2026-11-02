@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { detect, distanceM, stageFor, ANOMALY_RULES, type StatusSnapshot } from './anomaly.rules.js';
+import { alertPrefsFor, detect, distanceM, keepLowBatteryOpen, stageFor, ANOMALY_RULES, type StatusSnapshot } from './anomaly.rules.js';
 
 const NOW = new Date('2026-09-17T12:00:00Z');
 const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
@@ -131,5 +131,41 @@ describe('detect - 신호 두절 트랙 (I·J)', () => {
 
   it('29분은 아직 두절로 보지 않는다', () => {
     expect(detect({ ...base, lastMeasuredAt: minutesAgo(29) }, NOW)).toEqual([]);
+  });
+});
+
+describe('사용자별 경고 기준 (긴급 연락 시간 수정, 11-02 확정)', () => {
+  it('설정한 적이 없으면 48시간 · 10%', () => {
+    const prefs = alertPrefsFor(undefined, false);
+    expect(detect({ ...base, fixedSince: minutesAgo(47 * 60) }, NOW, prefs)).toEqual([]);
+    expect(detect({ ...base, fixedSince: minutesAgo(48 * 60) }, NOW, prefs)).toEqual([{ track: 'gps_fixed', stage: '48h' }]);
+    expect(detect({ ...base, lastBattery: 10 }, NOW, prefs)).toEqual([{ track: 'battery', stage: 'low' }]);
+  });
+
+  it('바꾼 시간·% 를 따른다', () => {
+    const prefs = alertPrefsFor({ fixedHours: 6, lowBatteryPercent: 30 }, false);
+    expect(detect({ ...base, fixedSince: minutesAgo(6 * 60) }, NOW, prefs)).toEqual([{ track: 'gps_fixed', stage: '6h' }]);
+    expect(detect({ ...base, lastBattery: 30 }, NOW, prefs)).toEqual([{ track: 'battery', stage: 'low' }]);
+  });
+
+  it('입력란을 비우면 그 경고는 보내지 않는다 (배터리 0%·신호 두절은 그대로)', () => {
+    const prefs = alertPrefsFor({ fixedHours: null, lowBatteryPercent: null }, false);
+    expect(detect({ ...base, fixedSince: minutesAgo(100 * 60) }, NOW, prefs)).toEqual([]);
+    expect(detect({ ...base, lastBattery: 3 }, NOW, prefs)).toEqual([]);
+    expect(detect({ ...base, lastBattery: 0, batteryZeroSince: minutesAgo(1) }, NOW, prefs)).toEqual([{ track: 'battery', stage: 'zero' }]);
+    expect(detect({ ...base, lastMeasuredAt: minutesAgo(40), lastBattery: 100 }, NOW, prefs)).toEqual([{ track: 'no_signal', stage: '30m' }]);
+  });
+
+  it('1인 가구는 안심 모드 단계(12·24·48시간)를 그대로 쓴다', () => {
+    const prefs = alertPrefsFor({ fixedHours: null, lowBatteryPercent: null }, true);
+    expect(detect({ ...base, fixedSince: minutesAgo(12 * 60) }, NOW, prefs)).toEqual([{ track: 'gps_fixed', stage: '12h' }]);
+  });
+
+  it('배터리 부족은 기준 +10%(최소 20%) 를 넘어야 닫는다', () => {
+    expect(keepLowBatteryOpen(20, 10)).toBe(true);
+    expect(keepLowBatteryOpen(21, 10)).toBe(false);
+    expect(keepLowBatteryOpen(40, 30)).toBe(true);
+    expect(keepLowBatteryOpen(41, 30)).toBe(false);
+    expect(keepLowBatteryOpen(5, null)).toBe(false);
   });
 });

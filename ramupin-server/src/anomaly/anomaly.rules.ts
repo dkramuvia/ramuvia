@@ -71,9 +71,53 @@ export const ANOMALY_RULES = {
   ] satisfies AnomalyStage[],
 } as const;
 
-/** 열려 있는 "배터리 부족"을 그대로 둘지 (닫는 기준은 여는 기준보다 높습니다) */
-export function keepLowBatteryOpen(battery: number | null): boolean {
-  return battery != null && battery <= ANOMALY_RULES.lowBatteryClearPercent;
+/**
+ * 사람마다 다른 경고 기준 (안전 & SOS > 긴급 연락 시간 수정, 피그마 v2.5 878).
+ * 10-30·11-02 대표님 확정: 기본 48시간 · 10%, 입력란이 비어 있으면(null) 그 경고는 보내지 않습니다.
+ */
+export interface AlertPrefs {
+  /** 위치 고정 단계. 비어 있으면 위치 고정 경고를 보내지 않습니다 */
+  fixedStages: readonly AnomalyStage[];
+  /** 이 값 이하면 배터리 부족. null 이면 보내지 않습니다 */
+  lowBatteryPercent: number | null;
+}
+
+/** 사용자가 고를 수 있는 범위. 앱 입력란과 서버 검사가 같은 값을 씁니다 */
+export const ALERT_PREF_LIMITS = {
+  defaultFixedHours: 48,
+  minFixedHours: 3,
+  maxFixedHours: 168,
+  defaultLowBatteryPercent: 10,
+  minLowBatteryPercent: 5,
+  maxLowBatteryPercent: 50,
+} as const;
+
+/** 1인 가구와 예전 판정용: 12·24·48시간 단계 + 10% */
+export const DEFAULT_ALERT_PREFS: AlertPrefs = {
+  fixedStages: ANOMALY_RULES.gpsFixed,
+  lowBatteryPercent: ANOMALY_RULES.lowBatteryPercent,
+};
+
+/**
+ * 이 사람에게 쓸 기준.
+ * 1인 가구는 안심 모드에서 고른 시간(12·24·48) 단계에 기관 문자가 묶여 있어 예전 단계를 그대로 씁니다.
+ */
+export function alertPrefsFor(setting: { fixedHours: number | null; lowBatteryPercent: number | null } | undefined, singleHousehold: boolean): AlertPrefs {
+  if (singleHousehold) return DEFAULT_ALERT_PREFS;
+  const hours = setting ? setting.fixedHours : ALERT_PREF_LIMITS.defaultFixedHours;
+  return {
+    fixedStages: hours === null ? [] : [{ stage: `${hours}h`, afterMinutes: hours * 60 }],
+    lowBatteryPercent: setting ? setting.lowBatteryPercent : ALERT_PREF_LIMITS.defaultLowBatteryPercent,
+  };
+}
+
+/**
+ * 열려 있는 "배터리 부족"을 그대로 둘지. 닫는 기준은 여는 기준보다 높습니다 (20%, 기준을 높였으면 +10%)
+ */
+export function keepLowBatteryOpen(battery: number | null, lowBatteryPercent: number | null = ANOMALY_RULES.lowBatteryPercent): boolean {
+  if (lowBatteryPercent === null) return false;
+  const clear = Math.max(ANOMALY_RULES.lowBatteryClearPercent, lowBatteryPercent + 10);
+  return battery != null && battery <= clear;
 }
 
 /** 지난 시간으로 지금 몇 단계인지. 아직 첫 단계도 안 되면 null */
@@ -114,7 +158,7 @@ export interface Detection {
  * - 신호가 끊겼으면(마지막 수신이 오래됨) 위치·배터리는 옛날 값이라 "고정"으로 세지 않습니다.
  * - 위치 고정과 배터리 0% 가 겹치면 조합 트랙으로만 봅니다 (단독 트랙 중복 제거).
  */
-export function detect(status: StatusSnapshot, now: Date): Detection[] {
+export function detect(status: StatusSnapshot, now: Date, prefs: AlertPrefs = DEFAULT_ALERT_PREFS): Detection[] {
   const minutes = (from: Date) => (now.getTime() - from.getTime()) / 60_000;
   const found: Detection[] = [];
 
@@ -135,7 +179,7 @@ export function detect(status: StatusSnapshot, now: Date): Detection[] {
 
   // ── 여기부터는 신호가 살아 있는 상태
   const fixedMinutes = minutes(status.fixedSince);
-  const fixedStage = stageFor(ANOMALY_RULES.gpsFixed, fixedMinutes);
+  const fixedStage = stageFor(prefs.fixedStages, fixedMinutes);
   const zeroStage = status.batteryZeroSince ? stageFor(ANOMALY_RULES.battery, minutes(status.batteryZeroSince)) : null;
 
   if (fixedStage && zeroStage) {
@@ -149,8 +193,8 @@ export function detect(status: StatusSnapshot, now: Date): Detection[] {
     if (zeroStage) found.push({ track: 'battery', stage: zeroStage });
   }
 
-  // 배터리 부족(10%)은 단독 정보성 알림
-  if (zeroStage === null && battery != null && battery > 0 && battery <= ANOMALY_RULES.lowBatteryPercent) {
+  // 배터리 부족(기본 10%)은 단독 정보성 알림
+  if (zeroStage === null && prefs.lowBatteryPercent !== null && battery != null && battery > 0 && battery <= prefs.lowBatteryPercent) {
     found.push({ track: 'battery', stage: 'low' });
   }
 

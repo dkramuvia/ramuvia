@@ -8,6 +8,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { billingApi } from '@/api/endpoints/billing';
+import { PurchaseCancelled } from '@/features/billing/googlePlay';
 import { AppText } from '@/components/ui';
 import { BillingToggle } from '@/features/plans/BillingToggle';
 import { useAuthStore } from '@/stores/authStore';
@@ -36,11 +37,13 @@ export default function FreeTrialScreen() {
   const start = async () => {
     setPending(true);
     try {
-      const result = await billingApi.purchase({ kind: 'freeTrial', yearly });
+      const result = await billingApi.purchase({ kind: 'freeTrial', yearly }, useAuthStore.getState().user?.id);
       if (result.planId) updateUser({ plan: result.planId });
       showToast(t('plans.done', { name: '플래티넘' }));
       router.back();
     } catch (e) {
+      // 결제창을 닫은 것은 오류가 아닙니다
+      if (e instanceof PurchaseCancelled) return;
       showToast(e instanceof Error ? e.message : String(e));
     } finally {
       setPending(false);

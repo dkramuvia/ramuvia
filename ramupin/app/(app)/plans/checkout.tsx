@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { billingApi } from '@/api/endpoints/billing';
+import { PurchaseCancelled } from '@/features/billing/googlePlay';
 import { AppText, Button, Screen, TermsAgreement, requiredAgreed, type TermItem } from '@/components/ui';
 import { BillingToggle } from '@/features/plans/BillingToggle';
 import { PlanCard } from '@/features/plans/PlanCard';
@@ -42,11 +43,13 @@ export default function CheckoutScreen() {
   const pay = async () => {
     setPaying(true);
     try {
-      const result = await billingApi.purchase({ kind: 'plan', planId: card.id, yearly });
+      const result = await billingApi.purchase({ kind: 'plan', planId: card.id, yearly }, useAuthStore.getState().user?.id);
       if (result.planId) updateUser({ plan: result.planId });
       showToast(t('plans.done', { name: card.name }));
       router.dismissTo('/settings/menu');
     } catch (e) {
+      // 결제창을 닫은 것은 오류가 아닙니다
+      if (e instanceof PurchaseCancelled) return;
       showToast(String(e instanceof Error ? e.message : e));
     } finally {
       setPaying(false);

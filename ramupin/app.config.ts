@@ -72,6 +72,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     // X·네이버·구글 로그인은 브라우저(Custom Tabs)로 인증 화면을 엽니다
     'expo-web-browser',
+    // 구글 플레이 정기 결제 (플래티넘·트리니티). 결제 확인은 서버가 합니다 (billing.module.ts)
+    'expo-iap',
+    // 플레이 스토어 업로드 키 서명 (키 파일은 PC에만)
+    './plugins/withUploadSigning',
     [
       'expo-camera',
       {

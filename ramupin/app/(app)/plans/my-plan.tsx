@@ -1,14 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 
+import { billingApi } from '@/api/endpoints/billing';
 import { galleryApi } from '@/api/endpoints/gallery';
+import { openSubscriptionSettings, type PaidPlan } from '@/features/billing/googlePlay';
 import { AppText, Button, Screen } from '@/components/ui';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useSafetySetting, useScheduledMessages } from '@/features/settings/queries';
 import { makeStyles, radius, useColors } from '@/theme';
+import { formatDate } from '@/utils/time';
 
 /**
  * 내 플랜 · 사용량 (보완 화면 설계 4.7, 피그마 v2.4 1015:50450).
@@ -27,6 +30,11 @@ export default function MyPlanScreen() {
   const { data: safety } = useSafetySetting();
   const { data: messages = [] } = useScheduledMessages();
   const { data: storage } = useQuery({ queryKey: ['gallery', 'storage'], queryFn: galleryApi.storage });
+  // 구글 플레이 구독 (다음 결제일 · 체험 · 해지 예정)
+  const { data: billing } = useQuery({ queryKey: ['billing', 'me', planId], queryFn: billingApi.me });
+  const sub = billing?.subscription;
+  const subDate = sub?.expiresAt ? formatDate(new Date(sub.expiresAt)) : null;
+  const subLine = !sub || !subDate ? null : sub.trial ? t('myPlan.trialEndsOn', { date: subDate }) : sub.autoRenewing ? t('myPlan.renewsOn', { date: subDate }) : t('myPlan.endsOn', { date: subDate });
 
   const sosCount = (safety?.recipientFriendIds.length ?? 0) + (safety?.recipientGroupIds.length ?? 0);
   const messageTargets = new Set(messages.map((m) => m.targetUserId)).size;
@@ -62,6 +70,28 @@ export default function MyPlanScreen() {
         <AppText variant="label2" color={colors.textOnDark}>
           {t(free ? 'myPlan.freeDesc' : 'myPlan.paidDesc')}
         </AppText>
+        {subLine ? (
+          <AppText variant="label2Bold" color={colors.white}>
+            {subLine}
+          </AppText>
+        ) : null}
+        {sub?.testPurchase ? (
+          <AppText variant="caption" color={colors.textMuted}>
+            {t('myPlan.testPurchase')}
+          </AppText>
+        ) : null}
+        {sub && Platform.OS === 'android' ? (
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => void openSubscriptionSettings(planId as PaidPlan).catch(() => undefined)}
+            style={styles.manage}
+          >
+            <AppText variant="label2Bold" color={colors.textOnDark} style={styles.underline}>
+              {t('myPlan.manage')}
+            </AppText>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -133,5 +163,7 @@ const useStyles = makeStyles((colors) => ({
   rowTop: { flexDirection: 'row', alignItems: 'center' },
   track: { height: 4, borderRadius: 2, backgroundColor: colors.surfaceStrong, overflow: 'hidden' },
   bar: { height: 4, borderRadius: 2 },
+  manage: { alignSelf: 'flex-start', marginTop: 6 },
+  underline: { textDecorationLine: 'underline' },
   note: { gap: 6, padding: 16, borderRadius: radius.md, backgroundColor: colors.surface },
 }));

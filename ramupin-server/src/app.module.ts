@@ -24,8 +24,9 @@ import { ScheduledModule } from './scheduled/scheduled.module.js';
 import { SosModule } from './sos/sos.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
+import { BillingModule } from './billing/billing.module.js';
 
 @Module({
-  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, FeedModule, JourneyModule, WeatherModule, HospitalsModule, AnomalyModule, AdminModule, HealthModule, PrivacyModule, SoloModule],
+  imports: [MainDatabaseModule, RedisModule, PhoneModule, AuthModule, LocationModule, UsersModule, FriendsModule, GroupsModule, ChatModule, PlacesModule, MediaModule, PushModule, SosModule, SafeZoneModule, ScheduledModule, FeedModule, JourneyModule, WeatherModule, HospitalsModule, BillingModule, AnomalyModule, AdminModule, HealthModule, PrivacyModule, SoloModule],
 })
 export class AppModule {}

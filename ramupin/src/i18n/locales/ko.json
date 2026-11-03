@@ -1066,7 +1066,12 @@
     "unavailable": "사용 불가",
     "retentionNote": "이동 경로와 머문 곳은 보관 기간이 지나면 매일 지워져요. SOS 기록은 따로 남아요.",
     "billingDayNote": "결제일: 가입한 날 기준 매월 같은 날 (예: 9일 가입 → 매월 9일)",
-    "compare": "플랜 비교 · 변경"
+    "compare": "플랜 비교 · 변경",
+    "renewsOn": "다음 결제일 {{date}}",
+    "endsOn": "{{date}}까지 이용 (자동 결제 꺼짐)",
+    "trialEndsOn": "무료 체험 중 · {{date}}부터 결제",
+    "testPurchase": "테스트 결제 (실제로 청구되지 않아요)",
+    "manage": "구독 관리 · 해지"
   },
   "emergency": {
     "desc": "SOS 화면의 '긴급전화' 버튼이 이 번호로 연결돼요. 여행 중이면 그 나라 번호로 바꿔 주세요.",

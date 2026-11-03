@@ -654,6 +654,27 @@ export interface HospitalsTable {
   synced_at: Generated<Date>;
 }
 
+/** 구글 플레이 정기 결제 (0056). 영수증마다 한 줄 */
+export interface SubscriptionsTable {
+  purchase_token: string;
+  user_id: string;
+  store: Generated<string>;
+  product_id: string;
+  base_plan_id: string | null;
+  plan: string;
+  state: string;
+  trial: Generated<boolean>;
+  auto_renewing: Generated<boolean>;
+  expires_at: Date | null;
+  order_id: string | null;
+  test_purchase: Generated<boolean>;
+  linked_token: string | null;
+  raw: unknown;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  checked_at: Timestamp;
+}
+
 export interface MainDatabase {
   'member.users': UsersTable;
   'member.social_accounts': SocialAccountsTable;
@@ -702,5 +723,6 @@ export interface MainDatabase {
   'social.group_invites': GroupInvitesTable;
   'config.danger_zones': DangerZonesTable;
   'config.hospitals': HospitalsTable;
+  'billing.subscriptions': SubscriptionsTable;
   'member.danger_zone_visits': DangerZoneVisitsTable;
 }

@@ -87,6 +87,10 @@ const schema = z.object({
   NAVER_SEARCH_CLIENT_ID: z.string().default(''),
   /** 공공데이터포털 '건강보험심사평가원_병원정보서비스' 일반 인증키 (Decoding). 비우면 병원 목록을 받지 않습니다 */
   HOSPITAL_API_KEY: z.string().default(''),
+  /** 구글 플레이 결제 확인용 서비스 계정 키 파일 (Play Developer API). 비우면 결제를 받지 않습니다 */
+  PLAY_SERVICE_ACCOUNT_FILE: z.string().default(''),
+  /** 플레이 스토어 앱 패키지 */
+  PLAY_PACKAGE_NAME: z.string().default('com.ramuviamanager.ramupin'),
   NAVER_SEARCH_CLIENT_SECRET: z.string().default(''),
   // 전화번호 암호화·중복 확인 키 (32바이트 base64). 바뀌면 기존 번호를 읽지 못함
   // 사진·동영상 저장소. 개발은 Docker MinIO, 운영은 AWS S3 — 규격이 같아 주소·키만 바뀝니다

@@ -1,6 +1,7 @@
 import { router, Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 
+import { billingApi } from '@/api/endpoints/billing';
 import { syncDeviceTimezone } from '@/api/endpoints/settings';
 import { AlertPopupHost } from '@/features/alerts/AlertPopupHost';
 import { InAppCardHost } from '@/features/alerts/InAppCardHost';
@@ -32,6 +33,13 @@ export default function AppLayout() {
   // 기기 시간대를 서버에 맞춤 (받는 사람 시각 기준 예약 메시지·방해 금지 시간)
   useEffect(() => {
     void syncDeviceTimezone().catch(() => undefined);
+    // 결제는 됐는데 서버 확인 전에 앱이 꺼졌던 구독·갱신을 다시 확인받습니다
+    void billingApi
+      .syncPending()
+      .then((summary) => {
+        if (summary) useAuthStore.getState().updateUser({ plan: summary.plan });
+      })
+      .catch(() => undefined);
   }, []);
   // 30일마다 + 새 공유가 시작된 다음 날 "지금 내 위치를 N명이 보고 있어요" (보완 4.12). 새 기기 화면을 먼저 봅니다
   useSharingReminder(!replaced && !pendingGuardian);

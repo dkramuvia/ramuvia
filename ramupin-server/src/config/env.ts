@@ -58,6 +58,13 @@ const schema = z.object({
    * 대신 확인 스크립트가 씨드의 지어낸 번호로 문자를 보내게 되니, 시험이 끝나면 되돌리세요.
    */
   ALIGO_ALLOW_NUMBERS: z.string().default(''),
+  /**
+   * 시험용 가상 번호 (대표님 11-12). 쉼표로 구분하고, 늘리려면 여기에 더 적고 서버를 다시 켭니다.
+   * 이 번호들은 문자를 보내지 않고, 서버가 인증번호를 응답에 실어 앱이 바로 채웁니다 (가입·새 기기 인증).
+   * 실제로 없는 번호라 문자를 받을 수 없어서입니다. **번호를 아는 사람은 누구나 문자 없이 가입할 수 있습니다.**
+   * 비우면(`TEST_PHONE_NUMBERS=`) 꺼집니다
+   */
+  TEST_PHONE_NUMBERS: z.string().default('01020360001,01020360002,01020360003'),
   // 카카오 로그인: 받은 토큰이 이 앱(RamuPin)에서 발급된 것인지 확인
   KAKAO_APP_ID: z.coerce.number().int().positive(),
   /** X(트위터) OAuth 2.0 Client ID. 공개 클라이언트(PKCE)라 secret 은 쓰지 않습니다 */

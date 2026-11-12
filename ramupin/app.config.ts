@@ -77,6 +77,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // 플레이 스토어 업로드 키 서명 (키 파일은 PC에만)
     './plugins/withUploadSigning',
     [
+      // AdMob 광고 (WBS 2.7). 앱 ID 가 없으면 안드로이드 SDK 가 켜지자마자 죽어서, 비어 있으면 구글 예제 앱 ID 를 넣습니다.
+      // 앱 ID 는 비밀값이 아닙니다 (APK 안에 그대로 들어감)
+      'react-native-google-mobile-ads',
+      {
+        androidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || 'ca-app-pub-3940256099942544~3347511713',
+        // 아이폰 앱 ID 는 아직 없습니다. 받기 전까지는 구글 예제 앱 ID
+        iosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID || 'ca-app-pub-3940256099942544~1458002511',
+        // 앱이 처음 켜질 때 광고 SDK 를 바로 띄우지 않습니다. 등급·나이를 확인한 뒤 AdBanner 가 켭니다
+        delayAppMeasurementInit: true,
+        optimizeInitialization: true,
+        optimizeAdLoading: true,
+      },
+    ],
+    [
       'expo-camera',
       {
         cameraPermission: 'QR 코드로 친구를 추가하기 위해 카메라를 사용합니다.',

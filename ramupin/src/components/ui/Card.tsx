@@ -13,7 +13,7 @@ interface CardProps {
 /** 피그마 "Attachment Card Horizontal - Nova": 배경 #EFF0F2(라이트) / #1E1E1E(다크), 모서리 14 */
 export function Card({ children, onPress, style, background }: CardProps) {
   const colors = useColors();
-  const bg = background ?? colors.surface;
+  const bg = background ?? colors.surfaceGlass;
 
   if (!onPress) return <View style={[styles.card, { backgroundColor: bg }, style]}>{children}</View>;
   return (

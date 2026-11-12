@@ -140,7 +140,10 @@ export class SignUpService {
     if (state.sends >= MAX_SENDS) throw authError(HttpStatus.TOO_MANY_REQUESTS, 'SMS_LIMIT');
 
     const code = this.sms.fixedDevCode ?? String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.sms.sendVerificationCode(phone, code, '가입 인증');
+    // 시험용 가상 번호는 문자를 받을 수 없어 보내지 않고, 인증번호를 응답에 실어 앱이 바로 채웁니다 (대표님 11-12)
+    const testNumber = this.sms.isTestNumber(phone);
+    if (testNumber) this.logger.log(`시험용 번호로 가입 인증 (${maskPhone(phone)}) — 문자 보내지 않음`);
+    else await this.sms.sendVerificationCode(phone, code, '가입 인증');
 
     Object.assign(state, {
       pendingPhone: phone,
@@ -151,7 +154,13 @@ export class SignUpService {
       attempts: 0,
     });
     await this.save(id, state);
-    return { alreadyRegistered: false, codeExpiresInSec: CODE_TTL_SEC, resendAfterSec: RESEND_AFTER_SEC, phoneMasked: maskPhone(phone) };
+    return {
+      alreadyRegistered: false,
+      codeExpiresInSec: CODE_TTL_SEC,
+      resendAfterSec: RESEND_AFTER_SEC,
+      phoneMasked: maskPhone(phone),
+      ...(testNumber ? { testCode: code } : {}),
+    };
   }
 
   async verifyPhoneCode(signUpToken: string, code: string) {

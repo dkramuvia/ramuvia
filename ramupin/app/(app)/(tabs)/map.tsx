@@ -5,7 +5,7 @@ import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Dimensions, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Avatar, SheetScrollView, SnapSheet, type SnapSheetHandle } from '@/components/ui';
@@ -25,10 +25,11 @@ import { StreetViewWeb } from '@/features/map/StreetViewWeb';
 import { personPin } from '@/features/map/PinMarker';
 import { badgeSprite } from '@/features/map/spriteClock';
 import { SPRITES } from '@/features/map/sprites';
-import { statusText } from '@/features/map/statusText';
+import { statusText, type MovementStatus } from '@/features/map/statusText';
 import { TrackingPrompt } from '@/features/location/TrackingPrompt';
 import { WeatherBadge } from '@/features/weather/WeatherBadge';
 import { useWeather } from '@/features/weather/useWeather';
+import { AdBanner } from '@/features/ads/AdBanner';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useAuthStore } from '@/stores/authStore';
@@ -45,9 +46,17 @@ const FALLBACK_CENTER: LatLng = { latitude: 37.4979, longitude: 127.0276 };
 
 const SHEET_HEIGHT = 370;
 // 내렸을 때 손잡이와 "친구 (N)" 줄만 보이는 높이
-const SHEET_COLLAPSED = 78;
+// 대표 리포트 2차 106 (피그마 v2.6 1079): 접었을 때 손잡이와 '친구 (N)' 한 줄만 얇게 보이게
+const SHEET_COLLAPSED = 50;
 /** 지역명·날씨 줄이 차지하는 높이 (안전 영역 아래). 내 마커가 그 뒤에 숨지 않게 지도 위쪽 여백으로 씁니다 */
 const TOP_ROW_HEIGHT = 100;
+const SOS_SIREN = require('../../../assets/images/sos-siren.png');
+/**
+ * 급할 때 SOS (대표 리포트 2차 103): 두 손가락 이상으로 화면을 이 시간 안에 이만큼 두드리면 SOS 화면으로 갑니다.
+ * SOS 화면은 보내기 전에 기다리는 시간이 있어 잘못 들어가도 취소할 수 있습니다
+ */
+const SOS_TAP_COUNT = 5;
+const SOS_TAP_WINDOW_MS = 4000;
 /** 시트 윗변과 내 마커 사이 여유 (마커·배지 높이) */
 const SHEET_GAP = 40;
 /** 처음 확대 정도 (AppMapView 기본값과 같음). 지도가 범위를 알려 주기 전까지 묶음 계산에 씁니다 */
@@ -80,6 +89,8 @@ export default function MapScreen() {
   const me = useAuthStore((s) => s.user);
   const mapRef = useRef<AppMapViewHandle>(null);
   const insets = useSafeAreaInsets();
+  // 지도 위에 떠 있는 아래 메뉴 높이 (탭 _layout)
+  const navHeight = layout.tabBarHeight + insets.bottom;
   // 시트를 올렸는지 (0 = 접힘). 지도 아래 여백을 시트 높이에 맞춥니다 — 내 마커가 시트 뒤에 숨었습니다 (대표 리포트 79)
   const [sheetIndex, setSheetIndex] = useState(0);
   // 탭을 떠나면 시트를 다시 그리므로(아래 focused) 접힌 상태로 맞춥니다
@@ -96,6 +107,9 @@ export default function MapScreen() {
    * 손으로 지도를 움직이거나 친구를 활성화하면 꺼지고, 나의 위치 버튼으로 다시 켭니다
    */
   const [following, setFollowing] = useState(true);
+  // 두 손가락 두드림 SOS: 두드린 시각들과, 지금 손가락이 닿아 있는 동안 이미 셌는지
+  const sosTaps = useRef<number[]>([]);
+  const sosTapCounted = useRef(false);
   const sheetRef = useRef<SnapSheetHandle>(null);
   // 화면에 보이는 위도 범위. 겹친 친구를 묶는 데 씁니다 (대표 리포트 78)
   const [visibleDelta, setVisibleDelta] = useState(INITIAL_DELTA);
@@ -232,10 +246,11 @@ export default function MapScreen() {
    * 마커가 새로 만들어지고, 안드로이드 지도는 그때마다 마커를 그림으로 다시 구워
    * 지도가 버벅입니다.
    */
-  const myStatus = useMemo(
-    () => status,
+  const myStatus = useMemo<MovementStatus | null>(
+    // 숨기기 모드면 이동 그림 대신 유령 (대표 리포트 2차 112). 친구에게는 어차피 내 위치가 안 갑니다
+    () => (hiding ? { text: t('map.hiding'), kind: 'hidden' } : status),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status?.text, status?.kind],
+    [status?.text, status?.kind, hiding, t],
   );
 
   const markers = useMemo<MapMarkerItem[]>(() => {
@@ -400,7 +415,26 @@ export default function MapScreen() {
   }, [location, signal]);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      // 지도가 터치를 가져가도 부모에는 손가락이 닿은 것이 전해집니다. 응답자를 가져오지 않아 지도 움직임은 그대로입니다
+      onTouchStart={(e) => {
+        if (e.nativeEvent.touches.length < 2 || sosTapCounted.current) return;
+        sosTapCounted.current = true;
+        const now = Date.now();
+        sosTaps.current = [...sosTaps.current.filter((at) => now - at < SOS_TAP_WINDOW_MS), now];
+        if (sosTaps.current.length >= SOS_TAP_COUNT) {
+          sosTaps.current = [];
+          router.push('/sos');
+        }
+      }}
+      onTouchEnd={(e) => {
+        if (e.nativeEvent.touches.length === 0) sosTapCounted.current = false;
+      }}
+      onTouchCancel={() => {
+        sosTapCounted.current = false;
+      }}
+    >
       {focused ? <StatusBar style={mapIsDark ? 'light' : 'dark'} /> : null}
 
       <AppMapView
@@ -420,7 +454,7 @@ export default function MapScreen() {
         padding={{
           top: insets.top + TOP_ROW_HEIGHT + (hiding ? 40 : 0),
           right: 0,
-          bottom: (sheetIndex === 0 ? SHEET_COLLAPSED : SHEET_HEIGHT) + SHEET_GAP,
+          bottom: (sheetIndex === 0 ? SHEET_COLLAPSED : SHEET_HEIGHT) + SHEET_GAP + navHeight,
           left: 0,
         }}
         traffic={showTraffic}
@@ -447,15 +481,20 @@ export default function MapScreen() {
               {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
             </AppText>
             <WeatherBadge weather={weather} />
+            {/* 대표 리포트 2차 102 (피그마 v2.6 1079): SOS 가 이름 사진 옆에 붙어 있어 잘못 누르기 쉽고 급할 때 찾기 어려워
+                왼쪽에 크게 따로 뺐습니다. 빨간 원(70%) 안에 사이렌 그림 */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('map.sos')}
+              onPress={() => router.push('/sos')}
+              style={({ pressed }) => [styles.sosButton, pressed && styles.pressed]}
+            >
+              <Image source={SOS_SIREN} style={styles.sosSiren} />
+            </Pressable>
           </View>
           <View style={styles.topButtons}>
             <Pressable accessibilityLabel={t('map.profile')} onPress={() => router.push('/settings')}>
               <Avatar name={me?.nickname ?? ''} imageUrl={me?.avatarUrl} />
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => router.push('/sos')} style={overlayStyles.pillButton}>
-              <AppText variant="headline" color={overlay.pillText}>
-                {t('map.sos')}
-              </AppText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -540,6 +579,9 @@ export default function MapScreen() {
         // 처음엔 지도만 보이게 친구 목록은 접어 둡니다. 끌어 올리면 펼쳐집니다 (대표님 10-08)
         initialIndex={0}
         onIndexChange={setSheetIndex}
+        // 아래 메뉴가 지도 위에 떠 있어서(탭 _layout) 시트는 메뉴 위에 둡니다
+        bottomInset={navHeight}
+        compactHandle
         above={
           clusterPick ? (
             <ClusterPicker friends={clusterPick} onPick={focusFriend} onClose={() => setClusterPick(null)} />
@@ -547,10 +589,11 @@ export default function MapScreen() {
             <HospitalCard hospital={hospitalPick} onClose={() => setHospitalPick(null)} />
           ) : activeFriend && previewAt && streetView && can('premiumMap') ? (
             <StreetViewPreview key={activeFriend.id} coordinate={previewAt} name={activeFriend.nickname} onClose={() => setActiveId('me')} />
-          ) : null
+          ) : (
+            // 다른 카드가 없을 때만 배너 광고. 광고 없는 등급·75세 이상·광고를 못 받았을 때는 자리도 남기지 않습니다 (대표 리포트 83)
+            <AdBanner />
+          )
         }
-        // 광고 자리 글자·GPS 신호 아이콘은 뺐습니다 (대표 리포트 83). 광고가 붙으면 above 에 배너를 넣습니다
-        // TODO(7단계): AdMob 배너. 광고 없는 등급(정책 ads = none: 유료·케어)은 표시하지 않습니다
         header={
           // 친구 추가는 People 에서만 합니다 (대표 리포트 16). 새 친구 요청 표시(N)는 요청 목록으로 갑니다
           <View style={styles.sheetHeader}>
@@ -745,6 +788,17 @@ const useStyles = makeStyles((colors) => ({
   addressBlock: { flex: 1, gap: 4 },
   address: { flex: 1 },
   topButtons: { alignItems: 'flex-end', gap: 12, paddingTop: 8 },
+  sosButton: {
+    width: 92,
+    height: 92,
+    marginTop: 8,
+    borderRadius: 46,
+    backgroundColor: 'rgba(255,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosSiren: { width: 74, height: 80 },
+  pressed: { opacity: 0.7 },
   disabled: { opacity: 0.4 },
   permissionBanner: {
     flexDirection: 'row',
@@ -762,7 +816,7 @@ const useStyles = makeStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 4,
   },
   friendsTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   newBadge: {
@@ -847,15 +901,6 @@ const BUTTON_SHADOW = {
 } as const;
 
 const useOverlayStyles = makeMapStyles((overlay) => ({
-  pillButton: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: radius.full,
-    backgroundColor: overlay.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...BUTTON_SHADOW,
-  },
   // 숨기기 모드 띠 (대표 리포트 90)
   hideBar: {
     alignSelf: 'center',

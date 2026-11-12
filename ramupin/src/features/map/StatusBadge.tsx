@@ -31,6 +31,7 @@ const KIND_ICONS: Record<MovementKind, ComponentProps<typeof MaterialCommunityIc
   car: 'car',
   train: 'train',
   airplane: 'airplane',
+  hidden: 'ghost-outline',
 };
 
 interface StatusBadgeProps {

@@ -85,6 +85,12 @@ export default function PhoneVerifyScreen() {
       }
       setRequested(true);
       setRemaining(result.codeExpiresInSec);
+      // 시험용 가상 번호: 문자가 오지 않으니 서버가 준 인증번호로 바로 인증합니다 (대표님 11-12)
+      if (result.testCode) {
+        setCode(result.testCode);
+        await submitCode(result.testCode);
+        return;
+      }
       setSentBanner(true);
       setTimeout(() => setSentBanner(false), 2500);
       codeRef.current?.focus();
@@ -102,6 +108,10 @@ export default function PhoneVerifyScreen() {
       setError(t('onboarding.codeExpired'));
       return;
     }
+    await submitCode(digits);
+  };
+
+  const submitCode = async (digits: string) => {
     try {
       const { verified: ok } = await authApi.verifySignUpCode(signUp.signUpToken, digits);
       if (!ok) {

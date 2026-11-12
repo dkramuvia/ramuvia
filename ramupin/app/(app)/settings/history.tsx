@@ -1,9 +1,11 @@
+import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { feedApi } from '@/api';
 import { AppText, BottomNav, ChipTabs, Header, QueryState } from '@/components/ui';
 import { useAlertStore } from '@/features/alerts/alertStore';
 import { popupForHistory } from '@/features/alerts/samples';
@@ -12,10 +14,11 @@ import { useHistory, useJourney, useJourneyStats } from '@/features/settings/que
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
 import { useAuthStore } from '@/stores/authStore';
 import { layout, makeStyles, radius, useColors } from '@/theme';
-import type { HistoryEvent, HistoryEventType } from '@/types/models';
+import type { FeedItemType, HistoryEvent, HistoryEventType } from '@/types/models';
 import { formatDate, formatTimeOfDay } from '@/utils/time';
 
-type Tab = 'all' | 'safety' | 'place';
+/** views: 위치 확인 기록. 따로 있던 메뉴를 히스토리 탭으로 합쳤습니다 (대표 리포트 2차 111) */
+type Tab = 'all' | 'safety' | 'place' | 'views';
 
 /** 대표 리포트 95: 종류마다 아이콘 (있는 그림을 나눠 씁니다). 서버가 새 종류를 보내면 DEFAULT_ICON */
 const EVENT_ICONS: Record<HistoryEventType, number> = {
@@ -33,6 +36,11 @@ const EVENT_ICONS: Record<HistoryEventType, number> = {
   notice: require('../../../assets/icons/card-request.png'),
 };
 const DEFAULT_ICON = require('../../../assets/icons/card-request.png');
+const FEED_ICONS: Partial<Record<FeedItemType, number>> = {
+  stay: require('../../../assets/icons/feed-stay.png'),
+  nearby: require('../../../assets/icons/feed-nearby.png'),
+  checkedLocation: require('../../../assets/icons/feed-checked.png'),
+};
 const PLACE_PIN = require('../../../assets/icons/place-pin.png');
 
 /**
@@ -55,10 +63,20 @@ export default function HistoryScreen() {
             { value: 'all', label: t('history.all') },
             { value: 'safety', label: t('history.safety') },
             { value: 'place', label: t('history.place') },
+            { value: 'views', label: t('history.views') },
           ]}
         />
       </View>
-      {tab === 'place' ? <PlaceHistory /> : <EventHistory category={tab === 'safety' ? 'safety' : undefined} />}
+      {/* 대표 리포트 2차 110: 탭을 바꾸면 불러오는 동안 목록 자리가 줄어 아래 메뉴가 위로 올라왔습니다. 자리를 늘 채웁니다 */}
+      <View style={styles.flex}>
+        {tab === 'place' ? (
+          <PlaceHistory />
+        ) : tab === 'views' ? (
+          <ViewsHistory />
+        ) : (
+          <EventHistory category={tab === 'safety' ? 'safety' : undefined} />
+        )}
+      </View>
       <BottomNav active="map" />
     </SafeAreaView>
   );
@@ -75,6 +93,67 @@ function dayLabel(iso: string) {
   return date;
 }
 
+/** 날짜별로 묶기 (최신 순서 그대로) */
+function byDay<T extends { createdAt: string }>(items: T[]) {
+  const groups = new Map<string, T[]>();
+  items.forEach((e) => {
+    const key = new Date(e.createdAt).toDateString();
+    groups.set(key, [...(groups.get(key) ?? []), e]);
+  });
+  return [...groups.values()].map((data) => ({ title: dayLabel(data[0].createdAt), data }));
+}
+
+/**
+ * 기록 한 줄. 대표 리포트 2차 109: 칸이 너무 커서 한 화면에 몇 개 안 보였습니다.
+ * 아이콘을 작게, 시각을 같은 줄 오른쪽에 두어 높이를 절반쯤으로 줄였습니다
+ */
+function HistoryRow({ icon, message, time, sos, onPress }: { icon?: number; message: string; time: string; sos?: boolean; onPress?: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable accessibilityRole="button" disabled={!onPress} onPress={onPress} style={[styles.eventCard, sos && styles.eventSos]}>
+      {icon ? <Image source={icon} style={styles.eventIcon} /> : null}
+      {/* SOS 칸은 늘 연분홍이라 그 위 글자도 고정으로 어둡게 (테마를 따르면 다크에서 안 보입니다) */}
+      <AppText variant="body2Bold" color={sos ? ON_SOS : colors.text} style={styles.flex}>
+        {message}
+      </AppText>
+      <AppText variant="label2" color={sos ? ON_SOS_SUB : colors.textTertiary}>
+        {time}
+      </AppText>
+    </Pressable>
+  );
+}
+
+function ViewsHistory() {
+  const styles = useStyles();
+  const colors = useColors();
+  const { t } = useTranslation();
+  const { data: feed = [], isLoading, isError, refetch } = useQuery({ queryKey: ['feed'], queryFn: feedApi.list });
+  const sections = useMemo(() => byDay(feed), [feed]);
+
+  if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
+
+  return (
+    <SectionList
+      sections={sections}
+      keyExtractor={(e) => e.id}
+      contentContainerStyle={styles.list}
+      stickySectionHeadersEnabled={false}
+      ListEmptyComponent={
+        <AppText variant="label1" color={colors.textMuted} align="center" style={styles.empty}>
+          {t('locationViews.empty')}
+        </AppText>
+      }
+      renderSectionHeader={({ section }) => (
+        <AppText variant="label1" color={colors.textSecondary} style={styles.sectionHeader}>
+          {section.title}
+        </AppText>
+      )}
+      renderItem={({ item }) => <HistoryRow icon={FEED_ICONS[item.type]} message={item.message} time={formatTimeOfDay(item.createdAt)} />}
+    />
+  );
+}
+
 function EventHistory({ category }: { category?: 'safety' }) {
   const styles = useStyles();
   const colors = useColors();
@@ -82,14 +161,7 @@ function EventHistory({ category }: { category?: 'safety' }) {
   const { data: events = [], isLoading, isError, refetch } = useHistory(category);
   const showPopup = useAlertStore((s) => s.showPopup);
 
-  const sections = useMemo(() => {
-    const groups = new Map<string, HistoryEvent[]>();
-    events.forEach((e) => {
-      const key = new Date(e.createdAt).toDateString();
-      groups.set(key, [...(groups.get(key) ?? []), e]);
-    });
-    return [...groups.values()].map((items) => ({ title: dayLabel(items[0].createdAt), data: items }));
-  }, [events]);
+  const sections = useMemo(() => byDay<HistoryEvent>(events), [events]);
 
   if (isLoading || isError) return <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />;
 
@@ -110,26 +182,17 @@ function EventHistory({ category }: { category?: 'safety' }) {
         </AppText>
       )}
       renderItem={({ item }) => (
-        <Pressable
-          accessibilityRole="button"
+        <HistoryRow
+          icon={EVENT_ICONS[item.type] ?? DEFAULT_ICON}
+          message={item.message}
+          time={formatTimeOfDay(item.createdAt)}
+          sos={item.type === 'sos'}
           // 서버 연동 전: 해당 알림 팝업 모양을 샘플 데이터로 보여줌
           onPress={() => {
             const popup = popupForHistory(item);
             if (popup) showPopup(popup, false);
           }}
-          style={[styles.eventCard, item.type === 'sos' && styles.eventSos]}
-        >
-          <Image source={EVENT_ICONS[item.type] ?? DEFAULT_ICON} style={styles.eventIcon} />
-          <View style={styles.eventTexts}>
-            {/* SOS 칸은 늘 연분홍이라 그 위 글자도 고정으로 어둡게 (테마를 따르면 다크에서 안 보입니다) */}
-            <AppText variant="body2Bold" color={item.type === 'sos' ? ON_SOS : colors.text}>
-              {item.message}
-            </AppText>
-            <AppText variant="body2" color={item.type === 'sos' ? ON_SOS_SUB : colors.textTertiary}>
-              {formatTimeOfDay(item.createdAt)}
-            </AppText>
-          </View>
-        </Pressable>
+        />
       )}
     />
   );
@@ -238,13 +301,20 @@ const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   tabs: { paddingHorizontal: layout.screenPadding, paddingVertical: 8 },
   loading: { marginTop: 40 },
-  list: { paddingHorizontal: layout.screenPadding, paddingBottom: 24, gap: 12 },
+  list: { paddingHorizontal: layout.screenPadding, paddingBottom: 24, gap: 6 },
   empty: { paddingVertical: 48 },
   sectionHeader: { marginTop: 12, marginBottom: 4 },
-  eventCard: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderRadius: radius.md, backgroundColor: colors.surface },
+  eventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
   eventSos: { backgroundColor: '#F9D3CE' },
-  eventIcon: { width: 50, height: 50 },
-  eventTexts: { flex: 1, gap: 12 },
+  eventIcon: { width: 28, height: 28 },
   placeHeader: { gap: 12, paddingVertical: 12 },
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   visited: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },

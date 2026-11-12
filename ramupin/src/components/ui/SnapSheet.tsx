@@ -12,6 +12,8 @@ interface SnapSheetProps {
   initialIndex?: number;
   /** 시트 아래에 고정된 영역 높이 (하단 탭 등). 시트가 그 위에서 멈춤 */
   bottomInset?: number;
+  /** 손잡이 위아래 여백을 줄입니다. 접었을 때 한 줄만 보이게 할 때 (지도, 대표 리포트 2차 106) */
+  compactHandle?: boolean;
   /** 손잡이 아래 고정 헤더 (여기를 끌어도 시트가 움직임) */
   header?: ReactNode;
   /** 시트 윗변에 붙어 함께 움직이는 영역 (이동 상태 칩, 광고 배너 등) */
@@ -34,7 +36,7 @@ export interface SnapSheetHandle {
 }
 
 export const SnapSheet = forwardRef<SnapSheetHandle, SnapSheetProps>(function SnapSheet(
-  { snapPoints, initialIndex, bottomInset = 0, header, above, onIndexChange, children },
+  { snapPoints, initialIndex, bottomInset = 0, compactHandle, header, above, onIndexChange, children },
   ref,
 ) {
   const styles = useStyles();
@@ -53,12 +55,12 @@ export const SnapSheet = forwardRef<SnapSheetHandle, SnapSheetProps>(function Sn
       <Pressable
         accessibilityRole="adjustable"
         onPress={() => sheetRef.current?.snapToIndex(index.current === lastIndex ? 0 : lastIndex)}
-        style={styles.grabberArea}
+        style={[styles.grabberArea, compactHandle && styles.grabberAreaCompact]}
       >
         <View style={styles.grabber} />
       </Pressable>
     ),
-    [lastIndex],
+    [lastIndex, compactHandle],
   );
 
   return (
@@ -110,5 +112,6 @@ const useStyles = makeStyles((colors) => ({
     borderTopRightRadius: 20,
   },
   grabberArea: { paddingVertical: 12, alignItems: 'center' },
+  grabberAreaCompact: { paddingVertical: 6 },
   grabber: { width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9' },
 }));

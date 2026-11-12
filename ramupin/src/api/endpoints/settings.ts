@@ -37,7 +37,27 @@ const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
  */
 const AVATAR_TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
 
+/** 가입 정보 (서버 GET /me/account-info) */
+export interface AccountInfo {
+  publicId: string;
+  birthDate: string | null;
+  joinedAt: string;
+  /** 010-****-5678. 번호 없이 가입했으면 null */
+  phoneMasked: string | null;
+  /** kakao · naver · google · apple · x · facebook */
+  providers: string[];
+}
+
 export const profileApi = {
+  /** 가입 정보 (대표 리포트 2차 108) */
+  async accountInfo(): Promise<AccountInfo> {
+    if (!isLive('me')) {
+      return mockResponse({ publicId: mockMe.publicId, birthDate: mockMe.birthDate ?? null, joinedAt: '2026-09-18T01:00:00.000Z', phoneMasked: '010-****-5678', providers: ['kakao'] });
+    }
+    const { data } = await apiClient.get<AccountInfo>('/me/account-info');
+    return data;
+  },
+
   /** 닉네임 중복 확인 (WBS 3.9) */
   async isNicknameAvailable(nickname: string): Promise<boolean> {
     if (!isLive('me')) {

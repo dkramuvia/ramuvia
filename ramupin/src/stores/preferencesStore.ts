@@ -37,6 +37,8 @@ export interface Preferences {
   showHospitals: boolean;
   /** 갤러리 탭에서 마지막으로 고른 그룹방. 없으면 전체 (대표 리포트 98: 다시 켜도 그 방) */
   galleryGroupId?: string;
+  /** 받은 채팅 메시지를 소리로 읽어 주기 (대표 리포트 2차 113). 앱이 켜져 있을 때 받거나 알림을 눌렀을 때 */
+  readMessagesAloud: boolean;
 }
 
 interface PreferencesState extends Preferences {
@@ -64,6 +66,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       fitAllFriends: false,
       showHospitals: false,
       galleryGroupId: undefined,
+      readMessagesAloud: false,
       set: (patch) => set(patch),
     }),
     { name: 'preferences', storage: createJSONStorage(() => Storage) },

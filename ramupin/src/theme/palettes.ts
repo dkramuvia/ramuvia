@@ -39,6 +39,7 @@ const dark: Palette = {
   background: '#101010', // 화면 밑색
   backgroundWarm: '#0C0C0C', // 가입·온보딩 (더 어둡게)
   surface: '#1C1C1C', // 카드·설정 메뉴
+  surfaceGlass: '#1C1C1C', // 다크는 배경 그림이 없어 그대로 칠합니다 (다크 v2.6 나오면 맞춤)
   surfaceStrong: '#303030', // 세그먼트 트랙, 비활성 버튼
   surfaceSoft: '#30303066',
   popup: '#242424',

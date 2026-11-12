@@ -51,6 +51,7 @@
     "react-i18next": "^17.0.14",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
+    "react-native-google-mobile-ads": "^17.4.0",
     "react-native-maps": "1.27.2",
     "react-native-qrcode-svg": "^6.3.24",
     "react-native-reanimated": "4.5.1",

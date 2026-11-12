@@ -78,6 +78,12 @@ export default function DeviceVerifyScreen() {
       setPhoneMasked(result.phoneMasked);
       setRequested(true);
       setRemaining(result.codeExpiresInSec);
+      // 시험용 가상 번호로 가입한 계정: 문자가 오지 않으니 서버가 준 인증번호로 바로 인증합니다 (대표님 11-12)
+      if (result.testCode) {
+        setCode(result.testCode);
+        void verify(result.testCode);
+        return;
+      }
       codeRef.current?.focus();
     } catch (e) {
       handleError(e);

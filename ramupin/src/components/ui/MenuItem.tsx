@@ -45,7 +45,7 @@ const useStyles = makeStyles((colors) => ({
     paddingLeft: 20,
     paddingRight: 8,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceGlass,
   },
   plain: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
   icon: { width: 24, alignItems: 'center' },

@@ -16,7 +16,8 @@ import { formatSpeed, usePreferencesStore } from '@/stores/preferencesStore';
 const MOVING_SPEED_KMH = 3;
 
 /** 배지에 붙는 그림 종류 (피그마: 의자 · 신발 · 자전거 · 자동차 · 기차 · 비행기) */
-export type MovementKind = 'staying' | 'walking' | 'bicycle' | 'car' | 'train' | 'airplane';
+/** hidden: 내가 숨기기 모드일 때 내 배지에만 (유령, 대표 리포트 2차 112) */
+export type MovementKind = 'staying' | 'walking' | 'bicycle' | 'car' | 'train' | 'airplane' | 'hidden';
 
 /**
  * 속도 구간 (km/h 이상).

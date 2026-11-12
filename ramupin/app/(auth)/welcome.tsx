@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { authApi, authErrorOf, type SocialProvider } from '@/api/endpoints/auth';
-import { AppText } from '@/components/ui';
+import { AppText, Popup } from '@/components/ui';
 import { env, isLive } from '@/config/env';
 import { getDeviceInput } from '@/features/auth/device';
 import { signInWithKakao } from '@/features/auth/kakao';
 import { SocialAuthCancelled, signInWithFacebook, signInWithGoogle, signInWithNaver, signInWithX } from '@/features/auth/social';
-import { applyLoginResult } from '@/features/auth/session';
+import { applyLoginResult, type LoginOutcome } from '@/features/auth/session';
 import { devServerLogin } from '@/features/auth/useDevServerSession';
 import { OnboardingLayout } from '@/features/onboarding/OnboardingLayout';
 import { useAuthStore } from '@/stores/authStore';
@@ -57,7 +57,7 @@ const NOT_READY: Partial<Record<SocialProvider, string>> = {
   instagram: 'onboarding.notReady',
 };
 
-const PROVIDER_LABELS: Record<keyof typeof CODE_LOGINS, string> = { x: 'X', naver: '네이버', google: '구글', facebook: '페이스북' };
+const PROVIDER_LABELS: Record<keyof typeof CODE_LOGINS | 'kakao', string> = { x: 'X', naver: '네이버', google: '구글', facebook: '페이스북', kakao: '카카오' };
 
 /** 피그마: 가입/로그인 선택 (348:14951) */
 export default function WelcomeScreen() {
@@ -67,6 +67,21 @@ export default function WelcomeScreen() {
   const signIn = useAuthStore((s) => s.signIn);
   const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
   const [pending, setPending] = useState(false);
+  /**
+   * 대표 리포트 2차 107: 아래 '로그인' 은 늘 구글로 가입 흐름을 타서, 가입 안 된 계정으로 눌러도 아무 안내 없이
+   * 가입 화면으로 넘어갔습니다. '로그인' 을 누르면 로그인 모드로 바꾸고, 가입 안 된 계정이면 알려 줍니다
+   */
+  const [mode, setMode] = useState<'sign-up' | 'login'>('sign-up');
+  /** 로그인 모드에서 가입 안 된 계정으로 들어왔을 때 (제공자 이름) */
+  const [notMember, setNotMember] = useState<string | null>(null);
+
+  const proceed = (outcome: LoginOutcome, providerLabel: string) => {
+    if (outcome === 'device-verification') router.push('/device-verify');
+    else if (outcome === 'sign-up') {
+      if (mode === 'login') setNotMember(providerLabel);
+      else router.push('/profile-setup');
+    }
+  };
 
   const login = async (provider: SocialProvider) => {
     if (isLive('auth')) {
@@ -91,9 +106,7 @@ export default function WelcomeScreen() {
     setPending(true);
     try {
       const auth = await CODE_LOGINS[provider]();
-      const outcome = await applyLoginResult(await authApi.codeLogin(provider, auth, await getDeviceInput()));
-      if (outcome === 'sign-up') router.push('/profile-setup');
-      else if (outcome === 'device-verification') router.push('/device-verify');
+      proceed(await applyLoginResult(await authApi.codeLogin(provider, auth, await getDeviceInput())), PROVIDER_LABELS[provider]);
     } catch (e) {
       if (e instanceof SocialAuthCancelled) return;
       const message = e instanceof Error ? e.message : String(e);
@@ -110,9 +123,7 @@ export default function WelcomeScreen() {
     setPending(true);
     try {
       const kakaoToken = await signInWithKakao();
-      const outcome = await applyLoginResult(await authApi.kakaoLogin(kakaoToken, await getDeviceInput()));
-      if (outcome === 'sign-up') router.push('/profile-setup');
-      else if (outcome === 'device-verification') router.push('/device-verify');
+      proceed(await applyLoginResult(await authApi.kakaoLogin(kakaoToken, await getDeviceInput())), PROVIDER_LABELS.kakao);
     } catch (e) {
       // 사용자가 카카오 로그인 창을 닫으면 취소 오류가 옵니다
       const message = e instanceof Error ? e.message : String(e);
@@ -174,7 +185,7 @@ export default function WelcomeScreen() {
         {providers(colors.text).map((p) => (
           <Pressable key={p.id} accessibilityRole="button" onPress={() => login(p.id)} style={({ pressed }) => [styles.social, pressed && styles.pressed]}>
             <View style={styles.socialIcon}>{p.icon}</View>
-            <AppText variant="body1">{t('onboarding.signUpWith', { provider: p.label })}</AppText>
+            <AppText variant="body1">{t(mode === 'login' ? 'onboarding.loginWith' : 'onboarding.signUpWith', { provider: p.label })}</AppText>
           </Pressable>
         ))}
       </View>
@@ -197,10 +208,10 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={styles.loginRow}>
-        <AppText variant="caption">{t('onboarding.haveAccount')}</AppText>
-        <Pressable accessibilityRole="button" onPress={() => login('google')} hitSlop={8}>
+        <AppText variant="caption">{t(mode === 'login' ? 'onboarding.noAccount' : 'onboarding.haveAccount')}</AppText>
+        <Pressable accessibilityRole="button" onPress={() => setMode(mode === 'login' ? 'sign-up' : 'login')} hitSlop={8}>
           <AppText variant="caption" color={colors.brown}>
-            {t('onboarding.login')}
+            {t(mode === 'login' ? 'onboarding.signUp' : 'onboarding.login')}
           </AppText>
         </Pressable>
       </View>
@@ -219,6 +230,23 @@ export default function WelcomeScreen() {
           </Pressable>
         </View>
       ) : null}
+
+      <Popup
+        visible={!!notMember}
+        title={t('onboarding.notMemberTitle')}
+        message={t('onboarding.notMember', { provider: notMember ?? '' })}
+        confirmLabel={t('onboarding.otherAccount')}
+        onConfirm={() => {
+          useSignUpStore.getState().reset();
+          setNotMember(null);
+        }}
+        cancelLabel={t('onboarding.signUpInstead')}
+        onCancel={() => {
+          setNotMember(null);
+          setMode('sign-up');
+          router.push('/profile-setup');
+        }}
+      />
     </OnboardingLayout>
   );
 }

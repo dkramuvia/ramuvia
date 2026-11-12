@@ -35,6 +35,8 @@ export interface SmsRequestResult {
   codeExpiresInSec: number;
   resendAfterSec: number;
   phoneMasked: string | null;
+  /** 시험용 가상 번호(서버 TEST_PHONE_NUMBERS)일 때만. 문자 대신 이 인증번호를 앱이 바로 채웁니다 (대표님 11-12) */
+  testCode?: string;
 }
 
 /** 서버에 보내는 기기 정보 (기기 1대 로그인 규칙) */
@@ -120,7 +122,7 @@ export const authApi = {
   },
 
   /** 새 기기 인증: 가입한 휴대폰으로 인증번호 발송 (재발송 포함) */
-  async sendDeviceCode(challengeId: string): Promise<{ codeExpiresInSec: number; resendAfterSec: number; phoneMasked: string | null }> {
+  async sendDeviceCode(challengeId: string): Promise<Omit<SmsRequestResult, 'alreadyRegistered'>> {
     const { data } = await apiClient.post('/auth/device-verification/send', { challengeId });
     return data;
   },

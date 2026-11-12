@@ -4,10 +4,12 @@ import * as Speech from 'expo-speech';
 import { useEffect } from 'react';
 
 import { inbox } from '@/db/inbox';
+import { handleDataOnlyPush, isDataOnlyPush } from './dataOnlyPush';
 import { registerForPush } from './push';
 import { selectIsSignedIn, useAuthStore } from '@/stores/authStore';
 import { queryClient } from '@/api/queryClient';
 import { friendKeys } from '@/features/friends/queries';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import type { HistoryCategory, HistoryEventType } from '@/types/models';
 
 /**
@@ -17,7 +19,7 @@ import type { HistoryCategory, HistoryEventType } from '@/types/models';
  *   1. 로그인하면 이 기기의 푸시 토큰을 서버에 등록
  *   2. 알림을 받으면 기기 보관함에 저장 (앱을 지우기 전까지 남음)
  *   3. 알림을 누르면 해당 화면으로 이동
- *   4. 소리로 읽어 달라는 예약 메시지는 읽어 줌 (앱이 켜져 있을 때 받거나, 알림을 눌렀을 때)
+ *   4. 소리로 읽어 달라는 예약 메시지는 읽어 줌. 안드로이드는 앱이 꺼져 있어도 데이터 푸시로 깨어나 읽습니다 (dataOnlyPush.ts)
  */
 export function usePush() {
   const isSignedIn = useAuthStore(selectIsSignedIn);
@@ -31,6 +33,11 @@ export function usePush() {
   // 2) 받은 알림을 보관함에 저장
   useEffect(() => {
     const received = Notifications.addNotificationReceivedListener((notification) => {
+      // 데이터만 온 푸시는 알림을 앱이 직접 띄웁니다. 띄운 알림이 다시 여기로 와서 보관함에 남습니다
+      if (isDataOnlyPush(notification.request.content.data)) {
+        void handleDataOnlyPush(notification.request.content.data);
+        return;
+      }
       saveToInbox(notification.request.content);
       speakIfAsked(notification.request);
     });
@@ -55,11 +62,17 @@ export function usePush() {
 /** 이미 읽어 준 알림. 켜져 있을 때 받고 다시 눌러도 두 번 읽지 않습니다 */
 const spoken = new Set<string>();
 
-/** 예약 메시지에 "소리로 읽기"가 켜져 있으면 제목과 내용을 읽어 줍니다 (서버 scheduled-sender 의 data.tts) */
+/**
+ * 소리로 읽어 줍니다.
+ *   - 예약 메시지에 "소리로 읽기"가 켜져 있으면 (서버 scheduled-sender 의 data.tts)
+ *   - 채팅 메시지는 알림 설정의 "받은 메시지 소리로 읽기"를 켰으면 (대표 리포트 2차 113). 제목이 보낸 사람·방 이름입니다
+ */
 function speakIfAsked(request: Notifications.NotificationRequest) {
   const { title, body, data } = request.content;
   const d = (data ?? {}) as { kind?: string; tts?: string };
-  if (d.kind !== 'scheduledMessage' || d.tts !== '1' || spoken.has(request.identifier)) return;
+  const asked =
+    (d.kind === 'scheduledMessage' && d.tts === '1') || (d.kind === 'chat' && usePreferencesStore.getState().readMessagesAloud);
+  if (!asked || spoken.has(request.identifier)) return;
   spoken.add(request.identifier);
   Speech.speak([title, body].filter(Boolean).join('. '), { language: 'ko-KR' });
 }

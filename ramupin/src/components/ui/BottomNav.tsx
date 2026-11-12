@@ -38,9 +38,20 @@ interface BottomNavProps {
   active: TabName;
   /** 탭 네비게이터 안에서 쓸 때 전달. 없으면 하위 화면에서 해당 탭으로 되돌아갑니다. */
   onPressTab?: (name: TabName) => void;
+  /**
+   * 바탕색 불투명도 (0~1). 대표 리포트 2차 105: 메뉴만 따로 떨어져 보여서 대표님 말씀대로 10% 로 뒤가 비치게 합니다
+   * (디자이너 메모 11-07 의 지도 50%·그 밖 40% 대신 대표님 결정 11-12)
+   */
+  opacity?: number;
 }
 
-export function BottomNav({ active, onPressTab }: BottomNavProps) {
+/** 바탕색 #RRGGBB 에 불투명도를 붙입니다 */
+const withAlpha = (hex: string, opacity: number) =>
+  `${hex.slice(0, 7)}${Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, '0')}`;
+
+export function BottomNav({ active, onPressTab, opacity = 0.1 }: BottomNavProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const styles = useStyles();
@@ -52,7 +63,12 @@ export function BottomNav({ active, onPressTab }: BottomNavProps) {
   };
 
   return (
-    <View style={[styles.container, { height: layout.tabBarHeight + insets.bottom, paddingBottom: insets.bottom }]}>
+    <View
+      style={[
+        styles.container,
+        { height: layout.tabBarHeight + insets.bottom, paddingBottom: insets.bottom, backgroundColor: withAlpha(colors.tabBar, opacity) },
+      ]}
+    >
       {TABS.map((tab) => {
         const selected = tab.name === active;
         const label = t(`tabs.${tab.name}`);
@@ -89,7 +105,6 @@ const useStyles = makeStyles((colors) => ({
     flexDirection: 'row',
     // 피그마 탭 간격은 112 입니다. 360 폭에서 양옆 32 + space-between 이면 111.5 가 나옵니다
     justifyContent: 'space-between',
-    backgroundColor: colors.tabBar,
     borderTopWidth: 1,
     borderTopColor: colors.tabBarBorder,
     paddingHorizontal: 32,

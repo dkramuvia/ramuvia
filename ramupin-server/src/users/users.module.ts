@@ -14,6 +14,7 @@ import { NICKNAME_MAX, ProfileService } from './profile.service.js';
 import { MediaModule } from '../media/media.module.js';
 import { makeAvatarPins, pinObjectKeys } from '../media/avatar-pin.js';
 import { AVATAR_MAX_BYTES, StorageService } from '../media/storage.service.js';
+import { PhoneService } from '../phone/phone.module.js';
 
 const singleHouseholdBody = z.object({ enabled: z.boolean() });
 const lookupQuery = z.object({ publicId: z.string().regex(/^\d{8}$/) });
@@ -48,6 +49,7 @@ class MeController {
     @Inject(MAIN_DB) private readonly db: MainDb,
     private readonly profile: ProfileService,
     private readonly storage: StorageService,
+    private readonly phones: PhoneService,
   ) {}
 
   @Get()
@@ -70,6 +72,32 @@ class MeController {
       singleHouseholdMode: row.single_household,
       // pending_guardian = 만 14세 미만, 보호자 동의 대기 (앱은 대기 화면만 보여 줌, 보완 4.1)
       accountStatus: row.status,
+    };
+  }
+
+  /**
+   * 가입 정보 (대표 리포트 2차 108, 피그마 v2.5 프로필 편집). 가입일·연락처·아이디·생년월일·로그인 방법.
+   * 번호는 꺼낼 때마다 조회 이력이 남아서 자주 부르는 GET /me 에 넣지 않고, 프로필 편집을 열 때만 부르게 따로 둡니다.
+   * 번호는 가운데를 가린 값만 내려 줍니다
+   */
+  @Get('account-info')
+  async accountInfo(@CurrentUser() user: AuthUser) {
+    const row = await this.db
+      .selectFrom('member.users')
+      .select(['public_id', 'birth_date', 'created_at'])
+      .where('id', '=', user.id)
+      .executeTakeFirst();
+    if (!row) throw new NotFoundException();
+    const [phone, socials] = await Promise.all([
+      this.phones.getMasked(user.id, 'user'),
+      this.db.selectFrom('member.social_accounts').select('provider').where('user_id', '=', user.id).orderBy('created_at').execute(),
+    ]);
+    return {
+      publicId: row.public_id,
+      birthDate: row.birth_date,
+      joinedAt: new Date(row.created_at).toISOString(),
+      phoneMasked: phone,
+      providers: socials.map((s) => s.provider),
     };
   }
 

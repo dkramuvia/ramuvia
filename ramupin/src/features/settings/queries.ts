@@ -19,6 +19,7 @@ import { saveSosContactsSnapshot } from '@/features/sos/sosContactsSnapshot';
 import type { Geofence, HideModeSetting, HistoryCategory, NotificationSettings, SafetySetting, ScheduledMessage, User } from '@/types/models';
 
 const keys = {
+  accountInfo: ['me', 'account-info'] as const,
   hideMode: ['settings', 'hide-mode'] as const,
   safety: ['settings', 'safety'] as const,
   notifications: ['settings', 'notifications'] as const,
@@ -28,6 +29,7 @@ const keys = {
   journey: (userId: string) => ['journey', userId] as const,
 };
 
+export const useAccountInfo = () => useQuery({ queryKey: keys.accountInfo, queryFn: profileApi.accountInfo });
 export const useHideMode = () => useQuery({ queryKey: keys.hideMode, queryFn: hideModeApi.get });
 export function useSaveHideMode() {
   const queryClient = useQueryClient();

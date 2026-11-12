@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
@@ -73,6 +74,14 @@ export interface PushMessage {
   /** 알림을 누르면 열 화면 (예: /journey/123) */
   route?: string;
   data?: Record<string, string>;
+  /**
+   * 안드로이드에는 알림 없이 데이터만 보냅니다 (FCM data-only, 높은 우선순위).
+   * 앱이 꺼져 있어도 앱의 백그라운드 작업이 깨어나 소리로 읽고 알림을 직접 띄웁니다
+   * (예약 메시지 소리로 읽기, 대표님 11-12. 앱 features/notifications/backgroundTask.ts).
+   * 알림을 띄우는 것이 앱 몫이라 앱이 깨어나지 못하면 알림도 안 보입니다. 꼭 필요한 곳에만 씁니다.
+   * 아이폰은 그대로 일반 알림입니다 (애플은 꺼진 앱이 소리로 읽는 것을 허용하지 않습니다)
+   */
+  androidDataOnly?: boolean;
 }
 
 /** 종류를 안 적었을 때 채널에서 미루어 보는 값 */
@@ -162,22 +171,48 @@ export class PushService implements OnModuleInit {
 
     const rows = await this.db
       .selectFrom('member.push_tokens')
-      .select('token')
+      .select(['token', 'platform'])
       .where('user_id', 'in', userIds)
       .execute();
     if (rows.length === 0) return { sent: 0 };
 
-    const tokens = rows.map((r) => r.token);
-    const response = await this.messaging.sendEachForMulticast({
-      tokens,
-      notification: { title: message.title, body: message.body },
-      ...platformOptions(message.channel, message.channel === 'general' || message.channel === 'chat' ? 'normal' : 'high'),
-      // 알림을 누르면 어디로 갈지. 값은 모두 문자열이어야 합니다
-      data: { ...(message.data ?? {}), ...(message.route ? { route: message.route } : {}) },
-    });
+    // 알림을 누르면 어디로 갈지. 값은 모두 문자열이어야 합니다
+    const data = { ...(message.data ?? {}), ...(message.route ? { route: message.route } : {}) };
+    const dataOnly = message.androidDataOnly ? rows.filter((r) => r.platform === 'android').map((r) => r.token) : [];
+    const tokens = rows.map((r) => r.token).filter((t) => !dataOnly.includes(t));
+    let sent = 0;
 
-    await this.cleanUpDeadTokens(tokens, response.responses);
-    return { sent: response.successCount };
+    if (tokens.length > 0) {
+      const response = await this.messaging.sendEachForMulticast({
+        tokens,
+        notification: { title: message.title, body: message.body },
+        ...platformOptions(message.channel, message.channel === 'general' || message.channel === 'chat' ? 'normal' : 'high'),
+        data,
+      });
+      await this.cleanUpDeadTokens(tokens, response.responses);
+      sent += response.successCount;
+    }
+
+    if (dataOnly.length > 0) {
+      const response = await this.messaging.sendEachForMulticast({
+        tokens: dataOnly,
+        // 알림 없이 데이터만: 제목·내용·채널을 data 에 싣고 앱이 알림을 만듭니다. pushId 로 같은 것을 두 번 띄우지 않습니다
+        data: {
+          ...data,
+          dataOnly: '1',
+          title: message.title,
+          body: message.body,
+          channelId: ANDROID_CHANNEL[message.channel].id,
+          pushId: randomUUID(),
+        },
+        // 높은 우선순위여야 절전(Doze) 중에도 앱을 깨울 수 있습니다
+        android: { priority: 'high' },
+      });
+      await this.cleanUpDeadTokens(dataOnly, response.responses);
+      sent += response.successCount;
+    }
+
+    return { sent };
   }
 
   /**

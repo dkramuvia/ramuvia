@@ -92,5 +92,59 @@
   },
   "people": {
     "shareSettings": "Location sharing settings"
+  },
+  "settingsHome": {
+    "section": {
+      "privacy": "Privacy",
+      "safety": "Safety",
+      "social": "Friends · Groups",
+      "account": "Account",
+      "records": "Records",
+      "settings": "Settings",
+      "legal": "Legal",
+      "about": "About RamuPin"
+    },
+    "myLocation": "My location",
+    "hideMode": "Hide mode",
+    "notifications": "Notifications",
+    "safeZone": "Safe zones",
+    "location": "Location collection",
+    "safety": "Safety & SOS",
+    "sosHistory": "SOS history",
+    "messages": "Scheduled messages",
+    "friends": "Friends",
+    "groups": "Groups",
+    "premium": "Premium",
+    "history": "History",
+    "locationViews": "Location checks",
+    "map": "Map",
+    "languageRegion": "Language · Region",
+    "account": "Account",
+    "legal": "Terms & policies",
+    "contact": "About · Contact us"
+  },
+  "legal": {
+    "title": "Terms & policies",
+    "doc": {
+      "terms": "Terms of service",
+      "location-terms": "Location-based service terms",
+      "privacy": "Privacy policy",
+      "location-privacy": "Location data privacy policy",
+      "child": "Guardian consent for children under 14",
+      "payment": "Payment (subscription) terms"
+    }
+  },
+  "contact": {
+    "title": "About · Contact us",
+    "aboutTitle": "What is RamuPin",
+    "about": "RamuPin lets family and friends share where they are and send an SOS right away in an emergency.",
+    "version": "App version {{version}}",
+    "askTitle": "Contact us",
+    "ask": "If something is inconvenient or unclear, please email us.",
+    "copyEmail": "Copy email address",
+    "sendEmail": "Send email",
+    "homepage": "Website",
+    "copied": "Email address copied.",
+    "mailSubject": "[RamuPin] App version {{version}}"
   }
 }

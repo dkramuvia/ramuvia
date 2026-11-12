@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
 import { AppText, Button, Popup, Screen, TimeWheels, ToggleRow } from '@/components/ui';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useAlertStore } from '@/features/alerts/alertStore';
 import { SAMPLE_CARDS, SAMPLE_POPUPS } from '@/features/alerts/samples';
 import { useNotificationSettings, useSaveNotificationSettings } from '@/features/settings/queries';
@@ -45,6 +46,8 @@ export default function NotificationSettingsScreen() {
   const { t } = useTranslation();
   const { data: settings } = useNotificationSettings();
   const save = useSaveNotificationSettings();
+  const readAloud = usePreferencesStore((s) => s.readMessagesAloud);
+  const setPrefs = usePreferencesStore((s) => s.set);
   /** 시간 고르는 창: 시작인지 끝인지 */
   const [editing, setEditing] = useState<'start' | 'end' | null>(null);
 
@@ -101,6 +104,15 @@ export default function NotificationSettingsScreen() {
           ))}
         </View>
       ))}
+
+      <View style={styles.group}>
+        <ToggleRow
+          title={t('notificationSettings.readAloud')}
+          description={t('notificationSettings.readAloudDesc')}
+          value={readAloud}
+          onValueChange={(readMessagesAloud) => setPrefs({ readMessagesAloud })}
+        />
+      </View>
 
       {editing ? (
         <TimePopup

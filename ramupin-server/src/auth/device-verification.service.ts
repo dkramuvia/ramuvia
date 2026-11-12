@@ -65,7 +65,9 @@ export class DeviceVerificationService {
     const phone = await this.phones.getForSend(challenge.userId, 'sms_device_verify');
     if (!phone && !this.sms.isDev) throw authError(HttpStatus.BAD_REQUEST, 'PHONE_NOT_REGISTERED');
     const code = this.sms.fixedDevCode ?? String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.sms.sendVerificationCode(phone, code, '새 기기 인증');
+    // 시험용 가상 번호로 가입한 계정은 문자를 받을 수 없어, 인증번호를 응답에 실어 앱이 바로 채웁니다 (대표님 11-12)
+    const testNumber = this.sms.isTestNumber(phone);
+    if (!testNumber) await this.sms.sendVerificationCode(phone, code, '새 기기 인증');
 
     Object.assign(challenge, {
       codeHash: this.hashCode(challengeId, code),
@@ -75,7 +77,12 @@ export class DeviceVerificationService {
       attempts: 0,
     });
     await this.save(challengeId, challenge);
-    return { codeExpiresInSec: CODE_TTL_SEC, resendAfterSec: RESEND_AFTER_SEC, phoneMasked: phone ? maskPhone(phone) : null };
+    return {
+      codeExpiresInSec: CODE_TTL_SEC,
+      resendAfterSec: RESEND_AFTER_SEC,
+      phoneMasked: phone ? maskPhone(phone) : null,
+      ...(testNumber ? { testCode: code } : {}),
+    };
   }
 
   /** 인증번호 확인. 맞으면 challenge 를 지우고(1회용) 로그인할 사용자·기기 정보를 돌려줍니다 */

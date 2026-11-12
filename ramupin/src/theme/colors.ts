@@ -11,6 +11,9 @@ export const colors = {
   background: '#F7F7F8', // 일반 화면
   backgroundWarm: '#FBFAF9', // 가입/온보딩 화면
   surface: '#EFF0F2', // 리스트 카드, 설정 메뉴 카드
+  // 피그마 v2.6 (11-10): 배경 그림이 깔린 화면의 카드·메뉴 줄은 같은 색을 50% 로 칠해 배경이 비칩니다.
+  // 지도·사진 위에 얹는 것은 비치면 안 되니 `surface` 를 쓰세요
+  surfaceGlass: '#EFF0F280',
   surfaceStrong: '#E3E6E8', // 세그먼트 트랙, 비활성 버튼, 선택 칩
   surfaceSoft: '#E3E6E866', // 설정 토글 카드
   popup: '#FAFDFF',

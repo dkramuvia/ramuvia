@@ -46,7 +46,7 @@ export default function CheckoutScreen() {
       const result = await billingApi.purchase({ kind: 'plan', planId: card.id, yearly }, useAuthStore.getState().user?.id);
       if (result.planId) updateUser({ plan: result.planId });
       showToast(t('plans.done', { name: card.name }));
-      router.dismissTo('/settings/menu');
+      router.dismissTo('/settings');
     } catch (e) {
       // 결제창을 닫은 것은 오류가 아닙니다
       if (e instanceof PurchaseCancelled) return;

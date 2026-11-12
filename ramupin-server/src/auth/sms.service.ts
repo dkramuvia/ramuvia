@@ -57,6 +57,15 @@ export class SmsService {
     return env.SMS_PROVIDER === 'dev';
   }
 
+  /** 시험용 가상 번호인가 (TEST_PHONE_NUMBERS). 이 번호로는 문자를 보내지 않습니다 */
+  isTestNumber(phone: string | null): boolean {
+    if (!phone) return false;
+    const receiver = normalizePhone(phone);
+    return env.TEST_PHONE_NUMBERS.split(',')
+      .map((n) => normalizePhone(n))
+      .some((n) => n.length > 0 && n === receiver);
+  }
+
   async sendVerificationCode(phone: string | null, code: string, label: string): Promise<void> {
     const text = `[라무핀] 인증번호 ${code}\n3분 안에 입력해 주세요.`;
     await this.send(phone, text, label);

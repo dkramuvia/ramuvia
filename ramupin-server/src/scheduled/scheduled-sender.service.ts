@@ -135,6 +135,8 @@ export class ScheduledSenderService implements OnModuleInit, OnApplicationShutdo
           route: '/settings/history',
           // 받는 폰이 소리로 읽어 줄지 판단합니다 (푸시 data 는 문자열만 담깁니다)
           data: { kind: 'scheduledMessage', tts: row.tts ? '1' : '0' },
+          // 소리로 읽기면 안드로이드는 앱이 꺼져 있어도 깨어나 바로 읽게 데이터로만 보냅니다 (대표님 11-12)
+          androidDataOnly: row.tts,
         })
         .catch((error: unknown) => this.logger.error(`예약 메시지 푸시 실패 (${row.id}): ${String(error)}`));
       sent += 1;

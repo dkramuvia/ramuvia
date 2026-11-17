@@ -61,9 +61,13 @@ export class SmsService {
   isTestNumber(phone: string | null): boolean {
     if (!phone) return false;
     const receiver = normalizePhone(phone);
-    return env.TEST_PHONE_NUMBERS.split(',')
-      .map((n) => normalizePhone(n))
-      .some((n) => n.length > 0 && n === receiver);
+    return env.TEST_PHONE_NUMBERS.split(',').some((entry) => {
+      // `01020360001~01020360050` 같은 범위 (자릿수가 같은 번호끼리만)
+      const [from, to] = entry.split('~').map((n) => normalizePhone(n));
+      if (!from) return false;
+      if (to === undefined) return from === receiver;
+      return receiver.length === from.length && from.length === to.length && receiver >= from && receiver <= to;
+    });
   }
 
   async sendVerificationCode(phone: string | null, code: string, label: string): Promise<void> {

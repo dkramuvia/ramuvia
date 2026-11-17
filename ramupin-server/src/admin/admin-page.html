@@ -446,6 +446,37 @@
       .hidden {
         display: none !important;
       }
+      /* 비밀번호 변경 창 */
+      #pwDialog {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 22px 24px;
+        width: 340px;
+        max-width: calc(100vw - 32px);
+        background: var(--surface);
+        color: var(--text);
+      }
+      #pwDialog::backdrop {
+        background: rgba(0, 0, 0, 0.45);
+      }
+      #pwDialog h3 {
+        margin: 0 0 4px;
+        font-size: 16px;
+      }
+      #pwDialog label {
+        display: block;
+        font-size: 13px;
+        color: var(--dim);
+        margin: 12px 0 4px;
+      }
+      #pwDialog input {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      #pwDialog .row {
+        justify-content: flex-end;
+        margin-top: 18px;
+      }
       code {
         background: var(--surface-2);
         border-radius: 4px;
@@ -787,6 +818,25 @@
       </div>
     </div>
 
+    <!-- 비밀번호 변경 (오른쪽 위 버튼) -->
+    <dialog id="pwDialog">
+      <form id="pwForm" method="dialog">
+        <h3>비밀번호 변경</h3>
+        <div class="sub" style="font-size: 12px">새 비밀번호는 10자 이상. 인증 앱(OTP)은 그대로 씁니다.</div>
+        <label for="pwCurrent">지금 비밀번호</label>
+        <input id="pwCurrent" type="password" autocomplete="current-password" />
+        <label for="pwNext">새 비밀번호</label>
+        <input id="pwNext" type="password" autocomplete="new-password" />
+        <label for="pwNext2">새 비밀번호 확인</label>
+        <input id="pwNext2" type="password" autocomplete="new-password" />
+        <div class="msg err" id="pwMsg" style="margin-top: 10px"></div>
+        <div class="row">
+          <button type="button" class="ghost" id="pwCancel">취소</button>
+          <button type="submit" class="action" id="pwSave">바꾸기</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- 본 화면 -->
     <div id="app" class="hidden">
       <aside>
@@ -878,6 +928,7 @@
                 <b id="who"></b>
                 <small id="whoRole"></small>
               </div>
+              <button class="ghost small" id="pwBtn">비밀번호 변경</button>
               <button class="ghost small" id="logoutBtn">로그아웃</button>
             </div>
           </div>
@@ -1307,6 +1358,38 @@
       $('logoutBtn').onclick = async () => {
         await api('/logout', { method: 'POST' });
         location.reload();
+      };
+
+      // ── 비밀번호 변경 ───────────────────────────────────
+      $('pwBtn').onclick = () => {
+        for (const id of ['pwCurrent', 'pwNext', 'pwNext2']) $(id).value = '';
+        $('pwMsg').textContent = '';
+        $('pwDialog').showModal();
+        $('pwCurrent').focus();
+      };
+      $('pwCancel').onclick = () => $('pwDialog').close();
+      $('pwForm').onsubmit = async (event) => {
+        event.preventDefault();
+        const current = $('pwCurrent').value;
+        const next = $('pwNext').value;
+        const fail = (text) => {
+          $('pwMsg').className = 'msg err';
+          $('pwMsg').textContent = text;
+        };
+        if (!current) return fail('지금 비밀번호를 넣으세요');
+        if (next.length < 10) return fail('새 비밀번호는 10자 이상이어야 합니다');
+        if (next !== $('pwNext2').value) return fail('새 비밀번호가 서로 다릅니다');
+        $('pwSave').disabled = true;
+        try {
+          await api('/me/password', { method: 'POST', body: JSON.stringify({ current, next }) });
+          $('pwMsg').className = 'msg ok';
+          $('pwMsg').textContent = '바꿨습니다. 다음 로그인부터 새 비밀번호를 쓰세요.';
+          setTimeout(() => $('pwDialog').close(), 1500);
+        } catch (error) {
+          fail(error.message);
+        } finally {
+          $('pwSave').disabled = false;
+        }
       };
 
       async function start() {
@@ -1961,6 +2044,8 @@
         otp_enrolled: 'OTP 등록',
         otp_reset: 'OTP 초기화',
         unlocked: '잠금 해제',
+        password_changed: '비밀번호 변경',
+        password_change_failed: '비밀번호 변경 실패 (지금 비밀번호 틀림)',
       };
       const ACCESS_PURPOSE_NAMES = {
         friend_list: '친구 위치 보기 (지도)',

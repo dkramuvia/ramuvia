@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Inject,
   Logger,
   Module,
@@ -80,6 +81,11 @@ const lockedError = (retryAfterSec: number) =>
 
 const loginBody = z.object({ loginId: z.string().min(1).max(64), password: z.string().min(1).max(200) });
 const otpBody = z.object({ challenge: z.string().min(16).max(100), code: z.string().min(6).max(12) });
+/** 새 비밀번호는 10자 이상 (scripts/create-admin.mjs 와 같은 기준) */
+const passwordBody = z.object({
+  current: z.string().min(1, '지금 비밀번호를 넣으세요').max(200),
+  next: z.string().min(10, '새 비밀번호는 10자 이상이어야 합니다').max(200),
+});
 const publicIdParam = z.string().regex(/^\d{8}$/, '8자리 사용자 ID');
 
 @Controller('admin')
@@ -266,6 +272,41 @@ class AdminAuthController {
     // 다 맞혔으니 틀린 횟수를 지웁니다 (연속 5회 기준)
     await this.db.updateTable('config.admin_users').set({ last_login_at: new Date(), failed_count: 0, locked_until: null }).where('id', '=', row.id).execute();
     return { status: 'ok' as const, name: row.name, role: row.role };
+  }
+
+  /**
+   * 로그인한 관리자가 자기 비밀번호를 바꿉니다 (11-17).
+   * 자리를 비운 사이 남이 바꾸지 못하게 지금 비밀번호를 한 번 더 받습니다.
+   * 틀리면 로그인 실패와 같이 세어 5회째에 계정을 30분 잠급니다. OTP 는 그대로입니다
+   */
+  @Post('me/password')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  async changePassword(@Req() request: Request, @CurrentAdmin() admin: AdminUser, @Body() body: unknown) {
+    const { current, next } = parseInput(passwordBody, body);
+    const row = await this.db
+      .selectFrom('config.admin_users')
+      .select(['password_hash', 'locked_until'])
+      .where('id', '=', admin.id)
+      .executeTakeFirstOrThrow();
+    if (row.locked_until && row.locked_until.getTime() > Date.now()) {
+      throw lockedError(Math.ceil((row.locked_until.getTime() - Date.now()) / 1000));
+    }
+    if (!(await verifyPassword(current, row.password_hash))) {
+      await this.logAccess(request, admin.id, admin.loginId, 'password_change_failed');
+      const remaining = await this.registerFailure(request, admin.id, admin.loginId);
+      if (remaining <= 0) throw lockedError(ACCOUNT_LOCK_SEC);
+      throw appError(400, 'ADMIN_PASSWORD_WRONG', `지금 비밀번호가 맞지 않습니다. (남은 시도 ${remaining}회)`, { remainingAttempts: remaining });
+    }
+    if (next === current) throw appError(400, 'ADMIN_PASSWORD_SAME', '지금 비밀번호와 다른 비밀번호를 넣으세요');
+
+    await this.db
+      .updateTable('config.admin_users')
+      .set({ password_hash: await hashPassword(next), failed_count: 0, updated_at: new Date() })
+      .where('id', '=', admin.id)
+      .execute();
+    await this.logAccess(request, admin.id, admin.loginId, 'password_changed');
+    return { ok: true };
   }
 
   @Post('logout')

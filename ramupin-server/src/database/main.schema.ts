@@ -415,7 +415,9 @@ export type AdminAccessAction =
   | 'account_locked'
   | 'otp_enrolled'
   | 'otp_reset'
-  | 'unlocked';
+  | 'unlocked'
+  | 'password_changed'
+  | 'password_change_failed';
 
 /** 관리자 접근기록 (덧붙이기만 합니다, migrations/main/0038·0041) */
 export interface AdminAccessLogsTable {

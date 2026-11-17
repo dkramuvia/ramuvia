@@ -102,7 +102,8 @@ export function decideState(input: StateInput): StateDecision {
   const lowBattery = input.lowBatteryPercent ?? DEFAULT_LOW_BATTERY_PERCENT;
   const movement = judgeMovement(input);
   if (sos) return { state: 'sos', reanchor: false };
-  if (nearGeofence) return { state: 'geofence', reanchor: movement.reanchor };
+  // 경계 근처라도 가만히 있으면 넘을 일이 없습니다. 움직이기 시작했을 때만 촘촘하게 (11-17 배터리)
+  if (nearGeofence && (movement.moving || isStirring(input.activity))) return { state: 'geofence', reanchor: movement.reanchor };
   // 보고 있는 사람이 있으면 배터리보다 실시간성을 앞세웁니다. 안 보면 바로 내려갑니다
   if (watched) return { state: 'watched', reanchor: movement.reanchor };
   // 충전 중이면 배터리를 아낄 이유가 없습니다
@@ -111,6 +112,12 @@ export function decideState(input: StateInput): StateDecision {
   }
   void speedKmh;
   return { state: movement.moving ? 'moving' : 'still', reanchor: movement.reanchor };
+}
+
+/** 걷기·차량 등 몸이 움직이는 중 (자리를 벗어났는지는 따지지 않음) */
+function isStirring(activity: ActivityStatus | null | undefined): boolean {
+  if (!activity || activity.confidence < MIN_ACTIVITY_CONFIDENCE) return false;
+  return activity.type === 'walking' || TRAVEL_ACTIVITIES.has(activity.type);
 }
 
 /**

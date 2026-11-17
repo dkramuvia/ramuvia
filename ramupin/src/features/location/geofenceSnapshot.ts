@@ -56,11 +56,17 @@ async function loadZones(): Promise<Zone[]> {
   return cached;
 }
 
-/** 지금 위치가 안심장소 근처인지 (반경 + 여유 안) */
+/**
+ * 지금 위치가 안심장소 **경계** 근처인지 (경계 안팎으로 여유 거리 안).
+ *
+ * 예전에는 반경 안쪽 전부를 "근처"로 봤습니다. 집을 안심장소로 두면 집에 있는 내내 5초 주기·높은 정확도로
+ * 수집해, 충전하는 속도보다 배터리가 더 빨리 닳았습니다 (11-17 대표 폰, 백그라운드 사용량 68%).
+ * 들어갔다·나갔다는 경계를 넘을 때만 생기므로 경계 띠 안에서만 촘촘하게 모읍니다.
+ */
 export async function isNearGeofence(here: { latitude: number; longitude: number }): Promise<boolean> {
   const zones = await loadZones();
   if (zones.length === 0) return false;
-  return zones.some((zone) => distanceM(zone, here) <= zone.radiusM + NEAR_MARGIN_M);
+  return zones.some((zone) => Math.abs(distanceM(zone, here) - zone.radiusM) <= NEAR_MARGIN_M);
 }
 
 function isZone(value: unknown): value is Zone {

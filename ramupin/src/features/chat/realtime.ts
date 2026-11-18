@@ -25,6 +25,10 @@ interface ServerSos {
   nickname: string;
   latitude: number | null;
   longitude: number | null;
+  /** 고도(m). 예전 서버는 안 보냅니다 */
+  altitude?: number | null;
+  /** 보낸 사람 휴대폰 번호 ([전화걸기]용). 예전 서버는 안 보냅니다 */
+  phone?: string | null;
   placeName: string | null;
   placeAddress: string | null;
   startedAt: string;
@@ -103,6 +107,8 @@ function connect(token: string) {
       },
       sentAt: payload.startedAt,
       hasVoice: payload.hasAudio ?? false,
+      altitude: payload.altitude ?? undefined,
+      phone: payload.phone ?? undefined,
     });
   });
 

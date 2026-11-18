@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { friendsApi } from '@/api/endpoints/friends';
@@ -86,11 +86,21 @@ export default function SharingReminderScreen() {
         <AppText variant="caption" color={colors.textTertiary}>
           {t('sharingReminder.note')}
         </AppText>
+        {/* 피그마 v3.1 (7109:21718): 모르는 사람이면 친구 삭제로 바로 갑니다 */}
+        <Pressable accessibilityRole="link" onPress={() => router.push('/settings/friends')} hitSlop={8} style={styles.link}>
+          <AppText variant="caption" color={colors.primary}>
+            {t('sharingReminder.deleteFriend')}
+          </AppText>
+        </Pressable>
       </View>
 
       <View style={styles.actions}>
         <Button label={t('sharingReminder.allOk')} variant="brown" size="lg" onPress={close} />
-        <Button label={t('sharingReminder.help')} variant="white" size="lg" onPress={() => setGuide(true)} />
+        <Pressable accessibilityRole="link" onPress={() => setGuide(true)} hitSlop={8} style={styles.link}>
+          <AppText variant="label1Bold" color={colors.primary}>
+            {t('sharingReminder.help')}
+          </AppText>
+        </Pressable>
       </View>
 
       <Popup visible={guide} title={t('report.guideTitle')} message={t('report.guideMessage')} confirmLabel={t('common.confirm')} onConfirm={() => setGuide(false)} />
@@ -105,5 +115,6 @@ const useStyles = makeStyles((colors) => ({
   list: { gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: colors.surface },
   rowUnusual: { backgroundColor: withAlpha('#FFC700', 0.22) },
-  actions: { gap: 10, paddingBottom: 16 },
+  actions: { gap: 20, paddingBottom: 24 },
+  link: { alignSelf: 'center', paddingVertical: 4 },
 }));

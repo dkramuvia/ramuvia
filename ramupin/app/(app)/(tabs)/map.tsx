@@ -45,12 +45,15 @@ import { useHideMode, useSaveHideMode } from '@/features/settings/queries';
 const FALLBACK_CENTER: LatLng = { latitude: 37.4979, longitude: 127.0276 };
 
 const SHEET_HEIGHT = 370;
-// 내렸을 때 손잡이와 "친구 (N)" 줄만 보이는 높이
-// 대표 리포트 2차 106 (피그마 v2.6 1079): 접었을 때 손잡이와 '친구 (N)' 한 줄만 얇게 보이게
-const SHEET_COLLAPSED = 50;
+// 내렸을 때 높이. 피그마 v3.1 공용 컨트롤: 기본은 닫혀 있고 메뉴 막대 위에 손잡이 탭만 보입니다.
+// 끌어 올리면 '친구 (N) · 친구 추가' 줄과 목록이 나옵니다
+const SHEET_COLLAPSED = 21;
 /** 지역명·날씨 줄이 차지하는 높이 (안전 영역 아래). 내 마커가 그 뒤에 숨지 않게 지도 위쪽 여백으로 씁니다 */
 const TOP_ROW_HEIGHT = 100;
-const SOS_SIREN = require('../../../assets/images/sos-siren.png');
+/** 피그마 v3.1 공용 컨트롤 (11-16): 지도 메인 버튼은 입체(클레이) 아이콘. 순서는 내위치 · 로드뷰 · SOS */
+const ICON_SOS = require('../../../assets/icons/map-sos.png');
+const ICON_MY_LOCATION = require('../../../assets/icons/map-my-location.png');
+const ICON_STREET_VIEW = require('../../../assets/icons/map-street-view.png');
 /**
  * 급할 때 SOS (대표 리포트 2차 103): 두 손가락 이상으로 화면을 이 시간 안에 이만큼 두드리면 SOS 화면으로 갑니다.
  * SOS 화면은 보내기 전에 기다리는 시간이 있어 잘못 들어가도 취소할 수 있습니다
@@ -481,15 +484,14 @@ export default function MapScreen() {
               {areaName ?? (permission === 'granted' ? t('map.locating') : '')}
             </AppText>
             <WeatherBadge weather={weather} />
-            {/* 대표 리포트 2차 102 (피그마 v2.6 1079): SOS 가 이름 사진 옆에 붙어 있어 잘못 누르기 쉽고 급할 때 찾기 어려워
-                왼쪽에 크게 따로 뺐습니다. 빨간 원(70%) 안에 사이렌 그림 */}
+            {/* 대표 리포트 2차 102: SOS 는 왼쪽에 크게 따로. 피그마 v3.1 은 빨간 원 대신 입체 SOS 아이콘 */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('map.sos')}
               onPress={() => router.push('/sos')}
               style={({ pressed }) => [styles.sosButton, pressed && styles.pressed]}
             >
-              <Image source={SOS_SIREN} style={styles.sosSiren} />
+              <Image source={ICON_SOS} style={styles.sosIcon} />
             </Pressable>
           </View>
           <View style={styles.topButtons}>
@@ -507,9 +509,9 @@ export default function MapScreen() {
                 setFollowing(true);
                 mapRef.current?.moveTo(location);
               }}
-              style={[overlayStyles.roundButton, !location && styles.disabled]}
+              style={({ pressed }) => [styles.clayButton, !location && styles.disabled, pressed && styles.pressed]}
             >
-              <Ionicons name="locate" size={20} color={overlay.pillText} />
+              <Image source={ICON_MY_LOCATION} style={styles.clayIcon} />
             </Pressable>
             {/* 로드뷰(거리뷰)는 네이버 지도 기능이라 유료 플랜에서만 (WBS 10.5) */}
             {streetView ? (
@@ -526,9 +528,9 @@ export default function MapScreen() {
                     })
                   : showToast(t('streetView.premiumOnly', { plan: PLAN_NAMES[minPlanFor('premiumMap')] })))
               }
-              style={[overlayStyles.roundButton, !streetViewTarget && styles.disabled]}
+              style={({ pressed }) => [styles.clayButton, !streetViewTarget && styles.disabled, pressed && styles.pressed]}
             >
-              <Ionicons name="man-outline" size={20} color={overlay.pillText} />
+              <Image source={ICON_STREET_VIEW} style={styles.clayIcon} />
             </Pressable>
             ) : null}
           </View>
@@ -581,7 +583,7 @@ export default function MapScreen() {
         onIndexChange={setSheetIndex}
         // 아래 메뉴가 지도 위에 떠 있어서(탭 _layout) 시트는 메뉴 위에 둡니다
         bottomInset={navHeight}
-        compactHandle
+        tabHandle
         above={
           clusterPick ? (
             <ClusterPicker friends={clusterPick} onPick={focusFriend} onClose={() => setClusterPick(null)} />
@@ -788,16 +790,11 @@ const useStyles = makeStyles((colors) => ({
   addressBlock: { flex: 1, gap: 4 },
   address: { flex: 1 },
   topButtons: { alignItems: 'flex-end', gap: 12, paddingTop: 8 },
-  sosButton: {
-    width: 92,
-    height: 92,
-    marginTop: 8,
-    borderRadius: 46,
-    backgroundColor: 'rgba(255,0,0,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sosSiren: { width: 74, height: 80 },
+  // 피그마 v3.1 지도 메인 (953 폭 → 402): SOS 251 → 약 88, 내위치·로드뷰 약 72. 그림 자체에 바닥 그림자가 있어 바탕을 깔지 않습니다
+  sosButton: { width: 88, height: 88, marginTop: 8, marginLeft: -6 },
+  sosIcon: { width: 88, height: 88 },
+  clayButton: { width: 72, height: 72, marginRight: -6 },
+  clayIcon: { width: 72, height: 72 },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.4 },
   permissionBanner: {
@@ -912,15 +909,6 @@ const useOverlayStyles = makeMapStyles((overlay) => ({
     marginTop: 8,
     borderRadius: radius.full,
     backgroundColor: overlay.pill,
-    ...BUTTON_SHADOW,
-  },
-  roundButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: overlay.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
     ...BUTTON_SHADOW,
   },
 }));

@@ -13,7 +13,7 @@ import { AppMapView } from '@/features/map/AppMapView';
 import { makeStyles, radius, useColors } from '@/theme';
 import type { LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
-import { formatDateTime, formatTimeOfDay } from '@/utils/time';
+import { formatDate, formatTimeOfDay } from '@/utils/time';
 import { useFriendAvatar } from './useFriendAvatar';
 
 const RED = '#FF1E00';
@@ -49,34 +49,41 @@ function PopupContent({ popup }: { popup: AlertPopupPayload }) {
   switch (popup.kind) {
     case 'sos': {
       const sent = new Date(popup.sentAt);
+      // 피그마 v3.1 (7116:87038): 위에 [전송시간 · 음성] 칸, 가운데 지도, 아래 '현재 주소' 에 위치·좌표·고도·일시·전화번호를 모읍니다
+      const details = [
+        t('alerts.detailPlace', { place: [popup.place.placeName, popup.place.address].filter(Boolean).join(', ') || '-' }),
+        t('alerts.detailCoords', { lat: popup.place.latitude.toFixed(4), lng: popup.place.longitude.toFixed(4) }),
+        popup.altitude != null ? t('alerts.detailAltitude', { altitude: popup.altitude.toFixed(1) }) : null,
+        t('alerts.detailDate', { date: formatDate(sent, 'full') }),
+        t('alerts.detailTime', { time: formatTimeOfDay(popup.sentAt) }),
+        popup.phone ? t('alerts.detailPhone', { phone: popup.phone }) : null,
+      ].filter(Boolean);
       return (
         <>
           <AppText variant="title2">{t('alerts.sosTitle', { name: popup.name })}</AppText>
           <AppText variant="headlineMedium">{t('alerts.sosMessage', { name: popup.name })}</AppText>
-          <MapCircle center={popup.place} name={popup.name} />
-          <View style={styles.section}>
-            <AppText variant="headline">{t('alerts.currentAddress')}</AppText>
-            <AppText variant="label1" color={colors.textSecondary}>
-              {popup.place.placeName ? `${popup.place.placeName}, ` : ''}
-              {popup.place.address}
-            </AppText>
-          </View>
-          <View style={styles.divider} />
           <View style={styles.tiles}>
             <View style={styles.tile}>
               <AppText variant="headlineMedium">{t('alerts.sentAt')}</AppText>
               <AppText variant="label2" color={colors.textSecondary}>
-                {formatDateTime(sent, { withYear: true, seconds: true })} ({formatDuration(minutesSince(popup.sentAt))} 전)
-              </AppText>
-              <AppText variant="headlineMedium" style={styles.tileGap}>
-                {t('alerts.coordinates')}
-              </AppText>
-              <AppText variant="label2" color={colors.textSecondary}>
-                {t('alerts.latLng', { lat: popup.place.latitude.toFixed(4), lng: popup.place.longitude.toFixed(4) })}
+                {t('alerts.sentAtInfo', {
+                  date: formatDate(sent, 'full'),
+                  sent: formatTimeOfDay(popup.sentAt),
+                  ago: formatDuration(minutesSince(popup.sentAt)),
+                  now: formatTimeOfDay(new Date()),
+                })}
               </AppText>
             </View>
             <VoiceTile sosId={popup.sosId} hasVoice={popup.hasVoice} />
           </View>
+          <MapCircle center={popup.place} name={popup.name} />
+          <View style={styles.section}>
+            <AppText variant="headline">{t('alerts.currentAddress')}</AppText>
+            <AppText variant="label1" color={colors.textSecondary}>
+              {details.join('\n')}
+            </AppText>
+          </View>
+          <View style={styles.divider} />
         </>
       );
     }
@@ -199,7 +206,8 @@ function PopupButtons({ popup, dismiss }: { popup: AlertPopupPayload; dismiss: (
     case 'sos':
       buttons.push(
         <Button key="rescue" label={t('alerts.callRescue')} variant="dark" size="lg" onPress={() => call('119')} style={styles.black} />,
-        <Button key="call" label={t('alerts.call')} size="lg" onPress={() => call()} style={styles.red} />,
+        // 보낸 사람 번호를 받았으면 바로 겁니다 (예전 서버는 번호가 없어 전화 앱만 엽니다)
+        <Button key="call" label={t('alerts.call')} size="lg" onPress={() => call(popup.phone)} style={styles.red} />,
       );
       break;
     case 'dangerZone':
@@ -321,7 +329,6 @@ const useStyles = makeStyles((colors) => ({
   divider: { height: 1, backgroundColor: colors.surfaceStrong },
   tiles: { flexDirection: 'row', gap: 12 },
   tile: { flex: 1, borderRadius: radius.md, backgroundColor: colors.surfaceStrong, padding: 12, gap: 4 },
-  tileGap: { marginTop: 12 },
   dim: { opacity: 0.5 },
   play: { alignSelf: 'center', marginTop: 16, width: 50, height: 50, borderRadius: 25, backgroundColor: '#FF1E3C', alignItems: 'center', justifyContent: 'center' },
   map: { height: 200, borderRadius: radius.md, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

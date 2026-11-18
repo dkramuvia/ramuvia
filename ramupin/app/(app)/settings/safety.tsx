@@ -167,8 +167,8 @@ export default function SafetyScreen() {
       </View>
 
       <ToggleRow
+        // 피그마 v3.1 은 설명 줄을 뺐습니다
         title={t('safety.longPressTitle')}
-        description={t('safety.longPressDesc')}
         value={setting.longPressStart}
         onValueChange={(longPressStart) => update({ longPressStart })}
       />
@@ -329,10 +329,10 @@ function ContactModal({ visible, onClose, onAdd }: { visible: boolean; onClose: 
             {t('safety.contactNote')}
           </AppText>
           <View style={styles.modalButtons}>
-            <Button label={t('common.cancel')} variant="neutral" onPress={onClose} style={styles.flex} />
+            {/* 피그마 v3.1 (7115:30476): 취소는 흰 테두리, 저장은 파랑 */}
+            <Button label={t('common.cancel')} variant="white" onPress={onClose} style={styles.flex} />
             <Button
               label={t('common.save')}
-              variant="danger"
               disabled={!name.trim() || !valid}
               onPress={() => {
                 onAdd(name.trim(), phone.replace(/\D/g, ''));

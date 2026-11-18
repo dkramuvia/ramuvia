@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Card, CheckCircle, CountActionBar, Screen, SearchField } from '@/components/ui';
+import { AppText, Button, Card, CheckCircle, Screen, SearchField } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
 import { useMyGroups } from '@/features/groups/queries';
@@ -17,8 +17,8 @@ import { showToast } from '@/utils/toast';
 type Mode = 'friends' | 'groups';
 
 /**
- * 피그마: SOS 수신 친구 지정 (283:32758) / 수신 그룹 지정 (283:32888)
- * 기획: 상단 "그룹 지정하기"를 누르면 그룹 지정, 그룹 화면에서 "친구 지정하기"를 누르면 친구 개별 지정
+ * 피그마 v3.1: SOS 수신 친구 지정 (7113:29466) / 그룹 지정 (7113:29615)
+ * 위의 알약 두 개로 [N명의 친구 등록됨 | 그룹 지정하기] 를 오갑니다. 체크는 초록, 저장은 파랑
  * WBS 10.8: 등급별 수신 인원 제한 (서버 정책값)
  */
 export default function SafetyRecipientsScreen() {
@@ -80,22 +80,25 @@ export default function SafetyRecipientsScreen() {
       title={t('screens.safety')}
       tab="map"
       contentStyle={styles.content}
-      footer={
-        <Button
-          variant="danger"
-          label={mode === 'friends' ? t('safety.pickFriends', { count: friendIds.length }) : t('safety.pickGroups', { count: groupIds.length })}
-          disabled={save.isPending}
-          onPress={onSave}
-        />
-      }
+      footer={<Button label={t('common.save')} disabled={save.isPending} onPress={onSave} />}
     >
+      <View style={styles.pills}>
+        {(['friends', 'groups'] as const).map((m) => (
+          <Pressable
+            key={m}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === m }}
+            onPress={() => setMode(m)}
+            style={[styles.pill, { backgroundColor: mode === m ? PILL_ON : colors.surfaceStrong }]}
+          >
+            <AppText variant="label1Bold" color={mode === m ? colors.white : colors.textStrong}>
+              {m === 'friends' ? t('safety.friendsRegistered', { count: friends.length }) : t('safety.toGroups')}
+            </AppText>
+          </Pressable>
+        ))}
+      </View>
       {mode === 'friends' ? (
         <>
-          <CountActionBar
-            label={t('safety.friendsRegistered', { count: friends.length })}
-            actionLabel={t('safety.toGroups')}
-            onAction={() => setMode('groups')}
-          />
           <SearchField placeholder={t('groups.searchFriend')} value={query} onChangeText={setQuery} />
           <View style={styles.list}>
             <AppText variant="label1" color={colors.textTertiary}>
@@ -106,7 +109,7 @@ export default function SafetyRecipientsScreen() {
                 key={f.id}
                 friend={f}
                 selected={friendIds.includes(f.id)}
-                checkColor={colors.sos}
+                checkColor={CHECK}
                 onPress={() => toggle(friendIds, setFriendIds, f.id)}
               />
             ))}
@@ -114,19 +117,16 @@ export default function SafetyRecipientsScreen() {
         </>
       ) : (
         <>
-          <CountActionBar
-            label={t('safety.groupsJoined', { count: groupList.length })}
-            actionLabel={t('safety.toFriends')}
-            onAction={() => setMode('friends')}
-          />
           <View style={styles.list}>
             {groupList.map((g) => (
               <Card key={g.id} onPress={() => toggle(groupIds, setGroupIds, g.id)} style={styles.groupRow}>
                 <View style={styles.flex}>
                   <AppText variant="listTitle">{g.name}</AppText>
-                  <AppText variant="label2">{t('groupSettings.members', { count: g.memberCount })}</AppText>
+                  <AppText variant="caption" color={colors.textTertiary}>
+                    {t('groupSettings.members', { count: g.memberCount })}
+                  </AppText>
                 </View>
-                <CheckCircle checked={groupIds.includes(g.id)} color={colors.sos} />
+                <CheckCircle checked={groupIds.includes(g.id)} color={CHECK} />
               </Card>
             ))}
           </View>
@@ -136,8 +136,14 @@ export default function SafetyRecipientsScreen() {
   );
 }
 
+/** 피그마 v3.1: 고른 알약 #33AAFF, 체크 초록 */
+const PILL_ON = '#33AAFF';
+const CHECK = '#34C759';
+
 const styles = StyleSheet.create({
   content: { gap: 16 },
+  pills: { flexDirection: 'row', gap: 40 },
+  pill: { flex: 1, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1 },
   list: { gap: 12 },
   groupRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 62, paddingVertical: 8, paddingLeft: 20, paddingRight: 12 },

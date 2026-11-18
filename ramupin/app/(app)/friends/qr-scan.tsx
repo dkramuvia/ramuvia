@@ -114,6 +114,13 @@ export default function QrScanScreen() {
       {found ? (
         <View style={styles.sheet}>
           <View style={styles.grabber} />
+          {/* 피그마 v3.1 (7110:24224): 찾았다는 제목과 안내를 위에 둡니다 */}
+          <AppText variant="body1Bold" color={colors.textStrong} align="center">
+            {t('friendAdd.foundTitle')}
+          </AppText>
+          <AppText variant="label2" color={colors.textSecondary} align="center" style={styles.foundDesc}>
+            {t('friendAdd.foundDesc')}
+          </AppText>
           <View style={styles.resultRow}>
             <Avatar name={found.nickname} imageUrl={found.avatarUrl} />
             <AppText variant="title2" color={colors.textStrong}>
@@ -146,7 +153,8 @@ export default function QrScanScreen() {
                 })
               }
             />
-            <Button label={t('friendAdd.rescan')} variant="neutral" size="lg" onPress={rescan} />
+            {/* 피그마는 '취소'. 누르면 다시 찍을 수 있게 돌아갑니다 */}
+            <Button label={t('common.cancel')} variant="neutral" size="lg" onPress={rescan} />
           </View>
         </View>
       ) : null}
@@ -220,6 +228,7 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.background,
   },
   grabber: { alignSelf: 'center', width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginTop: 12, marginBottom: 16 },
+  foundDesc: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 24 },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },
   resultText: { paddingHorizontal: 56, paddingTop: 4, paddingBottom: 24 },
   sheetButtons: { gap: 12 },

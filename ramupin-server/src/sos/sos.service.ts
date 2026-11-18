@@ -7,6 +7,7 @@ import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { LocationService } from '../location/location.service.js';
 import { StorageService } from '../media/storage.service.js';
+import { PhoneService } from '../phone/phone.module.js';
 import { PushService } from '../push/push.service.js';
 import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
 import { SoloService } from '../solo/solo.module.js';
@@ -43,6 +44,7 @@ export class SosService {
     private readonly sms: SosSmsService,
     private readonly solo: SoloService,
     private readonly storage: StorageService,
+    private readonly phones: PhoneService,
   ) {}
 
   /**
@@ -367,12 +369,17 @@ export class SosService {
 
   private async notify(recipients: string[], sosId: string, userId: string, nickname: string, input: SosInput) {
     const where = input.placeName ?? input.placeAddress ?? '위치 확인 필요';
+    // 피그마 v3.1 SOS 팝업: 받은 사람이 [전화걸기]로 바로 걸 수 있게 보낸 사람 번호를 함께 보냅니다.
+    // 보낸 사람이 직접 고른 받는 사람에게만 가고, 꺼낼 때마다 조회 이력이 남습니다
+    const phone = await this.phones.getForSend(userId, 'sos_recipient_display').catch(() => null);
     this.gateway.emitSos(recipients, {
       sosId,
       userId,
       nickname,
       latitude: input.latitude,
       longitude: input.longitude,
+      altitude: input.altitude,
+      phone,
       placeName: input.placeName,
       placeAddress: input.placeAddress,
       startedAt: input.startedAt.toISOString(),

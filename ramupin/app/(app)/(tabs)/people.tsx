@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText, Avatar, Card, Fab, Header, QueryState, SegmentedTabs } from '@/components/ui';
+import { AppText, Fab, Header, QueryState, SegmentedTabs } from '@/components/ui';
 import { useChatRooms } from '@/features/chat/queries';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useFriends } from '@/features/friends/queries';
@@ -122,40 +122,39 @@ function ChatRoomList() {
     <FlatList
       data={rooms}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.list}
+      contentContainerStyle={styles.roomList}
       ListEmptyComponent={
         <AppText variant="label1" color={colors.textMuted} align="center">
           {t('people.emptyRooms')}
         </AppText>
       }
+      // 피그마 v3.1 사람들 › 메시지 (7091:72727): 한 줄 카드에 방 이름 · 안 읽은 수(파랑) · N명참여 · 지난 시간
       renderItem={({ item }) => (
-        <Card onPress={() => router.push(`/chat/${item.id}`)} style={styles.roomCard}>
-          <Avatar name={item.name} />
-          <View style={styles.roomTexts}>
-            <View style={styles.roomTitleRow}>
-              <AppText variant="listTitle" numberOfLines={1} style={styles.flex}>
-                {item.name}
-              </AppText>
-              {/* 1:1 이 아닌 방은 인원을 보여 줘야 같은 이름의 1:1 방과 구분됩니다 (대표 리포트 31) */}
-              {!item.archived && (item.isDirect === false || item.memberCount > 2) ? (
-                <AppText variant="caption" color={colors.textTertiary}>
-                  {t('people.roomMembers', { count: item.memberCount })}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push(`/chat/${item.id}`)}
+          style={({ pressed }) => [styles.roomCard, pressed && styles.pressed]}
+        >
+          <AppText variant="body2Bold" numberOfLines={1} style={styles.flex} color={item.archived ? colors.textTertiary : colors.textStrong}>
+            {item.archived ? `${t('people.archived')} · ` : ''}
+            {item.name}
+          </AppText>
+          <View style={styles.unreadSlot}>
+            {item.unreadCount ? (
+              <View style={styles.unread} accessibilityLabel={t('people.unread', { count: item.unreadCount })}>
+                <AppText variant="caption" color={colors.white}>
+                  {item.unreadCount > 99 ? '99+' : item.unreadCount}
                 </AppText>
-              ) : null}
-            </View>
-            <AppText variant="caption" color={colors.textTertiary} numberOfLines={1}>
-              {item.archived ? `${t('people.archived')} · ` : ''}
-              {item.lastMessage} · {formatRelativeTime(item.updatedAt)}
-            </AppText>
+              </View>
+            ) : null}
           </View>
-          {item.unreadCount ? (
-            <View style={styles.unread} accessibilityLabel={t('people.unread', { count: item.unreadCount })}>
-              <AppText variant="microBold" color={colors.white}>
-                {item.unreadCount > 99 ? '99+' : item.unreadCount}
-              </AppText>
-            </View>
-          ) : null}
-        </Card>
+          <AppText variant="body2Bold" color={colors.textStrong} style={styles.roomMembers}>
+            {t('people.roomJoined', { count: item.memberCount })}
+          </AppText>
+          <AppText variant="body2Bold" color={colors.textStrong} numberOfLines={1} style={styles.roomTime}>
+            {formatRelativeTime(item.updatedAt)}
+          </AppText>
+        </Pressable>
       )}
     />
   );
@@ -165,12 +164,16 @@ const useStyles = makeStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.background },
   top: { paddingHorizontal: layout.screenPadding, paddingTop: 20 },
   list: { paddingHorizontal: layout.screenPadding, paddingTop: 20, paddingBottom: 96, gap: 12 },
+  roomList: { paddingHorizontal: layout.screenPadding, paddingTop: 20, paddingBottom: 96, gap: 24 },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   caption: { marginBottom: 8 },
   loading: { marginTop: 40 },
-  roomCard: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, paddingRight: 16 },
-  roomTexts: { flex: 1 },
-  roomTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  unread: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  // 피그마: 362×50, 둥글기 14, #EFF0F2
+  roomCard: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 50, paddingHorizontal: 8, borderRadius: 14, backgroundColor: colors.surface },
+  pressed: { opacity: 0.7 },
+  unreadSlot: { width: 30 },
+  roomMembers: { width: 65 },
+  roomTime: { width: 72 },
+  unread: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: '#33AAFF', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start' },
   flex: { flex: 1 },
 }));

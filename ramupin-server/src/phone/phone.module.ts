@@ -6,7 +6,15 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import type { MainDatabase } from '../database/main.schema.js';
 
 /** 번호 원문을 꺼내는 이유 (member.phone_access_logs 에 남습니다) */
-export type PhoneAccessPurpose = 'sms_sign_up' | 'sms_device_verify' | 'sms_emergency' | 'sms_scheduled' | 'mask_display' | 'admin';
+export type PhoneAccessPurpose =
+  | 'sms_sign_up'
+  | 'sms_device_verify'
+  | 'sms_emergency'
+  | 'sms_scheduled'
+  | 'mask_display'
+  | 'admin'
+  /** SOS 받은 사람 팝업의 [전화걸기] (피그마 v3.1) */
+  | 'sos_recipient_display';
 
 /**
  * 전화번호 보관소.

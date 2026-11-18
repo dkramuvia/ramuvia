@@ -34,6 +34,7 @@ const ICONS = {
   map: require('../../../assets/icons/settings/map.png'),
   language: require('../../../assets/icons/settings/language.png'),
   document: require('../../../assets/icons/settings/document.png'),
+  watchers: require('../../../assets/icons/settings/watchers.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 /** 'myLocation' 은 화면을 옮기지 않고 이 자리에서 내 위치 카드를 펼칩니다 */
@@ -53,6 +54,8 @@ const SECTIONS: { key: string; items: Entry[] }[] = [
       { key: 'notifications', icon: ICONS.notifications, href: '/settings/notifications' },
       { key: 'safeZone', icon: ICONS.safeZone, href: '/settings/geofences' },
       { key: 'location', icon: ICONS.locationCollect, href: '/settings/location' },
+      // 피그마 v3.1: 지금 내 위치를 보는 사람들 (보완 4.12 위치 공유 중 알림 화면)
+      { key: 'watchers', icon: ICONS.watchers, href: '/sharing-reminder' },
     ],
   },
   {

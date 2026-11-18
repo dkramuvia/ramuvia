@@ -91,7 +91,8 @@
     "hospitalSource": "HIRA hospital data"
   },
   "people": {
-    "shareSettings": "Location sharing settings"
+    "shareSettings": "Location sharing settings",
+    "roomJoined": "{{count}} joined"
   },
   "settingsHome": {
     "section": {
@@ -121,7 +122,8 @@
     "languageRegion": "Language · Region",
     "account": "Account",
     "legal": "Terms & policies",
-    "contact": "About · Contact us"
+    "contact": "About · Contact us",
+    "watchers": "Who sees me"
   },
   "legal": {
     "title": "Terms & policies",
@@ -146,5 +148,31 @@
     "homepage": "Website",
     "copied": "Email address copied.",
     "mailSubject": "[RamuPin] App version {{version}}"
+  },
+  "friendAdd": {
+    "pending": "Pending requests",
+    "receivedRequests": "Requests I received",
+    "sentRequests": "Requests I sent",
+    "share": "Share",
+    "foundTitle": "✨ We found your friend!",
+    "foundDesc": "Your friend's profile is here! 🎉\nTap the button below to send a friend request.\nOnce accepted, you can see each other's location."
+  },
+  "friendRequestDetail": {
+    "cancelledTitle": "Request declined",
+    "cancelledMessage": "You declined the friend request from {{name}}",
+    "backToMain": "Back to main"
+  },
+  "alerts": {
+    "sentAtInfo": "{{date}}\nSent: {{sent}} ({{ago}} ago)\nNow: {{now}}",
+    "detailPlace": "Location: {{place}}",
+    "detailCoords": "GPS: {{lat}}° N, {{lng}}° E",
+    "detailAltitude": "Altitude: {{altitude}} m",
+    "detailDate": "Date: {{date}}",
+    "detailTime": "Time: {{time}}",
+    "detailPhone": "Phone: {{phone}}"
+  },
+  "sharingReminder": {
+    "note": "Unusually frequent views are highlighted in yellow. Stopping won't notify them. If you don't know someone, remove them as a friend.",
+    "deleteFriend": "Go to remove friends"
   }
 }

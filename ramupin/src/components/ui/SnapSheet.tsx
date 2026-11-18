@@ -14,6 +14,11 @@ interface SnapSheetProps {
   bottomInset?: number;
   /** 손잡이 위아래 여백을 줄입니다. 접었을 때 한 줄만 보이게 할 때 (지도, 대표 리포트 2차 106) */
   compactHandle?: boolean;
+  /**
+   * 손잡이를 시트 위에 얹은 작은 탭으로 그립니다 (피그마 v3.1 공용 컨트롤, 지도).
+   * 접힌 높이를 탭 높이(21)로 두면 메뉴 막대 위에 탭만 보이고, 올리면 시트가 나옵니다
+   */
+  tabHandle?: boolean;
   /** 손잡이 아래 고정 헤더 (여기를 끌어도 시트가 움직임) */
   header?: ReactNode;
   /** 시트 윗변에 붙어 함께 움직이는 영역 (이동 상태 칩, 광고 배너 등) */
@@ -36,7 +41,7 @@ export interface SnapSheetHandle {
 }
 
 export const SnapSheet = forwardRef<SnapSheetHandle, SnapSheetProps>(function SnapSheet(
-  { snapPoints, initialIndex, bottomInset = 0, compactHandle, header, above, onIndexChange, children },
+  { snapPoints, initialIndex, bottomInset = 0, compactHandle, tabHandle, header, above, onIndexChange, children },
   ref,
 ) {
   const styles = useStyles();
@@ -55,12 +60,18 @@ export const SnapSheet = forwardRef<SnapSheetHandle, SnapSheetProps>(function Sn
       <Pressable
         accessibilityRole="adjustable"
         onPress={() => sheetRef.current?.snapToIndex(index.current === lastIndex ? 0 : lastIndex)}
-        style={[styles.grabberArea, compactHandle && styles.grabberAreaCompact]}
+        style={tabHandle ? styles.tabArea : [styles.grabberArea, compactHandle && styles.grabberAreaCompact]}
       >
-        <View style={styles.grabber} />
+        {tabHandle ? (
+          <View style={styles.tab}>
+            <View style={styles.tabGrabber} />
+          </View>
+        ) : (
+          <View style={styles.grabber} />
+        )}
       </Pressable>
     ),
-    [lastIndex, compactHandle],
+    [lastIndex, compactHandle, tabHandle],
   );
 
   return (
@@ -81,15 +92,25 @@ export const SnapSheet = forwardRef<SnapSheetHandle, SnapSheetProps>(function Sn
         animatedPosition={position}
         overDragResistanceFactor={6}
         handleComponent={Handle}
-        backgroundStyle={styles.background}
-        style={styles.shadow}
+        // 탭 손잡이일 때는 손잡이 뒤가 비어 있어야 해서 바탕을 아래 내용에만 깝니다
+        backgroundStyle={tabHandle ? styles.clear : styles.background}
+        style={tabHandle ? undefined : styles.shadow}
         onChange={(next) => {
           index.current = next;
           onIndexChange?.(next);
         }}
       >
-        {header}
-        {children}
+        {tabHandle ? (
+          <View style={[styles.background, styles.shadow, styles.body]}>
+            {header}
+            {children}
+          </View>
+        ) : (
+          <>
+            {header}
+            {children}
+          </>
+        )}
       </BottomSheet>
     </>
   );
@@ -114,4 +135,21 @@ const useStyles = makeStyles((colors) => ({
   grabberArea: { paddingVertical: 12, alignItems: 'center' },
   grabberAreaCompact: { paddingVertical: 6 },
   grabber: { width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9' },
+  clear: { backgroundColor: 'transparent' },
+  body: { flex: 1 },
+  // 피그마 'Header' 471×50 → 199×21, 흰 40% · 테두리 #C9C4C4, 손잡이 290×20 → 122×8 (#141414 50%)
+  tabArea: { alignItems: 'center' },
+  tab: {
+    width: 199,
+    height: 21,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: '#C9C4C4',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabGrabber: { width: 122, height: 8, borderRadius: 4, backgroundColor: 'rgba(20,20,20,0.5)' },
 }));

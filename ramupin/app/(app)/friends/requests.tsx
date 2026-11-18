@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -17,7 +17,9 @@ export default function FriendRequestsScreen() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('received');
+  // 친구추가 화면의 '내가 받은 / 보낸 친구 요청' 에서 들어오면 그 탭으로 엽니다 (피그마 v3.1)
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>(params.tab === 'sent' ? 'sent' : 'received');
   const { data, isLoading, isError, refetch } = useFriendRequests();
   const respond = useRespondFriendRequest();
   const cancel = useCancelFriendRequest();

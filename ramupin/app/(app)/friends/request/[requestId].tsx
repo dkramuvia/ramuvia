@@ -35,6 +35,7 @@ export default function FriendRequestDetailScreen() {
   const respond = useRespondFriendRequest();
 
   const [accepted, setAccepted] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [level, setLevel] = useState<LocationShareLevel>('exact');
   const [shareRoute, setShareRoute] = useState(false);
   const [shareBattery, setShareBattery] = useState(true);
@@ -55,7 +56,8 @@ export default function FriendRequestDetailScreen() {
       {
         onSuccess: ({ singleHouseholdReleasable }) => {
           if (!accept) {
-            router.back();
+            // 피그마 v3.1 (7113:24901): 거절하면 '친구 등록 취소' 화면을 보여 줍니다
+            setRejected(true);
             return;
           }
           setAccepted(true);
@@ -70,18 +72,27 @@ export default function FriendRequestDetailScreen() {
     <Screen title={t('screens.friendRequestDetail')} tab="people" background={colors.surface} contentStyle={styles.content}>
       {isLoading || isError || !person ? (
         <QueryState loading={isLoading} error={isError} onRetry={() => void refetch()} />
-      ) : accepted ? (
+      ) : accepted || rejected ? (
         <View style={styles.card}>
           <View style={styles.doneTitles}>
-            <AppText variant="title3">{t('friendRequestDetail.doneTitle')}</AppText>
-            <AppText variant="body2Bold">{t('friendRequestDetail.doneMessage')}</AppText>
+            <AppText variant="title3">{t(rejected ? 'friendRequestDetail.cancelledTitle' : 'friendRequestDetail.doneTitle')}</AppText>
+            {rejected ? null : <AppText variant="body2Bold">{t('friendRequestDetail.doneMessage')}</AppText>}
           </View>
           <View style={styles.doneBanner}>
             <Avatar name={person.nickname} imageUrl={person.avatarUrl} size={40} />
-            <AppText variant="label1">{t('friendRequestDetail.becameFriends', { name: person.nickname })}</AppText>
+            <AppText variant="label1" style={styles.flex}>
+              {t(rejected ? 'friendRequestDetail.cancelledMessage' : 'friendRequestDetail.becameFriends', { name: person.nickname })}
+            </AppText>
           </View>
-          <Image source={require('../../../../assets/images/friend-added.png')} style={styles.doneImage} />
-          <Button label={t('friendRequestDetail.viewFriends')} variant="neutral" size="lg" onPress={() => router.dismissTo('/people')} />
+          <Image
+            source={rejected ? require('../../../../assets/images/friend-cancelled.png') : require('../../../../assets/images/friend-added.png')}
+            style={styles.doneImage}
+          />
+          {/* 피그마 v3.1: 친구 목록 보러가기(파랑) · 메인으로 돌아가기(회색) */}
+          <View style={styles.doneButtons}>
+            <Button label={t('friendRequestDetail.viewFriends')} size="lg" onPress={() => router.dismissTo('/people')} />
+            <Button label={t('friendRequestDetail.backToMain')} variant="neutral" size="lg" onPress={() => router.dismissTo('/map')} />
+          </View>
         </View>
       ) : (
         <View style={styles.card}>
@@ -232,6 +243,7 @@ const useStyles = makeStyles((colors) => ({
   // 안쪽 글자가 테마 색이라 바탕도 테마를 따라갑니다 (연파랑으로 박으면 다크에서 안 보입니다)
   doneBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: radius.md, backgroundColor: colors.surfaceStrong },
   doneImage: { alignSelf: 'center', width: 176, height: 180, marginVertical: 24 },
+  doneButtons: { gap: 16 },
   sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
   sheet: {
     borderTopLeftRadius: 24,

@@ -15,6 +15,8 @@ function TabBar({ state, navigation }: TabBarProps) {
     <View style={onMap ? styles.overlay : undefined}>
       <BottomNav
         active={active}
+        // 피그마 메모: 뒤에 지도가 비치면 50%, 그 밖의 화면은 40%
+        opacity={onMap ? 0.5 : 0.4}
         onPressTab={(name) => {
           const route = state.routes.find((r) => r.name === name);
           if (!route) return;

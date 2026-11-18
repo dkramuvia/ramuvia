@@ -70,6 +70,9 @@ export const env = {
     /** 지도 아래 배너 광고 단위 ID. 비어 있으면 개발 빌드는 테스트 광고, 정식 빌드는 광고를 띄우지 않습니다 */
     admobAndroidBannerId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_BANNER_ID ?? '',
     admobIosBannerId: process.env.EXPO_PUBLIC_ADMOB_IOS_BANNER_ID ?? '',
+    /** 전면 광고 단위 ID (WBS 2.8). 비어 있으면 정식 빌드는 전면 광고를 띄우지 않습니다 */
+    admobAndroidInterstitialId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL_ID ?? '',
+    admobIosInterstitialId: process.env.EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL_ID ?? '',
   },
 } as const;
 

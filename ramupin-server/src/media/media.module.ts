@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Inject, Module, NotFoundException, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Inject, Module, NotFoundException, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
@@ -456,8 +456,63 @@ class SharedPostController {
   }
 }
 
+/** 공유 주소의 토큰 모양 (24바이트 base64url = 32자). 다른 모양은 DB 까지 가지 않습니다 */
+const SHARE_TOKEN_RE = /^[A-Za-z0-9_-]{32}$/;
+
+const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/**
+ * 공유 링크를 브라우저로 열었을 때 보이는 사진 페이지 (11-21 대표 확인: 링크가 안 열림).
+ *
+ * 받는 사람은 앱이 없을 수 있어서, 앱 없이 사진만 보여 주고 아래에 앱 받기 버튼을 둡니다.
+ * 위 `/shared/:token` 과 같은 조회를 쓰므로 만료·그룹 탈퇴 규칙도 똑같이 걸립니다.
+ */
+@Controller('p')
+class SharedPostPageController {
+  constructor(private readonly shares: PostShareService) {}
+
+  @Get(':token')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Robots-Tag', 'noindex, nofollow')
+  async page(@Param('token') token: string) {
+    const gone = sharePage('<h1>사진을 볼 수 없어요</h1><p>링크가 만료되었거나(7일) 올린 사람이 공유를 껐어요.</p>');
+    if (!SHARE_TOKEN_RE.test(token)) return gone;
+    const post = await this.shares.view(token).catch(() => null);
+    if (!post) return gone;
+
+    const when = new Date(post.createdAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
+    const media = post.media
+      .filter((m) => m.uri)
+      .map((m) =>
+        m.type === 'video'
+          ? `<video src="${escapeHtml(m.uri)}" controls playsinline preload="metadata"></video>`
+          : m.type === 'audio'
+            ? `<audio src="${escapeHtml(m.uri)}" controls></audio>`
+            : `<img src="${escapeHtml(m.uri)}" alt="" loading="lazy">`,
+      )
+      .join('');
+    return sharePage(
+      `<p class="who"><b>${escapeHtml(post.author.nickname)}</b>님이 공유한 사진</p>
+<p class="meta">${post.placeName ? `${escapeHtml(post.placeName)} · ` : ''}${escapeHtml(when)}</p>
+${media}`,
+    );
+  }
+}
+
+function sharePage(body: string) {
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>라무핀 사진</title>
+<style>body{font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;margin:0;background:#F7F7F8;color:#2E3438}
+main{max-width:560px;margin:0 auto;padding:24px 16px 40px}h1{font-size:22px;margin:24px 0 12px}p{line-height:1.6;color:#464D53;margin:0}
+.who{font-size:17px}.meta{font-size:14px;color:#5D676F;margin:4px 0 16px}
+img,video{display:block;width:100%;border-radius:12px;margin:0 0 12px;background:#E6E6E8}
+a.app{display:block;text-align:center;margin-top:20px;padding:16px;border-radius:12px;background:#473C39;color:#fff;font-weight:700;text-decoration:none}</style></head>
+<body><main>${body}<a class="app" href="https://play.google.com/store/apps/details?id=com.ramuviamanager.ramupin">라무핀 앱 받기</a></main></body></html>`;
+}
+
 @Module({
-  controllers: [GalleryController, SharedPostController],
+  controllers: [GalleryController, SharedPostController, SharedPostPageController],
   providers: [StorageService, PostShareService],
   exports: [StorageService],
 })

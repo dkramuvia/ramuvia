@@ -137,6 +137,7 @@ export class PostShareService {
   }
 
   private urlOf(token: string): string {
-    return `${env.PUBLIC_WEB_URL}/p/${token}`;
+    // API 서버가 /p/<토큰> 웹 페이지를 직접 내려줍니다 (그룹 초대 링크와 같은 주소)
+    return `${env.PUBLIC_LINK_URL}/p/${token}`;
   }
 }

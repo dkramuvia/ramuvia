@@ -109,11 +109,6 @@ const schema = z.object({
   /** 앱이 파일을 주고받을 때 쓸 주소. 비우면 STORAGE_ENDPOINT 를 씁니다 */
   STORAGE_PUBLIC_URL: z.string().default(''),
   /**
-   * 공유 링크에 붙는 주소 (사진 공유, WBS 6).
-   * 이 주소로 열리는 웹 페이지는 아직 없습니다 — 링크 발급과 서버 조회만 먼저 만들어 둡니다
-   */
-  PUBLIC_WEB_URL: z.string().default('https://ramupin.app'),
-  /**
    * 초대 링크 주소 앞부분 (그룹방 초대, 10-08). 이 주소의 `/g/<토큰>` 이 앱을 여는 작은 페이지를 내려줍니다.
    * API 서버가 직접 내려주므로 도메인을 따로 사지 않아도 됩니다
    */

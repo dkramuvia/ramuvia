@@ -8,7 +8,9 @@ import { useTranslation } from 'react-i18next';
 import { Dimensions, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, Avatar, SheetScrollView, SnapSheet, type SnapSheetHandle } from '@/components/ui';
+import * as Haptics from 'expo-haptics';
+
+import { AppText, Avatar, Popup, SheetScrollView, SnapSheet, type SnapSheetHandle } from '@/components/ui';
 import { FriendRow } from '@/features/friends/FriendRow';
 import { useHospitals, type Hospital } from '@/features/hospitals/useHospitals';
 import { useFriendRequests, useFriends } from '@/features/friends/queries';
@@ -39,15 +41,19 @@ import type { MapArea } from '@/features/map/types';
 import type { Friend, LatLng } from '@/types/models';
 import { showToast } from '@/utils/toast';
 import { useWatchFriends } from '@/features/location/useWatchFriends';
-import { useHideMode, useSaveHideMode } from '@/features/settings/queries';
+import { useGeofences, useHideMode, useSaveHideMode } from '@/features/settings/queries';
+import { describePlace } from '@/features/location/address';
+import { useLongHold } from '@/features/map/useLongHold';
 
 // 위치를 받기 전 첫 화면 중심 (강남역)
 const FALLBACK_CENTER: LatLng = { latitude: 37.4979, longitude: 127.0276 };
 
 const SHEET_HEIGHT = 370;
-// 내렸을 때 높이. 피그마 v3.1 공용 컨트롤: 기본은 닫혀 있고 메뉴 막대 위에 손잡이 탭만 보입니다.
-// 끌어 올리면 '친구 (N) · 친구 추가' 줄과 목록이 나옵니다
-const SHEET_COLLAPSED = 21;
+/** 시트 맨 위 '친구 (N)' 줄 높이 */
+const SHEET_HEADER_HEIGHT = 36;
+// 내렸을 때 높이: 손잡이 탭(21) + '친구 (N)' 줄. 피그마 v3.1 지도 메인(7091:72975)과
+// 대표 리포트 3차(슬라이드를 계속 내리면 사라짐): 끝까지 내려도 '친구 (N)' 줄은 메뉴 위에 남깁니다
+const SHEET_COLLAPSED = 21 + SHEET_HEADER_HEIGHT;
 /** 지역명·날씨 줄이 차지하는 높이 (안전 영역 아래). 내 마커가 그 뒤에 숨지 않게 지도 위쪽 여백으로 씁니다 */
 const TOP_ROW_HEIGHT = 100;
 /** 피그마 v3.1 공용 컨트롤 (11-16): 지도 메인 버튼은 입체(클레이) 아이콘. 순서는 내위치 · 로드뷰 · SOS */
@@ -58,6 +64,8 @@ const ICON_STREET_VIEW = require('../../../assets/icons/map-street-view.png');
  * 급할 때 SOS (대표 리포트 2차 103): 두 손가락 이상으로 화면을 이 시간 안에 이만큼 두드리면 SOS 화면으로 갑니다.
  * SOS 화면은 보내기 전에 기다리는 시간이 있어 잘못 들어가도 취소할 수 있습니다
  */
+/** 대표 리포트 3차: 지도 한 곳을 이만큼 누르고 있으면 그 자리를 안심존으로 등록할지 묻습니다 */
+const HOLD_TO_ADD_ZONE_MS = 3000;
 const SOS_TAP_COUNT = 5;
 const SOS_TAP_WINDOW_MS = 4000;
 /** 시트 윗변과 내 마커 사이 여유 (마커·배지 높이) */
@@ -123,7 +131,31 @@ export default function MapScreen() {
   const [hospitalPick, setHospitalPick] = useState<Hospital | null>(null);
 
   const { permission, location } = useMyLocation();
-  const { can, minPlanFor } = usePlan();
+  const { can, minPlanFor, limit } = usePlan();
+  const { data: places = [] } = useGeofences();
+  // 길게 눌러 고른 자리 → 안심존 등록 확인 팝업
+  const [holdPick, setHoldPick] = useState<{ center: LatLng; address: string } | null>(null);
+  const hold = useLongHold(HOLD_TO_ADD_ZONE_MS, (point) => {
+    void (async () => {
+      const center = await mapRef.current?.unproject(point);
+      if (!center) return;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+      setHoldPick({ center, address: '' });
+      const place = await describePlace(center).catch(() => null);
+      if (place?.address) setHoldPick((cur) => (cur && cur.center === center ? { center, address: place.address } : cur));
+    })();
+  });
+  const addZoneHere = () => {
+    const pick = holdPick;
+    setHoldPick(null);
+    if (!pick) return;
+    const placeLimit = limit('placeLimit');
+    if (placeLimit > 0 && places.length >= placeLimit) {
+      showToast(t('geofence.limitReachedUpgrade', { limit: placeLimit }));
+      return;
+    }
+    router.push({ pathname: '/settings/geofences/edit', params: { lat: String(pick.center.latitude), lng: String(pick.center.longitude) } });
+  };
   useLocationUpload(location);
   // 기기 배터리 (-1 = 알 수 없음 → 프로필 값 사용)
   const deviceBattery = Battery.useBatteryLevel();
@@ -440,6 +472,7 @@ export default function MapScreen() {
     >
       {focused ? <StatusBar style={mapIsDark ? 'light' : 'dark'} /> : null}
 
+      <View style={StyleSheet.absoluteFill} {...hold}>
       <AppMapView
         ref={mapRef}
         initialCenter={location ?? FALLBACK_CENTER}
@@ -462,6 +495,7 @@ export default function MapScreen() {
         }}
         traffic={showTraffic}
       />
+      </View>
 
       {/*
         지도 탭이 안 보일 때는 지도 위 버튼·시트를 그리지 않습니다. 갤러리 탭 위로 지도 시트·버튼이 비쳐
@@ -574,6 +608,18 @@ export default function MapScreen() {
 
       {/* 위치 수집이 꺼져 있으면 켜자고 묻습니다 (TrackingPrompt 설명) */}
       <TrackingPrompt />
+
+      {/* 대표 리포트 3차: 지도를 3초 누르면 그 자리를 안심존으로 등록할지 묻습니다 */}
+      <Popup
+        visible={!!holdPick}
+        title={t('map.holdAddZoneTitle')}
+        message={holdPick?.address || t('placePicker.finding')}
+        confirmLabel={t('map.holdAddZoneConfirm')}
+        onConfirm={addZoneHere}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setHoldPick(null)}
+        onDismiss={() => setHoldPick(null)}
+      />
 
       <SnapSheet
         ref={sheetRef}
@@ -809,11 +855,11 @@ const useStyles = makeStyles((colors) => ({
   },
   hideBarLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sheetHeader: {
+    height: SHEET_HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    paddingVertical: 4,
   },
   friendsTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   newBadge: {

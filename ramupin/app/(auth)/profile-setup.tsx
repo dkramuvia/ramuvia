@@ -80,7 +80,7 @@ export default function ProfileSetupScreen() {
     const iso = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`;
     signUp.set({ nickname, gender, birthDate: iso, avatarUrl: avatarKey ?? '' });
     // 만 14세 미만은 보호자 동의를 먼저 받습니다 (보완 4.1, 기준은 서버도 같은 값으로 다시 확인)
-    router.push(ageOf(birthDate) < GUARDIAN_CONSENT_AGE ? '/guardian-consent' : '/phone-verify');
+    router.push(ageOf(birthDate) < GUARDIAN_CONSENT_AGE ? '/guardian-consent' : '/permissions');
   };
 
   /**

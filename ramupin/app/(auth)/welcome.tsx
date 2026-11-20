@@ -79,7 +79,7 @@ export default function WelcomeScreen() {
     if (outcome === 'device-verification') router.push('/device-verify');
     else if (outcome === 'sign-up') {
       if (mode === 'login') setNotMember(providerLabel);
-      else router.push('/profile-setup');
+      else router.push('/terms');
     }
   };
 
@@ -93,7 +93,7 @@ export default function WelcomeScreen() {
       // 목업 단계: 서버 없이 화면 흐름만 확인합니다
       const result = await authApi.socialLogin(provider, 'mock-token');
       signIn(result.accessToken, result.user);
-      if (result.isNewUser) router.push('/profile-setup');
+      if (result.isNewUser) router.push('/terms');
       else completeOnboarding();
     } catch (e) {
       showToast(e instanceof Error ? e.message : String(e));
@@ -144,7 +144,7 @@ export default function WelcomeScreen() {
     try {
       const outcome = await devServerLogin();
       if (outcome === 'device-verification') router.push('/device-verify');
-      else if (outcome === 'sign-up') router.push('/profile-setup');
+      else if (outcome === 'sign-up') router.push('/terms');
     } catch (e) {
       showToast(e instanceof Error ? e.message : String(e));
     }
@@ -165,7 +165,7 @@ export default function WelcomeScreen() {
       const { signUpToken } = await authApi.devSignUpToken();
       useSignUpStore.getState().reset();
       useSignUpStore.getState().set({ signUpToken, provider: 'dev' });
-      router.push('/profile-setup');
+      router.push('/terms');
     } catch (e) {
       showToast(e instanceof Error ? e.message : String(e));
     }
@@ -244,7 +244,7 @@ export default function WelcomeScreen() {
         onCancel={() => {
           setNotMember(null);
           setMode('sign-up');
-          router.push('/profile-setup');
+          router.push('/terms');
         }}
       />
     </OnboardingLayout>

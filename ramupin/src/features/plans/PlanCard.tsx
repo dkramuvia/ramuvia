@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 
 import { priceText, type PlanDisplay } from './planCatalog';
 import { AppText } from '@/components/ui';
-import { makeStyles, useColors } from '@/theme';
+import { makeStyles } from '@/theme';
 
 interface PlanCardProps {
-  plan: { name: string; englishName?: string; free?: boolean; popular?: boolean; colors: [string, string]; frame: string; bullets: string[] };
+  plan: PlanDisplay;
   yearly: boolean;
   width: number;
   /** 결제 플랜 카드의 버튼 문구. 없으면 버튼 없음 (결제 정보 화면) */
@@ -17,48 +17,63 @@ interface PlanCardProps {
   price?: string;
 }
 
-/** 피그마 플랜 카드: 두꺼운 테두리 + 그라데이션 + 체크 목록 */
+/**
+ * 피그마 v3.1 구독 플랜 카드 (7091:77020 ~ 7091:77752):
+ * 반투명 테두리 + 그라데이션 카드, 오른쪽에 등급 마크, 흰 동그라미 체크 목록.
+ * 베이직만 밝은 회색 카드라 글자를 어둡게 씁니다.
+ * 카드는 테마와 상관없이 늘 같은 색이라 글자 색도 고정입니다.
+ */
 export function PlanCard({ plan, yearly, width, actionLabel, actionDisabled, onAction, price }: PlanCardProps) {
   const styles = useStyles();
-  const colors = useColors();
+  const ink = plan.light ? '#1D2127' : '#FFFFFF';
+  const sub = plan.light ? '#464D53' : 'rgba(255,255,255,0.9)';
+  const tag = plan.id === 'platinum' ? '인기' : plan.id === 'trinity' ? '프리미엄' : null;
   return (
     <View style={[styles.frame, { width, backgroundColor: plan.frame }]}>
       <LinearGradient colors={plan.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
         <View style={styles.titleRow}>
-          <AppText variant="headline" color={colors.white} style={styles.flex}>
-            {plan.englishName ? `${plan.name} (${plan.englishName})` : plan.name}
+          <AppText variant="body1Bold" color={ink} style={styles.flex}>
+            {`${plan.name} (${plan.englishName})`}
           </AppText>
-          {plan.popular ? (
-            <View style={styles.badge}>
-              <AppText variant="caption" color="#1A1A40">
-                Most Popular
+          {tag ? (
+            <View style={styles.tag}>
+              <AppText variant="caption" color="#181059">
+                {tag}
               </AppText>
             </View>
           ) : null}
         </View>
         <View style={styles.priceRow}>
-          <AppText variant="title1" color={colors.white}>
-            {price ?? priceText(plan as PlanDisplay, yearly)}
-          </AppText>
-          {!plan.free ? (
-            <AppText variant="caption" color="rgba(255,255,255,0.85)">
-              {yearly ? '1년 단위 결제' : '매월 결제'}
+          <View style={styles.flex}>
+            <AppText variant="title1" color={ink}>
+              {price ?? priceText(plan, yearly)}
             </AppText>
-          ) : null}
+            <AppText variant="caption" color={sub}>
+              {plan.free ? (plan.note ?? '') : yearly ? '1년 단위 결제' : '매월 결제'}
+            </AppText>
+          </View>
+          <Image source={plan.mark} style={styles.mark} resizeMode="contain" accessibilityIgnoresInvertColors />
         </View>
         <View style={styles.bullets}>
           {plan.bullets.map((b) => (
             <View key={b} style={styles.bullet}>
-              <Ionicons name="checkmark-circle" size={18} color="rgba(255,255,255,0.9)" />
-              <AppText variant="label1" color={colors.white} style={styles.flex}>
+              <View style={[styles.check, { backgroundColor: plan.light ? '#3A3F45' : 'rgba(255,255,255,0.8)' }]}>
+                <Ionicons name="checkmark" size={11} color={plan.light ? '#FFFFFF' : plan.colors[1]} />
+              </View>
+              <AppText variant="label1" color={ink} style={styles.flex}>
                 {b}
               </AppText>
             </View>
           ))}
         </View>
         {actionLabel ? (
-          <Pressable accessibilityRole="button" disabled={actionDisabled} onPress={onAction} style={[styles.action, actionDisabled && styles.actionDisabled]}>
-            <AppText variant="body1Bold" color={colors.white}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={actionDisabled}
+            onPress={onAction}
+            style={[styles.action, { backgroundColor: actionDisabled ? (plan.light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.2)') : '#FFFFFF' }]}
+          >
+            <AppText variant="body1" color={actionDisabled ? ink : plan.accent}>
               {actionLabel}
             </AppText>
           </Pressable>
@@ -68,15 +83,16 @@ export function PlanCard({ plan, yearly, width, actionLabel, actionDisabled, onA
   );
 }
 
-const useStyles = makeStyles((colors) => ({
-  frame: { borderRadius: 36, padding: 8 },
-  card: { borderRadius: 30, padding: 24, gap: 16 },
+const useStyles = makeStyles(() => ({
+  frame: { borderRadius: 32, padding: 8 },
+  card: { borderRadius: 30, padding: 24, gap: 14 },
   flex: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: colors.white },
+  tag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: '#FFFFFF' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  bullets: { gap: 8 },
+  mark: { width: 60, height: 60 },
+  bullets: { gap: 10 },
   bullet: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  action: { height: 44, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  actionDisabled: { opacity: 0.6 },
+  check: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  action: { height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
 }));

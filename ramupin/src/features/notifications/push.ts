@@ -24,7 +24,7 @@ export const CHANNELS = {
   battery: { id: 'battery_alarm', name: '배터리 부족', importance: Notifications.AndroidImportance.HIGH, sound: 'battery_alarm.wav' },
   longStay: { id: 'long_stay_alarm', name: '장시간 위치 고정', importance: Notifications.AndroidImportance.HIGH, sound: 'long_stay_alarm.wav' },
   safeZone: { id: 'safe_zone_alarm', name: '안심지역', importance: Notifications.AndroidImportance.HIGH, sound: 'safe_zone_alarm.wav' },
-  geofence: { id: 'geofence_alarm', name: '지오펜스', importance: Notifications.AndroidImportance.HIGH, sound: 'geofence_alarm.wav' },
+  geofence: { id: 'geofence_alarm', name: '안심존', importance: Notifications.AndroidImportance.HIGH, sound: 'geofence_alarm.wav' },
   scheduled: { id: 'scheduled_alarm', name: '예약 메시지', importance: Notifications.AndroidImportance.HIGH, sound: 'scheduled_alarm.wav' },
   general: { id: 'general', name: '일반 알림', importance: Notifications.AndroidImportance.DEFAULT, sound: undefined },
   // 채팅은 따로 둡니다. 사용자가 휴대폰 설정에서 채팅만 끌 수 있게 (서버 PushChannel 'chat')

@@ -294,6 +294,8 @@ export interface JourneyStats {
   totalDistanceM: number;
   stopCount: number;
   topPlaces: { name: string; count: number }[];
+  /** 그동안 머문 곳 (약 100m 로 묶음, 많이 간 순). 예전 서버는 보내지 않습니다 */
+  spots?: { latitude: number; longitude: number; count: number }[];
 }
 
 export const historyApi = {

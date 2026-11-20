@@ -81,6 +81,8 @@ export interface MapImplHandle {
   fitTo: (coordinates: LatLng[]) => void;
   /** 확대 정도는 그대로 두고 가운데만 옮깁니다 (내 위치 따라가기) */
   panTo: (coordinate: LatLng) => void;
+  /** 지도 화면 위 자리(dp, 지도 왼쪽 위 기준) → 좌표. 지도가 준비 안 됐으면 null (길게 눌러 안심존 등록) */
+  unproject: (point: { x: number; y: number }) => Promise<LatLng | null>;
 }
 
 /** 지도 구현(Google/네이버)이 공통으로 받는 값 */

@@ -75,6 +75,7 @@ export const GoogleMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Go
       ),
     // 확대 정도는 그대로 두고 가운데만 옮깁니다 (내 위치 따라가기, 대표 리포트 1)
     panTo: (coordinate) => move(() => mapRef.current?.animateCamera({ center: coordinate }, { duration: 400 })),
+    unproject: async (point) => (await mapRef.current?.coordinateForPoint(point).catch(() => null)) ?? null,
     fitTo: (coordinates) =>
       move(() => {
         mapRef.current?.fitToCoordinates(coordinates, {

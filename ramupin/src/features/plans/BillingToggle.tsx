@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
+import { YEARLY_DISCOUNT } from './planCatalog';
 import { makeStyles, useColors } from '@/theme';
 
 interface BillingToggleProps {
@@ -11,7 +12,7 @@ interface BillingToggleProps {
 }
 
 /**
- * 피그마 "매달 / 연간 -20% off" 전환.
+ * 피그마 "매달 / 연간 -10% off" 전환 (3차 리포트: 연간 -10%).
  *
  * 고른 쪽은 **항상 흰 알약**이라 그 위 글자도 고정으로 어둡게 둡니다.
  * `colors.textStrong` 을 쓰면 다크에서 흰 글자가 되어 흰 알약 위에서 사라집니다.
@@ -37,7 +38,7 @@ export function BillingToggle({ yearly, onChange, dark, labels = ['매달', '연
               {labels[isYearly ? 1 : 0]}
               {isYearly ? (
                 <AppText variant="caption" color={selected ? SELECTED_TEXT : dark ? '#BDBDBD' : colors.textTertiary}>
-                  {'  -20% off'}
+                  {`  -${Math.round(YEARLY_DISCOUNT * 100)}% 할인`}
                 </AppText>
               ) : null}
             </AppText>

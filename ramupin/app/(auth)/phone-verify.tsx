@@ -136,7 +136,7 @@ export default function PhoneVerifyScreen() {
           shape="rounded"
           variant={verified ? 'dark' : 'neutral'}
           disabled={!verified}
-          onPress={() => router.push('/terms')}
+          onPress={() => router.push('/profile-setup')}
         />
       }
     >

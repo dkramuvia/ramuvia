@@ -51,18 +51,21 @@ export default function GeofencesScreen() {
     else mapRef.current?.fitTo(geofences.map((g) => g.center));
   }, [geofences]);
 
-  // 대표 리포트 19: 추가하고 돌아오면 새 안심존으로 지도를 옮기고 패널을 내립니다
-  const knownIds = useRef<Set<string> | null>(null);
+  // 대표 리포트 19·3차(저장 뒤 화면이 움직이지 않음): 추가하거나 위치·반경을 고쳐 저장하고 돌아오면
+  // 그 안심존으로 지도를 옮기고 패널을 내립니다
+  const known = useRef<Map<string, string> | null>(null);
   useEffect(() => {
-    // 처음 불러온 목록은 "새로 추가" 가 아닙니다
+    // 처음 불러온 목록은 "새로 저장" 이 아닙니다
     if (!isFetched) return;
-    const known = knownIds.current;
-    knownIds.current = new Set(geofences.map((g) => g.id));
-    if (!known) return;
-    const added = geofences.find((g) => !known.has(g.id));
-    if (!added) return;
+    const before = known.current;
+    const spot = (g: Geofence) => `${g.center.latitude},${g.center.longitude},${g.radiusM}`;
+    known.current = new Map(geofences.map((g) => [g.id, spot(g)]));
+    if (!before) return;
+    const saved = geofences.find((g) => before.get(g.id) !== spot(g));
+    if (!saved) return;
     setCollapsed(true);
-    mapRef.current?.moveTo(added.center, 0.01);
+    // 패널 높이가 바뀐 뒤에 옮겨야 핀이 보이는 곳 가운데에 옵니다
+    setTimeout(() => mapRef.current?.moveTo(saved.center, 0.01), 300);
   }, [geofences, isFetched]);
 
   const focusZone = (g: Geofence) => {

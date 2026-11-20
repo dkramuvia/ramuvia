@@ -109,6 +109,10 @@ export const MapboxImpl = forwardRef<MapImplHandle, MapImplProps>(function Mapbo
     // 확대 정도는 그대로 두고 가운데만 옮깁니다 (내 위치 따라가기)
     panTo: (coordinate) =>
       run(() => camera.current?.setCamera({ centerCoordinate: [coordinate.longitude, coordinate.latitude], animationDuration: 400 })),
+    unproject: async (point) => {
+      const p = await mapRef.current?.getCoordinateFromView([point.x, point.y]).catch(() => null);
+      return p ? { latitude: p[1], longitude: p[0] } : null;
+    },
     fitTo: (coordinates) => {
       if (coordinates.length === 0) return;
       const lats = coordinates.map((c) => c.latitude);

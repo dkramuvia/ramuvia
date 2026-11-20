@@ -61,7 +61,9 @@
     "hospitalCount": "병원 {{count}}곳",
     "hospitalCall": "전화",
     "hospitalNoPhone": "전화번호가 없어요",
-    "hospitalSource": "건강보험심사평가원 병원정보"
+    "hospitalSource": "건강보험심사평가원 병원정보",
+    "holdAddZoneTitle": "이곳을 안심존으로 등록할까요?",
+    "holdAddZoneConfirm": "등록하기"
   },
   "streetView": {
     "openInNaver": "네이버 지도에서 보기",
@@ -532,7 +534,9 @@
     "visited": "방문 장소: {{count}}곳",
     "mostVisited": "가장 많이 방문한 장소 {{place}} ({{count}}회)",
     "last7": "최근 7일",
-    "last30": "최근 30일"
+    "last30": "최근 30일",
+    "showOnMap": "지도에서 보기",
+    "noPlaces": "이 기간에 머문 곳이 없어요."
   },
   "journey": {
     "myTitle": "나의 최근 여정",
@@ -1154,7 +1158,7 @@
     "paidDesc": "구독 중인 플랜이에요.",
     "usage": "사용량",
     "places": "장소 등록",
-    "geofenceAlerts": "지오펜스 알림",
+    "geofenceAlerts": "안심존 알림",
     "sosRecipients": "SOS 수신자",
     "scheduledRecipients": "예약 메시지 받는 사람",
     "photoStorage": "사진 공유 용량",

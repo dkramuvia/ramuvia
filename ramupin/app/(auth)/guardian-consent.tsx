@@ -46,7 +46,7 @@ export default function GuardianConsentScreen() {
 
   const next = () => {
     signUp.set({ guardian: { name: name.trim(), phone: phone.replace(/\D/g, ''), sosLink } });
-    router.push('/phone-verify');
+    router.push('/permissions');
   };
 
   return (

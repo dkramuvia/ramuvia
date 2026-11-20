@@ -35,6 +35,10 @@ const ICONS = {
   language: require('../../../assets/icons/settings/language.png'),
   document: require('../../../assets/icons/settings/document.png'),
   watchers: require('../../../assets/icons/settings/watchers.png'),
+  // 대표 리포트 3차: 겹치던 아이콘을 피그마 새 아이콘으로 (SOS 기록 · 법적 내용 · 문의)
+  sosHistory: require('../../../assets/icons/settings/sos-history.png'),
+  legal: require('../../../assets/icons/settings/legal.png'),
+  contact: require('../../../assets/icons/settings/contact.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 /** 'myLocation' 은 화면을 옮기지 않고 이 자리에서 내 위치 카드를 펼칩니다 */
@@ -62,7 +66,7 @@ const SECTIONS: { key: string; items: Entry[] }[] = [
     key: 'safety',
     items: [
       { key: 'safety', icon: ICONS.safetySos, href: '/settings/safety', danger: true },
-      { key: 'sosHistory', icon: ICONS.safetySos, href: '/sos-received', danger: true },
+      { key: 'sosHistory', icon: ICONS.sosHistory, href: '/sos-received', danger: true },
       { key: 'messages', icon: ICONS.scheduledMessage, href: '/settings/scheduled-messages' },
     ],
   },
@@ -89,8 +93,8 @@ const SECTIONS: { key: string; items: Entry[] }[] = [
       { key: 'account', icon: ICONS.document, href: '/settings/account' },
     ],
   },
-  { key: 'legal', items: [{ key: 'legal', icon: ICONS.document, href: '/settings/legal' }] },
-  { key: 'about', items: [{ key: 'contact', icon: ICONS.document, href: '/settings/contact' }] },
+  { key: 'legal', items: [{ key: 'legal', icon: ICONS.legal, href: '/settings/legal' }] },
+  { key: 'about', items: [{ key: 'contact', icon: ICONS.contact, href: '/settings/contact' }] },
 ];
 
 export default function MyProfileScreen() {

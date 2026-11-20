@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -47,7 +47,9 @@ export default function GeofenceEditScreen() {
   const overlay = useMapOverlay();
   const mapIsDark = useMapIsDark();
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // lat·lng: 지도 탭에서 길게 눌러 고른 자리 (대표 리포트 3차: 지도를 길게 눌러 안심존 등록)
+  const { id, lat, lng } = useLocalSearchParams<{ id?: string; lat?: string; lng?: string }>();
+  const picked = useMemo<LatLng | null>(() => (lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : null), [lat, lng]);
   const { data: geofences = [] } = useGeofences();
   const existing = geofences.find((g) => g.id === id);
   const save = useSaveGeofence();
@@ -61,7 +63,7 @@ export default function GeofenceEditScreen() {
   const otherAlerts = geofences.filter((g) => g.enabled && g.id !== id).length;
   const canAlert = otherAlerts < alertLimit;
 
-  const [center, setCenter] = useState<LatLng | null>(existing?.center ?? null);
+  const [center, setCenter] = useState<LatLng | null>(existing?.center ?? picked);
   const [address, setAddress] = useState('');
   const [name, setName] = useState(existing?.name ?? '');
   const [radiusM, setRadiusM] = useState(existing?.radiusM ?? DEFAULT_RADIUS);
@@ -76,8 +78,12 @@ export default function GeofenceEditScreen() {
   }, [existing, canAlert]);
   const areaName = useAreaName(center);
 
-  // 새로 등록할 때는 내 위치에서 시작
-  const started = useRef(!!id);
+  // 새로 등록할 때는 내 위치에서 시작 (지도에서 고른 자리가 있으면 그곳)
+  const started = useRef(!!id || !!picked);
+  useEffect(() => {
+    if (!picked) return;
+    setTimeout(() => mapRef.current?.moveTo(picked, 0.004), 300);
+  }, [picked]);
   useEffect(() => {
     if (started.current || !location) return;
     started.current = true;
@@ -170,7 +176,7 @@ export default function GeofenceEditScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <AppMapView
         ref={mapRef}
-        initialCenter={existing?.center ?? location ?? FALLBACK_CENTER}
+        initialCenter={existing?.center ?? picked ?? location ?? FALLBACK_CENTER}
         initialDelta={0.004}
         onCenterChange={setCenter}
         padding={{ top: 0, right: 0, bottom: SHEET_SPACE, left: 0 }}

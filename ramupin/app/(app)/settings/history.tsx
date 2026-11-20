@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -256,8 +257,17 @@ function PlaceHistory() {
               { value: '30', label: t('history.last30') },
             ]}
           />
-          {periodSummary}
-          {mostVisited ? <AppText variant="label1">{t('history.mostVisited', { place: mostVisited.name, count: mostVisited.count })}</AppText> : null}
+          {/* 대표 리포트 3차: 최근 7일·30일 합계를 누르면 그동안 머문 곳을 지도로 */}
+          <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/journey/places', params: { days: String(days) } })} style={styles.periodCard}>
+            {periodSummary}
+            {mostVisited ? <AppText variant="label1">{t('history.mostVisited', { place: mostVisited.name, count: mostVisited.count })}</AppText> : null}
+            <View style={styles.mapLink}>
+              <AppText variant="label2Bold" color={colors.textSecondary}>
+                {t('history.showOnMap')}
+              </AppText>
+              <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+            </View>
+          </Pressable>
         </View>
       }
       renderSectionHeader={({ section }) => (
@@ -268,8 +278,8 @@ function PlaceHistory() {
       renderItem={({ item }) => (
         <View style={styles.dayBlock}>
           {summary}
-          {/* 기획: 이동 기록 박스를 누르면 나의 최근 여정 */}
-          <Pressable accessibilityRole="button" onPress={() => router.push(`/journey/${item.userId}`)} style={styles.stopsCard}>
+          {/* 대표 리포트 3차: 오늘 이동 기록을 누르면 경로가 보여야 합니다 → 지도 전체에 경로선을 그리는 이동경로 화면 */}
+          <Pressable accessibilityRole="button" onPress={() => router.push(`/journey/route/${item.userId}`)} style={styles.stopsCard}>
             {item.stops.map((stop) => (
               <View key={stop.arrivedAt} style={styles.stop}>
                 {/* 대표 리포트 82: 긴 주소는 줄바꿈하고 시각은 오른쪽에 그대로 (주소가 시각을 밀어내지 않게) */}
@@ -320,6 +330,8 @@ const useStyles = makeStyles((colors) => ({
   visited: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   pinIcon: { width: 28, height: 28 },
   dayBlock: { gap: 12 },
+  periodCard: { gap: 8, borderRadius: radius.md, backgroundColor: colors.surface, padding: 14 },
+  mapLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 2 },
   stopsCard: { borderRadius: radius.md, backgroundColor: colors.surface, paddingVertical: 8, paddingHorizontal: 20 },
   stop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 14 },
   stopTexts: { flex: 1, flexShrink: 1, minWidth: 0 },

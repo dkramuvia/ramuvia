@@ -11,7 +11,7 @@ import { BillingToggle } from '@/features/plans/BillingToggle';
 import { PlanCard } from '@/features/plans/PlanCard';
 import { COMPARE_ROWS, PLANS } from '@/features/plans/planCatalog';
 import { useAuthStore } from '@/stores/authStore';
-import { makeStyles, useColors } from '@/theme';
+import { makeStyles } from '@/theme';
 
 const CARD_GAP = 16;
 
@@ -22,7 +22,6 @@ const CARD_GAP = 16;
  */
 export default function PlansScreen() {
   const styles = useStyles();
-  const colors = useColors();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const me = useAuthStore((s) => s.user);
@@ -40,28 +39,19 @@ export default function PlansScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View style={styles.header}>
         <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8} style={styles.back}>
-          <Ionicons name="chevron-back" size={24} color={colors.white} />
+          <Ionicons name="chevron-back" size={24} color={INK} />
         </Pressable>
-        <AppText variant="body1Bold" color={colors.white}>
+        <AppText variant="body1Bold" color={INK}>
           {t('screens.plans')}
         </AppText>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <Ionicons name="calendar" size={40} color={colors.accent} />
-          <AppText variant="title4" color={ON_WHITE}>
-            {t('plans.heroTitle')}
-          </AppText>
-          <AppText variant="label1" color={ON_WHITE_SUB}>
-            {t('plans.heroDesc')}
-          </AppText>
-        </View>
-
-        <View style={styles.toggle}>
+        {/* 3차 리포트: 무료 등급에는 결제 조건(매달/연간)을 보이지 않습니다. 자리는 남겨 카드가 들썩이지 않게 */}
+        <View style={[styles.toggle, plan.free && styles.hidden]} pointerEvents={plan.free ? 'none' : 'auto'}>
           <BillingToggle yearly={yearly} onChange={setYearly} dark />
         </View>
 
@@ -93,31 +83,40 @@ export default function PlansScreen() {
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {PLANS.map((p, i) => (
-            <Pressable key={p.id} accessibilityRole="tab" accessibilityState={{ selected: i === index }} onPress={() => select(i)} style={[styles.chip, i === index && styles.chipSelected]}>
-              <AppText variant="label1" color={i === index ? '#FF6A4D' : ON_WHITE_SUB}>
-                {p.name}
-              </AppText>
-            </Pressable>
-          ))}
+          {PLANS.map((p, i) => {
+            const on = i === index;
+            return (
+              <Pressable
+                key={p.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                onPress={() => select(i)}
+                style={[styles.chip, on && { backgroundColor: '#FD8B6730', borderColor: '#FD916B' }]}
+              >
+                <AppText variant="label1Bold" color={on ? '#FD916B' : '#74818B'}>
+                  {p.name}
+                </AppText>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
-        <View style={styles.table}>
-          <AppText variant="label1Bold" color="#FF7F5E" style={styles.tableHead}>
-            {plan.name}
+        <View style={[styles.table, { backgroundColor: plan.tint }]}>
+          <AppText variant="body1Bold" color={plan.accent} style={styles.tableHead}>
+            {`${plan.name} (${plan.englishName})`}
           </AppText>
           {COMPARE_ROWS.map((row) => {
             const value = row.value(plan.id);
             return (
               <View key={row.label} style={styles.tableRow}>
-                <AppText variant="label1" color="#D0D0D0" style={styles.flex}>
+                <AppText variant="label1Bold" color={INK} style={styles.flex}>
                   {row.label}
                 </AppText>
                 <View style={styles.tableValue}>
                   {typeof value === 'boolean' ? (
-                    value ? <Ionicons name="checkmark" size={20} color={colors.check} /> : <AppText variant="label1Bold" color="#8A8A8A">-</AppText>
+                    <Ionicons name={value ? 'checkmark' : 'close'} size={20} color={value ? '#2DB400' : '#F04438'} />
                   ) : (
-                    <AppText variant="label1Bold" color={colors.white}>
+                    <AppText variant="label1Bold" color={VALUE}>
                       {value}
                     </AppText>
                   )}
@@ -127,37 +126,38 @@ export default function PlansScreen() {
           })}
         </View>
 
-        <Pressable accessibilityRole="button" onPress={() => router.push('/plans/free-trial')} style={styles.trialLink}>
-          <AppText variant="label1Bold" color={colors.accent}>
-            {t('plans.freeTrialLink')}
-          </AppText>
-        </Pressable>
+        {plan.free ? null : (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/plans/free-trial')} style={styles.trialLink}>
+            <AppText variant="label1" color={INK}>
+              {t('plans.freeTrialLink')}
+            </AppText>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 /**
- * 이 화면은 **라이트에서도 어둡습니다** (#232323). 그 위의 흰 카드·칩도 늘 흰색이라,
- * 그 안의 글자는 테마를 따라가면 안 됩니다 — 다크에서 흰 글자가 되어 사라집니다.
+ * 피그마 v3.1 구독 플랜 (7091:77020 ~ 7091:77752): 밝은 바탕, 등급 색 카드, 등급 색 비교표.
+ * 카드와 표 바탕은 테마와 상관없이 늘 밝은 색이라 그 위 글자도 고정 색입니다.
  */
-const ON_WHITE = '#0C0D0E';
-const ON_WHITE_SUB = '#464D53';
+const INK = '#1D2127';
+const VALUE = '#6B747C';
 
-const useStyles = makeStyles((colors) => ({
-  container: { flex: 1, backgroundColor: '#232323' },
+const useStyles = makeStyles(() => ({
+  container: { flex: 1, backgroundColor: '#FBFAF9' },
   flex: { flex: 1 },
   header: { height: 48, alignItems: 'center', justifyContent: 'center' },
   back: { position: 'absolute', left: 12 },
-  content: { paddingBottom: 40, gap: 24 },
-  hero: { marginHorizontal: 36, marginTop: 16, borderRadius: 12, backgroundColor: colors.white, padding: 20, gap: 8 },
-  toggle: { marginHorizontal: 42 },
-  chips: { paddingHorizontal: 28, gap: 4 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: colors.white },
-  chipSelected: { backgroundColor: '#FFE7E0', borderWidth: 1, borderColor: '#FF9A76' },
-  table: { marginHorizontal: 36, borderRadius: 12, backgroundColor: '#333', padding: 20 },
-  tableHead: { marginLeft: '55%', marginBottom: 8 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', minHeight: 38 },
-  tableValue: { width: '45%' },
+  content: { paddingBottom: 40, gap: 20 },
+  toggle: { marginHorizontal: 42, marginTop: 8 },
+  hidden: { opacity: 0 },
+  chips: { marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 6, gap: 4, borderRadius: 50, backgroundColor: '#FFFFFF' },
+  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 50, borderWidth: 1, borderColor: 'transparent' },
+  table: { marginHorizontal: 16, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
+  tableHead: { marginLeft: '50%', marginBottom: 8 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', minHeight: 32 },
+  tableValue: { width: '50%' },
   trialLink: { alignSelf: 'center', padding: 8 },
 }));

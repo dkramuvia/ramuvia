@@ -308,6 +308,12 @@ export default function SosScreen() {
             </>
           )}
         </View>
+        {/* 3차 리포트: 잘못 눌렀을 때 바로 보이는 큰 취소 버튼 (위 작은 X 와 같은 동작) */}
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.idleCancel, pressed && styles.pressed]}>
+          <AppText variant="body1Bold" color="#FFFFFF">
+            {t('common.cancel')}
+          </AppText>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -646,6 +652,7 @@ const useStyles = makeStyles((colors) => ({
   pressed: { transform: [{ scale: 0.97 }] },
   sosButton: { width: 220, height: 220, borderRadius: 110, backgroundColor: '#FF7563', alignItems: 'center', justifyContent: 'center', gap: 8 },
   disabled: { gap: 16, paddingHorizontal: 32 },
+  idleCancel: { height: 64, marginHorizontal: 28, marginBottom: 32, borderRadius: 32, backgroundColor: '#3A3A3A', alignItems: 'center', justifyContent: 'center' },
   dark: { flex: 1, backgroundColor: '#232323' },
   darkHeader: { paddingTop: 24 },
   darkTexts: { paddingHorizontal: 40, paddingTop: 48, gap: 12 },

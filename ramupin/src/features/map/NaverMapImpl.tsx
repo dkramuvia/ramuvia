@@ -65,6 +65,10 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
     moveTo: (coordinate, zoomDelta) => mapRef.current?.animateCameraTo({ ...coordinate, zoom: zoomOf(zoomDelta ?? initialDelta), duration: 400 }),
     // 줌을 넘기지 않으면 지금 확대 정도 그대로 옮깁니다
     panTo: (coordinate) => mapRef.current?.animateCameraTo({ latitude: coordinate.latitude, longitude: coordinate.longitude, duration: 400 }),
+    unproject: async (point) => {
+      const r = await mapRef.current?.screenToCoordinate({ screenX: point.x, screenY: point.y }).catch(() => null);
+      return r?.isValid ? { latitude: r.latitude, longitude: r.longitude } : null;
+    },
     fitTo: (coordinates) => {
       if (coordinates.length === 0) return;
       const lats = coordinates.map((c) => c.latitude);

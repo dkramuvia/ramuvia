@@ -14,9 +14,20 @@ export interface PlanDisplay {
   /** 월 결제 가격(원). 무료 등급은 없습니다 (피그마 2026-09-28) */
   monthlyPrice?: number;
   popular?: boolean;
-  /** 카드 그라데이션 */
+  /** 카드 그라데이션 (피그마 v3.1 구독 플랜 1063~1067) */
   colors: [string, string];
+  /** 카드 둘레의 반투명 테두리 */
   frame: string;
+  /** 비교표 바탕 */
+  tint: string;
+  /** 고른 칩·비교표 제목 글자 */
+  accent: string;
+  /** 카드가 밝아서 글자를 어둡게 쓰는지 (베이직) */
+  light?: boolean;
+  /** 등급 마크 (3차 리포트: 등급별 마크) */
+  mark: number;
+  /** 무료 등급 가격 옆 한 줄 설명 (피그마 v3.1) */
+  note?: string;
   bullets: string[];
   /** TODO(7단계): Play 구독 상품 ID */
   productId?: string;
@@ -28,8 +39,12 @@ export const PLANS: PlanDisplay[] = [
     name: '베이직',
     englishName: 'Basic',
     free: true,
-    colors: ['#6F7780', '#4B525A'],
-    frame: '#3C4148',
+    colors: ['#F0EDED', '#F0EDED'],
+    frame: '#E2E0E0',
+    tint: '#ECEEF1',
+    accent: '#FF7F5E',
+    light: true,
+    mark: require('../../../assets/images/plan-marks/basic.png'),
     bullets: [
       '광고 포함 (전체화면 광고 포함)',
       'GPS 전송속도 LOW',
@@ -50,8 +65,11 @@ export const PLANS: PlanDisplay[] = [
     free: false,
     monthlyPrice: 5500,
     popular: true,
-    colors: ['#FF9A76', '#FF6A4D'],
-    frame: '#8A5A4A',
+    colors: ['#FF9F76', '#FA6E50'],
+    frame: 'rgba(255,167,130,0.5)',
+    tint: '#FFE9DB',
+    accent: '#FB7757',
+    mark: require('../../../assets/images/plan-marks/platinum.png'),
     productId: 'ramupin_platinum',
     bullets: [
       '광고 없는 쾌적한 환경',
@@ -72,8 +90,11 @@ export const PLANS: PlanDisplay[] = [
     englishName: 'Trinity',
     free: false,
     monthlyPrice: 7700,
-    colors: ['#7B8CFF', '#5A4DFF'],
-    frame: '#3E3A8A',
+    colors: ['#FFA0DF', '#9181FF'],
+    frame: 'rgba(182,177,255,0.5)',
+    tint: '#EFE6FF',
+    accent: '#9181FF',
+    mark: require('../../../assets/images/plan-marks/trinity.png'),
     productId: 'ramupin_trinity',
     bullets: [
       '광고 없는 쾌적한 환경',
@@ -93,8 +114,12 @@ export const PLANS: PlanDisplay[] = [
     name: '케어',
     englishName: 'Care',
     free: true,
-    colors: ['#4FC99A', '#2E9E74'],
-    frame: '#2A6B53',
+    colors: ['#3CC28A', '#3CC28A'],
+    frame: 'rgba(60,194,138,0.35)',
+    tint: '#E1F6EC',
+    accent: '#2E9E74',
+    mark: require('../../../assets/images/plan-marks/care.png'),
+    note: '노인을 위한 무료 특화 플랜입니다.',
     bullets: [
       '광고 없는 쾌적한 환경',
       '초정밀 GPS 위치 갱신 (10초 주기)',
@@ -112,10 +137,13 @@ export const PLANS: PlanDisplay[] = [
     id: 'guardian',
     name: '1인 가구 가디언',
     englishName: 'Guardian',
-    free: false,
-    colors: ['#FFB547', '#F2894A'],
-    frame: '#8A6A3A',
-    productId: 'ramupin_guardian',
+    free: true,
+    colors: ['#3D9BFF', '#3D9BFF'],
+    frame: 'rgba(61,155,255,0.35)',
+    tint: '#E1F0FF',
+    accent: '#FF5A3C',
+    mark: require('../../../assets/images/plan-marks/guardian.png'),
+    note: '1인 가구를 위한 무료 플랜입니다.',
     bullets: [
       '광고 포함 (전체화면 광고 포함)',
       'GPS 위치 갱신 (20초 주기)',
@@ -145,7 +173,7 @@ export const COMPARE_ROWS: { label: string; value: (id: PlanId) => string | bool
   { label: '예약 메시지 인원', value: (id) => `${MOCK_POLICIES[id].scheduledMessageRecipientLimit}명` },
   { label: 'SOS 전송 인원', value: (id) => `${MOCK_POLICIES[id].sosRecipientLimit}명` },
   { label: '관공서 연락', value: (id) => `${GOVERNMENT_CONTACTS[id]}건` },
-  { label: '지오펜스 지정 알림', value: (id) => (MOCK_POLICIES[id].geofenceAlertLimit ? `${MOCK_POLICIES[id].geofenceAlertLimit}개` : false) },
+  { label: '안심존 알림', value: (id) => (MOCK_POLICIES[id].geofenceAlertLimit ? `${MOCK_POLICIES[id].geofenceAlertLimit}개` : false) },
   { label: '사진 공유 용량', value: (id) => formatStorage(MOCK_POLICIES[id].photoStorageMb) },
   { label: '운전 속도 경고', value: (id) => MOCK_POLICIES[id].features.speedingAlert },
   { label: '데이터 서버 저장 기간', value: (id) => `${MOCK_POLICIES[id].locationRetentionDays}일` },
@@ -172,7 +200,7 @@ export function priceText(plan: PlanDisplay, yearly: boolean): string {
   return `월 ${Math.round((plan.monthlyPrice * 12 * (1 - YEARLY_DISCOUNT)) / 12).toLocaleString('ko-KR')}원`;
 }
 
-/** 연간 결제 할인. 피그마에 -20% 와 -10% 가 섞여 있어 확인이 필요합니다 (docs/plan-limits-conflict.md) */
+/** 연간 결제 할인 10% (3차 리포트·피그마 v3.1 '연간 -10% off') */
 export const YEARLY_DISCOUNT = 0.1;
 
 /** 연간 결제 총액 */

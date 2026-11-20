@@ -46,6 +46,11 @@ export interface JourneyStatsResponse {
   stopCount: number;
   /** 자주 간 곳 (많이 간 순, 최대 3곳) */
   topPlaces: { name: string; count: number }[];
+  /**
+   * 그동안 머문 곳 (약 100m 격자로 묶음, 많이 간 순, 최대 200곳). 대표 리포트 3차:
+   * 최근 7일·30일을 누르면 지도에 다녀온 곳을 보여 줍니다. 주소는 붙이지 않습니다 (주소 변환은 유료)
+   */
+  spots: { latitude: number; longitude: number; count: number }[];
 }
 
 /** 자주 간 곳을 묶는 격자 (소수 셋째 자리 ≈ 100m). 같은 건물 안에서 조금씩 다른 좌표를 한 곳으로 셉니다 */
@@ -114,14 +119,16 @@ export class JourneyService {
         else cells.set(key, { count: 1, stop });
       }
     }
-    const top = [...cells.values()].sort((a, b) => b.count - a.count).slice(0, 3);
+    const sorted = [...cells.values()].sort((a, b) => b.count - a.count);
+    const top = sorted.slice(0, 3);
+    const spots = sorted.slice(0, 200).map(({ count, stop }) => ({ latitude: stop.latitude, longitude: stop.longitude, count }));
     const topPlaces = await Promise.all(
       top.map(async ({ count, stop }) => {
         const place = await this.describe(stop);
         return { name: place.placeName || place.address, count };
       }),
     );
-    return { days, totalDistanceM: Math.round(totalDistanceM), stopCount, topPlaces: topPlaces.filter((p) => p.name) };
+    return { days, totalDistanceM: Math.round(totalDistanceM), stopCount, topPlaces: topPlaces.filter((p) => p.name), spots };
   }
 
   /** 이 사람이 나에게 이동 경로를 공개했는지 (친구이면서 경로 공유를 켠 경우만) */

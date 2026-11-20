@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Platform, Pressable, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image, Platform, Pressable, View } from 'react-native';
 
 import { billingApi } from '@/api/endpoints/billing';
 import { galleryApi } from '@/api/endpoints/gallery';
 import { openSubscriptionSettings, type PaidPlan } from '@/features/billing/googlePlay';
 import { AppText, Button, Screen } from '@/components/ui';
+import { PLANS } from '@/features/plans/planCatalog';
 import { PLAN_NAMES } from '@/features/policy/policies';
 import { usePlan } from '@/features/policy/usePlan';
 import { useGeofences, useSafetySetting, useScheduledMessages } from '@/features/settings/queries';
@@ -52,6 +54,10 @@ export default function MyPlanScreen() {
 
   const free = planId === 'basic' || planId === 'care' || planId === 'guardian';
   const retention = policy?.locationRetentionDays;
+  // 3차 리포트: 내 플랜 카드에 등급 색과 마크 (피그마 v3.1 7091:76961)
+  const look = PLANS.find((p) => p.id === planId) ?? PLANS[0];
+  const ink = look.light ? '#1D2127' : '#FFFFFF';
+  const soft = look.light ? '#464D53' : 'rgba(255,255,255,0.85)';
 
   return (
     <Screen
@@ -60,23 +66,24 @@ export default function MyPlanScreen() {
       contentStyle={styles.content}
       footer={<Button label={t('myPlan.compare')} size="lg" shape="rounded" onPress={() => router.push('/plans')} />}
     >
-      <View style={styles.planCard}>
-        <AppText variant="label2" color={colors.textMuted}>
+      <LinearGradient colors={look.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.planCard}>
+        <Image source={look.mark} style={styles.mark} resizeMode="contain" accessibilityIgnoresInvertColors />
+        <AppText variant="label2" color={soft}>
           {t('myPlan.current')}
         </AppText>
-        <AppText variant="title3" color={colors.white}>
+        <AppText variant="title3" color={ink}>
           {PLAN_NAMES[planId]}
         </AppText>
-        <AppText variant="label2" color={colors.textOnDark}>
+        <AppText variant="label2" color={soft}>
           {t(free ? 'myPlan.freeDesc' : 'myPlan.paidDesc')}
         </AppText>
         {subLine ? (
-          <AppText variant="label2Bold" color={colors.white}>
+          <AppText variant="label2Bold" color={ink}>
             {subLine}
           </AppText>
         ) : null}
         {sub?.testPurchase ? (
-          <AppText variant="caption" color={colors.textMuted}>
+          <AppText variant="caption" color={soft}>
             {t('myPlan.testPurchase')}
           </AppText>
         ) : null}
@@ -87,12 +94,12 @@ export default function MyPlanScreen() {
             onPress={() => void openSubscriptionSettings(planId as PaidPlan).catch(() => undefined)}
             style={styles.manage}
           >
-            <AppText variant="label2Bold" color={colors.textOnDark} style={styles.underline}>
+            <AppText variant="label2Bold" color={soft} style={styles.underline}>
               {t('myPlan.manage')}
             </AppText>
           </Pressable>
         ) : null}
-      </View>
+      </LinearGradient>
 
       <View style={styles.section}>
         <AppText variant="label1" color={colors.textLabel}>
@@ -156,7 +163,8 @@ function formatMb(mb: number): string {
 const useStyles = makeStyles((colors) => ({
   content: { gap: 24, paddingTop: 16 },
   flex: { flex: 1 },
-  planCard: { gap: 6, padding: 20, borderRadius: radius.md, backgroundColor: colors.chatBubbleMine },
+  planCard: { gap: 6, padding: 20, paddingRight: 96, borderRadius: radius.md },
+  mark: { position: 'absolute', top: 12, right: 12, width: 72, height: 72 },
   section: { gap: 8 },
   usageCard: { gap: 18, padding: 16, borderRadius: radius.md, backgroundColor: colors.card },
   row: { gap: 8 },

@@ -29,6 +29,7 @@ import { badgeSprite } from '@/features/map/spriteClock';
 import { SPRITES } from '@/features/map/sprites';
 import { statusText, type MovementStatus } from '@/features/map/statusText';
 import { TrackingPrompt } from '@/features/location/TrackingPrompt';
+import { ActiveSosBanner } from '@/features/sos/ActiveSosBanner';
 import { WeatherBadge } from '@/features/weather/WeatherBadge';
 import { useWeather } from '@/features/weather/useWeather';
 import { AdBanner } from '@/features/ads/AdBanner';
@@ -570,6 +571,11 @@ export default function MapScreen() {
           </View>
         </View>
 
+        {/* 대표 리포트 4차: 보낸 SOS 가 끝나지 않았으면 여기서 바로 '상황 종료' (앱을 다시 켜도 서버 기록으로 나옵니다) */}
+        <View style={styles.sosBanner}>
+          <ActiveSosBanner />
+        </View>
+
         {hiding ? (
           <View style={overlayStyles.hideBar}>
             <Pressable accessibilityRole="button" onPress={() => router.push('/settings/hide-mode')} hitSlop={6} style={styles.hideBarLabel}>
@@ -838,6 +844,7 @@ const useStyles = makeStyles((colors) => ({
   topButtons: { alignItems: 'flex-end', gap: 12, paddingTop: 8 },
   // 피그마 v3.1 지도 메인 (953 폭 → 402): SOS 251 → 약 88, 내위치·로드뷰 약 72. 그림 자체에 바닥 그림자가 있어 바탕을 깔지 않습니다
   sosButton: { width: 88, height: 88, marginTop: 8, marginLeft: -6 },
+  sosBanner: { paddingHorizontal: layout.screenPadding },
   sosIcon: { width: 88, height: 88 },
   clayButton: { width: 72, height: 72, marginRight: -6 },
   clayIcon: { width: 72, height: 72 },

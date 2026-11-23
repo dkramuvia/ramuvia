@@ -98,6 +98,9 @@ export const NaverMapImpl = forwardRef<MapImplHandle, MapImplProps>(function Nav
         isNightModeEnabled={nightMode}
         // 네이버 지도의 실시간 교통정보 레이어. 건물 레이어는 기본값(켜짐)을 지킵니다
         layerGroups={{ BUILDING: true, TRAFFIC: !!traffic, TRANSIT: false, BICYCLE: false, MOUNTAIN: false, CADASTRAL: false }}
+        // 대표 리포트 4차: 네이버 나침반이 왼쪽 위, 지도 탭 SOS 버튼 밑에 그려져 나침반을 누르면 SOS 화면이 열렸습니다.
+        // 구글·Mapbox 는 이미 꺼 두었습니다
+        isShowCompass={false}
         isShowScaleBar={false}
         isShowZoomControls={false}
         isShowLocationButton={false}

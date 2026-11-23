@@ -1,3 +1,4 @@
+import { ToastHost } from '@/components/ui/ToastHost';
 import '@/i18n';
 // 안드로이드가 앱을 백그라운드에서 깨울 때 위치 수집 태스크가 등록되어 있어야 합니다 (화면보다 먼저 import)
 import '@/features/location/backgroundTask';
@@ -74,6 +75,7 @@ export default function RootLayout() {
             </Stack.Protected>
           </Stack>
           <SessionEndedPopup />
+          <ToastHost />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

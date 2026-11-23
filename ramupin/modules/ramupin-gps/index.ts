@@ -17,6 +17,7 @@ type GpsNative = {
   startActivityUpdates(intervalMs: number): Promise<boolean>;
   stopActivityUpdates(): Promise<boolean>;
   getActivity(): ActivityStatus | null;
+  getBackgroundState?(): { restricted: boolean; optimized: boolean };
 };
 
 let native: GpsNative | null = null;
@@ -92,6 +93,18 @@ export async function stopActivityUpdates(): Promise<void> {
 export function getActivity(): ActivityStatus | null {
   try {
     return native?.getActivity() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 백그라운드 실행 상태 (대표 리포트 4차). restricted = 배터리 '제한' 이라 화면이 꺼지면 위치가 안 감.
+ * 모듈이 없는 옛 빌드·아이폰은 null
+ */
+export function getBackgroundState(): { restricted: boolean; optimized: boolean } | null {
+  try {
+    return native?.getBackgroundState?.() ?? null;
   } catch {
     return null;
   }

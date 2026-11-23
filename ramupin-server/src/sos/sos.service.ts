@@ -99,7 +99,7 @@ export class SosService {
         .insertInto('member.sos_deliveries')
         .values(recipients.map((id) => ({ sos_id: event.id, recipient_user_id: id })))
         .execute();
-      await this.notify(recipients, event.id, userId, me.nickname, input);
+      await this.notify(recipients, event.id, userId, me.nickname, input, event.created_at);
       // 누른 곳을 수신인에게 넘겼으므로 확인자료로 남깁니다 (위치정보법). 기록이 실패해도 SOS 는 이미 갔습니다
       if (input.latitude != null || input.placeName != null || input.placeAddress != null) {
         await this.location.logProvided(userId, recipients, 'sos').catch((error: unknown) => this.logger.error(`SOS 위치 제공 기록 실패: ${String(error)}`));
@@ -126,7 +126,8 @@ export class SosService {
     // 1인 가구 안심 모드: 적어 둔 기관 연락처에도 위치 링크 문자 (인원 한도와 별도, 보완 4.2). 기다리지 않습니다
     void this.solo.notifyAgencies(userId, sosSmsText(me.nickname, { ...input }), 'SOS 기관');
 
-    return { sosId: event.id, recipientCount: recipients.length, smsCount, toMonitoring };
+    // 대표 리포트 4차: 전송됨 화면과 SOS 기록의 시각이 달랐습니다(앱 시계 vs 누른 시각). 서버가 받은 시각 하나로 맞춥니다
+    return { sosId: event.id, recipientCount: recipients.length, smsCount, toMonitoring, createdAt: event.created_at.toISOString() };
   }
 
   /** 카운트다운 중 취소. 이미 보낸 건도 "취소됨"으로 바꿔 수신인에게 알립니다 */
@@ -143,8 +144,10 @@ export class SosService {
 
     const recipients = await this.deliveredTo(sosId);
     if (recipients.length > 0) {
-      // 놀란 사람들에게 "괜찮다"를 알려 주는 것도 중요합니다
-      this.gateway.emitSos(recipients, { sosId, status: 'cancelled' });
+      // 놀란 사람들에게 "괜찮다"를 알려 주는 것도 중요합니다.
+      // 대표 리포트 4차: 받는 앱이 누가 취소했는지 화면에 띄울 수 있게 이름·장소·시각을 함께 보냅니다
+      const ended = await this.endedPayload(sosId, 'cancelled');
+      this.gateway.emitSos(recipients, ended);
       await this.push
         .sendToUsers(recipients, {
           title: '라무핀',
@@ -176,12 +179,13 @@ export class SosService {
 
     const recipients = await this.deliveredTo(sosId);
     if (recipients.length > 0) {
-      const me = await this.db.selectFrom('member.users').select('nickname').where('id', '=', userId).executeTakeFirst();
-      this.gateway.emitSos(recipients, { sosId, status: 'resolved' });
+      // 대표 리포트 4차: 받는 쪽 앱이 켜져 있으면 "○○님이 안전하다고 알렸어요" 를 화면에 띄웁니다 (예전에는 기록만 바뀜)
+      const ended = await this.endedPayload(sosId, 'resolved');
+      this.gateway.emitSos(recipients, ended);
       await this.push
         .sendToUsers(recipients, {
           title: '라무핀',
-          body: `${me?.nickname ?? '친구'}님이 안전하다고 알렸습니다.`,
+          body: `${ended.nickname || '친구'}님이 안전하다고 알렸습니다.`,
           channel: 'sos',
           route: '/settings/history',
           data: { sosId, status: 'resolved' },
@@ -209,6 +213,9 @@ export class SosService {
         'e.status',
         'e.started_at as startedAt',
         'e.created_at as createdAt',
+        // 종료·취소 시각 (히스토리에서 '안전 확인됨' 상세에 씀, 대표 리포트 4차)
+        'e.resolved_at as resolvedAt',
+        'e.cancelled_at as cancelledAt',
         'd.read_at as readAt',
       ])
       .where('d.recipient_user_id', '=', userId)
@@ -358,6 +365,31 @@ export class SosService {
     return { recipients: [...ids].slice(0, limit), limit };
   }
 
+  /** 취소·종료 알림에 실을 내용: 누가, 원래 언제·어디서 보낸 SOS 였는지, 언제 끝났는지 */
+  private async endedPayload(sosId: string, status: 'cancelled' | 'resolved') {
+    const row = await this.db
+      .selectFrom('member.sos_events as e')
+      .innerJoin('member.users as u', 'u.id', 'e.user_id')
+      .select(['e.user_id', 'u.nickname', ...SOS_PLACE_COLUMNS, 'e.started_at', 'e.created_at', 'e.cancelled_at', 'e.resolved_at'])
+      .where('e.id', '=', sosId)
+      .executeTakeFirstOrThrow();
+    const place = withSosPlace(row);
+    const endedAt = (status === 'resolved' ? row.resolved_at : row.cancelled_at) ?? new Date();
+    return {
+      sosId,
+      status,
+      userId: row.user_id,
+      nickname: row.nickname,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      startedAt: row.started_at.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      endedAt: endedAt.toISOString(),
+    };
+  }
+
   private async deliveredTo(sosId: string): Promise<string[]> {
     const rows = await this.db
       .selectFrom('member.sos_deliveries')
@@ -367,7 +399,7 @@ export class SosService {
     return rows.map((r) => r.recipient_user_id);
   }
 
-  private async notify(recipients: string[], sosId: string, userId: string, nickname: string, input: SosInput) {
+  private async notify(recipients: string[], sosId: string, userId: string, nickname: string, input: SosInput, createdAt: Date) {
     const where = input.placeName ?? input.placeAddress ?? '위치 확인 필요';
     // 피그마 v3.1 SOS 팝업: 받은 사람이 [전화걸기]로 바로 걸 수 있게 보낸 사람 번호를 함께 보냅니다.
     // 보낸 사람이 직접 고른 받는 사람에게만 가고, 꺼낼 때마다 조회 이력이 남습니다
@@ -383,6 +415,8 @@ export class SosService {
       placeName: input.placeName,
       placeAddress: input.placeAddress,
       startedAt: input.startedAt.toISOString(),
+      // 대표 리포트 4차: 보낸 사람 화면·SOS 기록과 같은 시각을 쓰도록 서버가 받은 시각도 보냅니다
+      createdAt: createdAt.toISOString(),
       // 팝업에 "음성 있음"을 표시할지. 녹음 업로드가 실패해도 SOS 는 보냅니다
       hasAudio: input.audioAssetId != null,
     });

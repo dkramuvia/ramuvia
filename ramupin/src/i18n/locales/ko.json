@@ -519,7 +519,8 @@
       "x": "X",
       "facebook": "페이스북",
       "dev": "개발용"
-    }
+    },
+    "currentName": "현재 사용 중인 이름이에요"
   },
   "history": {
     "all": "전체",
@@ -609,7 +610,28 @@
     "namesMore": "{{names}} 외 {{count}}명",
     "overLimit": "받는 사람이 {{count}}명으로 요금제 한도({{limit}}명)를 넘어 {{limit}}명에게만 전송돼요.",
     "call112": "112 신고",
-    "call119": "119 신고"
+    "call119": "119 신고",
+    "resolveConfirmTitle": "상황을 종료할까요?",
+    "resolveConfirmMessage": "받은 사람에게 '안전해요' 알림이 가요.",
+    "resolveConfirm": "종료하기",
+    "resolvedDone": "상황을 종료했어요. 받은 사람에게 안전 알림을 보냈어요.",
+    "resolveFailed": "상황 종료를 보내지 못했어요. 다시 시도해 주세요.",
+    "resolveShort": "상황 종료",
+    "activeBanner": "SOS 도움 요청 중 · {{time}}",
+    "locationSentAt": "위치 전송됨 · {{time}}",
+    "resolvedPopupTitle": "{{name}}님이 안전하다고 알렸어요",
+    "resolvedPopupMessage": "SOS 상황이 종료되었어요.",
+    "cancelledPopupTitle": "{{name}}님이 SOS를 취소했어요",
+    "cancelledPopupMessage": "잘못 누른 SOS 였어요. 걱정하지 않으셔도 돼요.",
+    "endedAt": "안전 알림 시각: {{time}}",
+    "cancelledAt": "취소 시각: {{time}}",
+    "originalSentAt": "SOS 보낸 시각: {{time}}",
+    "originalPlace": "SOS 위치: {{place}}",
+    "statusEnded": "상태: 종료",
+    "contactLockedTitle": "플래티넘부터 쓸 수 있어요",
+    "contactFullTitle": "한도가 찼어요",
+    "seePlans": "요금제 보기",
+    "voiceLoading": "불러오는 중…"
   },
   "alerts": {
     "sosTitle": "{{name}}님의 SOS 긴급 발신",
@@ -663,7 +685,13 @@
     "detailAltitude": "고도: {{altitude}} m",
     "detailDate": "전송일자: {{date}}",
     "detailTime": "전송시간: {{time}}",
-    "detailPhone": "전화번호: {{phone}}"
+    "detailPhone": "전화번호: {{phone}}",
+    "unknown": "정보 없음",
+    "batteryTitleUnknown": "{{name}}님의 배터리가 얼마 남지 않았습니다.",
+    "batteryInfoText": "현재 배터리: {{level}}\n예상 남은 시간: {{minutes}}",
+    "minutes": "{{count}}분",
+    "noMovementTitleUnknown": "{{name}}님의 움직임이 오랫동안 감지되지 않았습니다.",
+    "noMovementInfoUnknown": "마지막 감지 시간: 정보 없음\n움직임 상태: 없음"
   },
   "hideMode": {
     "hideAll": "모든 친구에게 내 위치 숨기기",
@@ -759,7 +787,10 @@
     "usage": "장소 {{limit}}개 중 {{used}}개 사용",
     "limitReachedUpgrade": "장소는 {{limit}}개까지 저장할 수 있어요. 프리미엄으로 바꾸면 더 저장할 수 있어요.",
     "expandPanel": "목록 펼치기",
-    "collapsePanel": "목록 접기"
+    "collapsePanel": "목록 접기",
+    "needName": "장소 이름을 입력해 주세요",
+    "needAddress": "지도에서 위치를 골라 주세요",
+    "menu": "메뉴"
   },
   "safety": {
     "sosEnabled": "SOS 사용 설정",
@@ -1113,7 +1144,8 @@
     "sent": "전송했습니다",
     "disclosureTitle": "앱을 보고 있지 않을 때도 위치를 씁니다",
     "disclosureMessage": "라무핀은 앱이 닫혀 있거나 사용 중이 아닐 때도 위치 정보를 모아, 가족·친구와 서로의 안전을 확인하고 위험 지역 접근과 긴급 상황을 알려 드려요.\n\n다음 화면에서 \"항상 허용\"을 선택해 주세요. 이 기능은 언제든지 여기서 끌 수 있어요.",
-    "interval": "지금 수집 주기"
+    "interval": "지금 수집 주기",
+    "queuedCount": "{{count}}개"
   },
   "sosReceived": {
     "title": "{{name}}님의 SOS",
@@ -1347,7 +1379,9 @@
     "save": "저장",
     "stop": "안심 모드 끄기",
     "started": "안심 모드를 시작했어요.",
-    "stopped": "안심 모드를 껐어요."
+    "stopped": "안심 모드를 껐어요.",
+    "needContact": "연계기관 연락처를 입력해 주세요",
+    "needConsent": "안내 내용에 동의해 주세요"
   },
   "guardian": {
     "screenTitle": "보호자 동의",
@@ -1374,5 +1408,11 @@
   "locationViews": {
     "title": "위치 확인 기록",
     "empty": "아직 기록이 없어요."
+  },
+  "bgRestrict": {
+    "title": "라무핀이 백그라운드에서 멈춰 있어요",
+    "message": "휴대폰 배터리 설정에서 라무핀이 '제한'으로 되어 있어, 화면을 끄면 위치가 친구에게 가지 않아요.\n설정 › 배터리에서 '제한 없음'으로 바꿔 주세요.",
+    "open": "설정 열기",
+    "later": "나중에"
   }
 }

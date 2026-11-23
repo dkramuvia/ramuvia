@@ -1,6 +1,7 @@
 package expo.modules.ramupingps
 
 import android.Manifest
+import android.app.ActivityManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,7 @@ import android.location.GnssStatus
 import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
+import android.os.PowerManager
 import com.google.android.gms.location.ActivityRecognition
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
@@ -36,6 +38,19 @@ class RamupinGpsModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("RamupinGps")
+
+    /**
+     * 백그라운드 실행 상태 (대표 리포트 4차: 삼성 배터리 설정 '제한'이면 화면을 끈 뒤 위치가 안 가서
+     * 친구에게 "30분 동안 확인되지 않아요" 가 쌓였는데, 앱이 그걸 알려 주지 않았습니다).
+     * restricted = 설정 › 앱 › 배터리 '제한' (안드로이드 9+), optimized = 배터리 최적화 대상(제외 안 됨)
+     */
+    Function("getBackgroundState") {
+      val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+      val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+      val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && am.isBackgroundRestricted
+      val optimized = !pm.isIgnoringBatteryOptimizations(context.packageName)
+      mapOf("restricted" to restricted, "optimized" to optimized)
+    }
 
     /**
      * 위성 상태 구독 시작. 위치 권한이 있어야 합니다.

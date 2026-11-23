@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppText } from './AppText';
+import { showToast } from '@/utils/toast';
 import { radius, useColors, type Palette, type TypographyName } from '@/theme';
 
 /**
@@ -48,6 +49,11 @@ interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * 꺼져 있을 때 눌렀을 때의 안내 (대표 리포트 4차: 꺼진 버튼을 눌러도 아무 반응이 없어 고장처럼 보임).
+   * 주면 꺼진 모양은 그대로 두고, 누르면 이 문구를 잠깐 보여 줍니다
+   */
+  disabledHint?: string;
 }
 
 export function Button({
@@ -59,6 +65,8 @@ export function Button({
   rightIcon,
   disabled,
   style,
+  disabledHint,
+  onPress,
   ...rest
 }: ButtonProps) {
   const colors = useColors();
@@ -70,11 +78,12 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
+      disabled={disabled && !disabledHint}
+      onPress={disabled ? () => disabledHint && showToast(disabledHint) : onPress}
       style={({ pressed }) => [
         styles.base,
         { backgroundColor: v.bg, height: s.height, paddingHorizontal: s.paddingHorizontal, borderRadius },
-        pressed && styles.pressed,
+        pressed && !disabled && styles.pressed,
         style,
       ]}
       {...rest}

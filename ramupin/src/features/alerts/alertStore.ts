@@ -7,11 +7,16 @@ import type { HistoryCategory, HistoryEventType, SharedPlace } from '@/types/mod
 
 /** 피그마 [설정 2 > 알림] 긴급 팝업 6종 */
 export type AlertPopupPayload =
-  | { kind: 'sos'; sosId?: string; name: string; avatarUrl?: string; place: SharedPlace; sentAt: string; hasVoice: boolean; altitude?: number; phone?: string }
+  /**
+   * status 'resolved'(안전함) · 'cancelled'(취소): 끝난 SOS 를 보여 줄 때. 전화 버튼 없이 [확인]만 (대표 리포트 4차).
+   * endedAt = 안전 알림·취소 시각, sentAt = 원래 SOS 를 보낸 시각
+   */
+  | { kind: 'sos'; sosId?: string; name: string; avatarUrl?: string; place: SharedPlace; sentAt: string; hasVoice: boolean; altitude?: number; phone?: string; status?: 'sent' | 'resolved' | 'cancelled'; endedAt?: string }
   | { kind: 'dangerZone'; zoneName: string; place: SharedPlace }
-  | { kind: 'gpsLost'; name: string; place: SharedPlace; lastSeenAt: string }
-  | { kind: 'batteryLow'; name: string; level: number; minutesLeft: number }
-  | { kind: 'noMovement'; name: string; hours: number }
+  // null = 모름 (히스토리에서 다시 열 때 값이 없는 경우. 화면에는 '정보 없음')
+  | { kind: 'gpsLost'; name: string; place: SharedPlace | null; lastSeenAt: string }
+  | { kind: 'batteryLow'; name: string; level: number | null; minutesLeft: number | null }
+  | { kind: 'noMovement'; name: string; hours: number | null }
   | { kind: 'speeding'; speedKmh: number };
 
 /** 피그마 앱 안 알림 카드 (100m 반경 친구 접근 등) */
@@ -76,6 +81,9 @@ function saveToInbox(popup: AlertPopupPayload) {
   const message = (() => {
     switch (popup.kind) {
       case 'sos':
+        // 끝난 SOS 를 "SOS 긴급 발신"으로 남기면 히스토리에서 긴급 화면이 다시 열립니다 (대표 리포트 4차)
+        if (popup.status === 'resolved') return t('sos.resolvedPopupTitle', { name: popup.name });
+        if (popup.status === 'cancelled') return t('sos.cancelledPopupTitle', { name: popup.name });
         return t('alerts.sosTitle', { name: popup.name });
       case 'dangerZone':
         return t('alerts.dangerTitle');

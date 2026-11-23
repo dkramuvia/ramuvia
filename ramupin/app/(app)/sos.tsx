@@ -3,13 +3,13 @@ import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, 
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Animated, Easing, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, BackHandler, Easing, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sosApi, type SendSosResult, type SosDeliveries } from '@/api/endpoints/sos';
@@ -20,6 +20,7 @@ import { describePlace } from '@/features/location/address';
 import { setSosMode } from '@/features/location/sosMode';
 import { usePlan } from '@/features/policy/usePlan';
 import { useSafetySetting } from '@/features/settings/queries';
+import { useResolveSosConfirm } from '@/features/sos/ResolveSosConfirm';
 import { SlideToCancel } from '@/features/sos/SlideToCancel';
 import { countSosRecipients } from '@/features/sos/recipientCount';
 import { openOfflineSosSms } from '@/features/sos/sosContactsSnapshot';
@@ -65,6 +66,8 @@ export default function SosScreen() {
   const nickname = useAuthStore((s) => s.user?.nickname ?? '');
   const recipients = useRecipientSummary();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const queryClient = useQueryClient();
+  const resolveConfirm = useResolveSosConfirm();
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
@@ -77,6 +80,11 @@ export default function SosScreen() {
   /** 전송 완료 화면에 "무엇을 보냈는지" 를 그대로 보여 줍니다 (피그마 2026-09-28) */
   const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
   const [micDenied, setMicDenied] = useState(false);
+  /**
+   * 서버가 SOS 를 받은 시각. 녹음하는 동안 "위치 전송됨 · 오전 8:22" 로 보여 줍니다.
+   * 대표 리포트 4차: 녹음 중에도 숫자가 줄어들어 "아직 안 보냈다"로 보였는데 받는 쪽에는 이미 경보가 떠 있었습니다
+   */
+  const [locationSentAt, setLocationSentAt] = useState<string | null>(null);
   /** 위치 전송 결과. 녹음하는 동안 이미 보내 두고, 녹음이 끝나면 이 SOS 에 붙입니다 */
   const sendPromise = useRef<Promise<SentResult> | null>(null);
 
@@ -89,7 +97,19 @@ export default function SosScreen() {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
   };
-  useEffect(() => clearTimer, []);
+  const phaseRef = useRef<Phase>('idle');
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+  useEffect(
+    () => () => {
+      clearTimer();
+      // 대표 리포트 4차: 카운트다운 중에 화면을 벗어나면(뒤로 가기·앱 종료) 아무것도 보내지 않습니다.
+      // 누를 때 켠 촘촘한 위치 수집(SOS 모드)도 같이 끕니다 — 예전에는 30분 동안 켜진 채 남았습니다
+      if (phaseRef.current === 'countdown') void setSosMode(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (phase !== 'recording') return;
@@ -151,6 +171,9 @@ export default function SosScreen() {
       setRecipientCount(result.recipientCount);
       setToMonitoring(result.toMonitoring);
       setSosId(result.sosId);
+      setLocationSentAt(result.createdAt ?? new Date().toISOString());
+      // 지도 'SOS 도움 요청 중' 띠·SOS 기록이 바로 알도록
+      void queryClient.invalidateQueries({ queryKey: ['sos', 'sent'] });
       return { kind: 'ok', result, position, place, coords };
     } catch (error) {
       // 서버에 닿지 못했을 때만(인터넷 끊김) 문자 창을 엽니다 (C1·C9)
@@ -208,7 +231,8 @@ export default function SosScreen() {
       latitude: sent.position?.coords.latitude ?? null,
       longitude: sent.position?.coords.longitude ?? null,
       altitude: sent.position?.coords.altitude ?? null,
-      sentAt: new Date(),
+      // 대표 리포트 4차: 전송됨 화면(앱 시계, 녹음 끝난 뒤)과 SOS 기록(누른 시각)이 달랐습니다 → 서버가 받은 시각 하나로
+      sentAt: sent.kind === 'ok' && sent.result.createdAt ? new Date(sent.result.createdAt) : new Date(),
       recorded: audioAttached,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -219,10 +243,13 @@ export default function SosScreen() {
    * 상황 종료 (안전함). 받은 사람들에게 안전하다고 알리고 SOS 수집 모드를 끕니다.
    * 예전에는 화면만 닫아서 받은 사람에게 아무것도 안 가고, 폰은 30분 동안 가장 촘촘하게 수집했습니다 (10-13)
    */
-  const resolve = async () => {
-    await setSosMode(false);
-    if (sosId) await sosApi.resolve(sosId).catch(() => undefined);
-    router.back();
+  const resolve = () => {
+    // 대표 리포트 4차: 한 번 누르면 확인 없이 바로 끝났습니다 → 먼저 묻습니다
+    if (sosId) resolveConfirm.ask(sosId, () => router.back());
+    else {
+      void setSosMode(false);
+      router.back();
+    }
   };
 
   const cancel = async () => {
@@ -238,9 +265,26 @@ export default function SosScreen() {
     sendPromise.current = null;
     if (sent?.kind === 'ok') await sosApi.cancel(sent.result.sosId).catch(() => undefined);
     await setSosMode(false);
+    setLocationSentAt(null);
+    void queryClient.invalidateQueries({ queryKey: ['sos', 'sent'] });
     setPhase('idle');
     setCancelledBanner(true);
   };
+
+  // 대표 리포트 4차: 카운트다운·녹음 중 뒤로 가기는 "취소"로 봅니다. 그냥 화면만 닫히면
+  // 카운트다운 SOS 는 조용히 사라지고, 녹음 중이면 받은 사람은 경보가 뜬 채로 남았습니다
+  const cancelRef = useRef(cancel);
+  useEffect(() => {
+    cancelRef.current = cancel;
+  });
+  useEffect(() => {
+    if (phase !== 'countdown' && phase !== 'recording') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      void cancelRef.current();
+      return true;
+    });
+    return () => sub.remove();
+  }, [phase]);
 
   const longPress = safety?.longPressStart !== false;
 
@@ -334,11 +378,18 @@ export default function SosScreen() {
           sentInfo={sentInfo}
           emergencyName={safety?.emergencyName ?? null}
           emergencyNumber={safety?.emergencyNumber ?? null}
-          onResolve={() => void resolve()}
+          onResolve={resolve}
         />
       ) : (
         <>
           <View style={styles.darkTexts}>
+            {phase !== 'countdown' && locationSentAt ? (
+              <View style={styles.sentBadgeCenter}>
+                <AppText variant="label1Bold" color={colors.white}>
+                  {t('sos.locationSentAt', { time: formatTimeOfDay(locationSentAt) })}
+                </AppText>
+              </View>
+            ) : null}
             <AppText variant="title2" color={colors.white} align="center">
               {t(phase === 'countdown' ? 'sos.requestTitle' : 'sos.recordingTitle')}
             </AppText>
@@ -403,6 +454,7 @@ export default function SosScreen() {
           ) : null}
         </>
       )}
+      {resolveConfirm.popup}
     </SafeAreaView>
   );
 }
@@ -670,6 +722,7 @@ const useStyles = makeStyles((colors) => ({
   deliveryStatus: { alignItems: 'flex-end', gap: 2 },
   underline: { textDecorationLine: 'underline' },
   sentBadge: { alignSelf: 'flex-start', borderRadius: radius.full, backgroundColor: colors.danger, paddingHorizontal: 14, paddingVertical: 4 },
+  sentBadgeCenter: { alignSelf: 'center', borderRadius: radius.full, backgroundColor: colors.danger, paddingHorizontal: 14, paddingVertical: 4 },
   sentFacts: { gap: 4, marginTop: 8 },
   recipientsBox: { marginTop: 24, paddingHorizontal: 32, gap: 6 },
   sentActions: { marginTop: 24, gap: 10 },

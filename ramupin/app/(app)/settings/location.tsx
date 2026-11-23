@@ -107,7 +107,7 @@ export default function LocationSettingsScreen() {
       <View style={styles.card}>
         <AppText variant="title4">{t('locationSettings.status')}</AppText>
         {/* 대표 리포트 48: 수집 주기는 서버 설정값이라 사용자에게 보이지 않게 뺐습니다 */}
-        <Row label={t('locationSettings.queued')} value={stats ? `${stats.count}개` : '-'} />
+        <Row label={t('locationSettings.queued')} value={stats ? t('locationSettings.queuedCount', { count: stats.count }) : '-'} />
         <Row label={t('locationSettings.oldest')} value={stats?.oldest ? timeText(stats.oldest) : '-'} />
         <Row label={t('locationSettings.newest')} value={stats?.newest ? timeText(stats.newest) : '-'} />
         <AppText variant="label2" color={colors.textMuted}>

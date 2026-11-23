@@ -1,5 +1,4 @@
 import type { AlertPopupPayload, InAppCardPayload } from './alertStore';
-import type { HistoryEvent } from '@/types/models';
 
 /**
  * 서버 연동 전 알림 화면 확인용 샘플 (개발용 미리보기, 히스토리 항목 탭).
@@ -24,23 +23,3 @@ export const SAMPLE_CARDS: Omit<InAppCardPayload, 'id'>[] = [
   { kind: 'leave', name: 'Hyunjin001', place: '제부도', href: '/journey/f1' },
   { kind: 'shared', name: 'Hyunjin001', place: '화성시 제부도', href: '/chat/room1' },
 ];
-
-/** 히스토리 항목을 눌렀을 때 보여줄 팝업 */
-export function popupForHistory(event: HistoryEvent): AlertPopupPayload | null {
-  switch (event.type) {
-    case 'sos':
-      return { ...SAMPLE_POPUPS[0], sentAt: event.createdAt } as AlertPopupPayload;
-    case 'batteryLow':
-      return SAMPLE_POPUPS[3];
-    case 'gpsLost':
-      return SAMPLE_POPUPS[2];
-    case 'noMovement':
-      return SAMPLE_POPUPS[4];
-    case 'speeding':
-      return SAMPLE_POPUPS[5];
-    case 'dangerZone':
-      return SAMPLE_POPUPS[1];
-    default:
-      return null;
-  }
-}

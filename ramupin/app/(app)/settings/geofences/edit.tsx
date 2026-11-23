@@ -273,6 +273,7 @@ export default function GeofenceEditScreen() {
           variant="brownLight"
           size="lg"
           disabled={!name.trim() || !address || save.isPending}
+          disabledHint={save.isPending ? undefined : !name.trim() ? t('geofence.needName') : t('geofence.needAddress')}
           onPress={alertOn ? onNext : onSave}
         />
       </SafeAreaView>

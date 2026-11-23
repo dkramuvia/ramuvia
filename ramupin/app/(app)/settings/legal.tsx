@@ -1,12 +1,9 @@
-import * as WebBrowser from 'expo-web-browser';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet } from 'react-native';
 
 import { MenuItem, Screen } from '@/components/ui';
-import { LINKS } from '@/config/links';
-
-/** 홈페이지 약관 페이지의 article id. 주소 뒤 #id 로 열면 그 문서만 펼쳐 보여 줍니다 */
-const DOCS = ['terms', 'location-terms', 'privacy', 'location-privacy', 'child', 'payment'] as const;
+import { LEGAL_DOCS } from '@/features/legal/docs';
 
 /**
  * 약관 및 정책 (피그마 v2.6 1041 '법적문제 › 법적내용', 대표 리포트 2차 '법적문제').
@@ -16,8 +13,9 @@ export default function LegalScreen() {
   const { t } = useTranslation();
   return (
     <Screen title={t('legal.title')} tab="map" contentStyle={styles.content}>
-      {DOCS.map((id) => (
-        <MenuItem key={id} label={t(`legal.doc.${id}`)} onPress={() => void WebBrowser.openBrowserAsync(`${LINKS.policyPage}#${id}`)} />
+      {/* 대표 리포트 4차: 브라우저로 열면 문서 제목이 가려져 모두 같은 문서로 보였습니다 → 앱 안 화면(legal-doc)에서 문서 이름과 함께 */}
+      {LEGAL_DOCS.map((id) => (
+        <MenuItem key={id} label={t(`legal.doc.${id}`)} onPress={() => router.push({ pathname: '/settings/legal-doc', params: { id } })} />
       ))}
     </Screen>
   );

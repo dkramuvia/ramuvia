@@ -32,7 +32,11 @@ interface ServerSos {
   placeName: string | null;
   placeAddress: string | null;
   startedAt: string;
+  /** 서버가 받은 시각 = 보낸 사람 화면·SOS 기록의 보낸 시각 (대표 리포트 4차). 예전 서버는 안 보냅니다 */
+  createdAt?: string;
   status?: 'sent' | 'cancelled' | 'resolved';
+  /** 취소·종료 시각 (대표 리포트 4차, 예전 서버는 안 보냅니다) */
+  endedAt?: string;
   hasAudio?: boolean;
   /** 이미 보낸 SOS 에 녹음이 붙었다는 알림 */
   audioAdded?: boolean;
@@ -86,8 +90,30 @@ function connect(token: string) {
   // 친구가 SOS 를 눌렀을 때 (WBS 7.9). 누구에게 보낼지는 서버가 정합니다
   socket.on('sos', (payload: ServerSos) => {
     queryClient.invalidateQueries({ queryKey: ['sos', 'received'] });
-    // 취소 알림은 팝업을 띄우지 않습니다 — 이미 지나간 일이라 놀라게만 합니다
-    if (payload.status === 'cancelled' || payload.status === 'resolved') return;
+    if (payload.status === 'cancelled' || payload.status === 'resolved') {
+      // 대표 리포트 4차: 상황 종료 뒤 받는 쪽 화면에는 아무것도 안 떠서 기록 상태만 바뀌었습니다.
+      // 열려 있던 긴급 팝업을 "안전하다고 알렸어요 / 취소했어요" 로 바꿔 띄웁니다 (전화 버튼 없음).
+      // 예전 서버는 이름 없이 sosId·status 만 보내므로, 그때는 열려 있던 팝업만 바꿉니다
+      const store = useAlertStore.getState();
+      const open = store.popup?.kind === 'sos' && store.popup.sosId === payload.sosId ? store.popup : null;
+      if (!payload.nickname && !open) return;
+      store.showPopup({
+        kind: 'sos',
+        sosId: payload.sosId,
+        name: payload.nickname || open?.name || '',
+        place: open?.place ?? {
+          placeName: payload.placeName ?? undefined,
+          address: payload.placeAddress ?? '',
+          latitude: payload.latitude ?? 0,
+          longitude: payload.longitude ?? 0,
+        },
+        sentAt: open?.sentAt ?? payload.createdAt ?? payload.startedAt,
+        hasVoice: false,
+        status: payload.status,
+        endedAt: payload.endedAt ?? new Date().toISOString(),
+      });
+      return;
+    }
     // 위치를 먼저 보내고 녹음은 뒤에 붙습니다 (대표 리포트 88). 같은 SOS 팝업이 떠 있으면 듣기 버튼만 켭니다
     if (payload.audioAdded) {
       const store = useAlertStore.getState();
@@ -105,7 +131,7 @@ function connect(token: string) {
         latitude: payload.latitude ?? 0,
         longitude: payload.longitude ?? 0,
       },
-      sentAt: payload.startedAt,
+      sentAt: payload.createdAt ?? payload.startedAt,
       hasVoice: payload.hasAudio ?? false,
       altitude: payload.altitude ?? undefined,
       phone: payload.phone ?? undefined,

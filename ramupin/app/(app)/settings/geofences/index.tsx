@@ -173,7 +173,7 @@ export default function GeofencesScreen() {
                     {g.enabled ? '' : ` · ${t('geofence.disabled')}`}
                   </AppText>
                 </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="메뉴" hitSlop={10} onPress={() => setMenuId(menuId === g.id ? null : g.id)}>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('geofence.menu')} hitSlop={10} onPress={() => setMenuId(menuId === g.id ? null : g.id)}>
                   <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
                 </Pressable>
               </View>

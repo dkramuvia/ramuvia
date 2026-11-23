@@ -16,6 +16,8 @@ declare class RamupinGpsModule extends NativeModule {
   stopActivityUpdates(): Promise<boolean>;
   /** 마지막으로 감지한 활동. 아직 못 받았으면 null */
   getActivity(): ActivityStatus | null;
+  /** 백그라운드 실행 제한·배터리 최적화 상태 */
+  getBackgroundState(): { restricted: boolean; optimized: boolean };
 }
 
 export default requireNativeModule<RamupinGpsModule>('RamupinGps');

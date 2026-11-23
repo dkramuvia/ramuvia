@@ -286,6 +286,10 @@ export interface HistoryEvent {
   category: HistoryCategory;
   message: string;
   createdAt: string;
+  /** 서버가 붙여 주는 상세 열쇠 (누구·어떤 SOS·이상징후 단계). 대표 리포트 4차 */
+  detail?: { userId?: string; nickname?: string; sosId?: string; status?: string; track?: string; stage?: string };
+  /** 기기에 남은 알림: 받을 때의 팝업·푸시 내용 */
+  payload?: unknown;
 }
 
 export interface HideModeSetting {

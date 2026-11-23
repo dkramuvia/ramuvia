@@ -20,6 +20,11 @@ export interface HistoryEvent {
   category: HistoryCategory;
   message: string;
   createdAt: string;
+  /**
+   * 눌렀을 때 상세를 실제 값으로 채우는 데 씁니다 (대표 리포트 4차: 상세 화면이 늘 예시 '지원님'이었음).
+   * userId·nickname = 알림의 주인공, sosId·status = SOS, track·stage = 이상징후
+   */
+  detail?: { userId?: string; nickname?: string; sosId?: string; status?: string; track?: string; stage?: string };
 }
 
 /** 한 번에 주는 최대 건수. 기기에 남은 것과 합치므로 넉넉하면 됩니다 */
@@ -45,7 +50,7 @@ export class HistoryService {
       .selectFrom('member.sos_deliveries as d')
       .innerJoin('member.sos_events as e', 'e.id', 'd.sos_id')
       .innerJoin('member.users as u', 'u.id', 'e.user_id')
-      .select(['e.id', 'u.nickname', 'e.status', 'e.created_at'])
+      .select(['e.id', 'e.user_id', 'u.nickname', 'e.status', 'e.created_at'])
       .where('d.recipient_user_id', '=', viewerId)
       .orderBy('e.created_at', 'desc')
       .limit(LIMIT)
@@ -56,6 +61,7 @@ export class HistoryService {
       category: 'safety' as const,
       message: r.status === 'cancelled' ? `${r.nickname}님이 SOS를 취소했어요` : `${r.nickname}님이 SOS를 보냈어요`,
       createdAt: r.created_at.toISOString(),
+      detail: { userId: r.user_id, nickname: r.nickname, sosId: r.id, status: r.status },
     }));
   }
 
@@ -82,6 +88,7 @@ export class HistoryService {
             ? 'SOS를 보냈어요 · 관제센터에 전송'
             : `SOS를 보냈어요 · ${r.recipient_count}명에게 전송`,
       createdAt: r.created_at.toISOString(),
+      detail: { userId: viewerId, sosId: r.id, status: r.status },
     }));
   }
 
@@ -118,7 +125,7 @@ export class HistoryService {
       .selectFrom('member.anomaly_events as a')
       .innerJoin('social.friendships as f', 'f.friend_id', 'a.user_id')
       .innerJoin('member.users as u', 'u.id', 'a.user_id')
-      .select(['a.id', 'a.track', 'a.stage', 'a.detected_at', 'u.nickname'])
+      .select(['a.id', 'a.user_id', 'a.track', 'a.stage', 'a.detected_at', 'u.nickname'])
       .where('f.user_id', '=', viewerId)
       .where('a.target', '=', 'friends')
       .orderBy('a.detected_at', 'desc')
@@ -130,6 +137,7 @@ export class HistoryService {
       category: 'safety' as const,
       message: anomalyMessage(r.nickname, r.track, r.stage),
       createdAt: r.detected_at.toISOString(),
+      detail: { userId: r.user_id, nickname: r.nickname, track: r.track, stage: r.stage },
     }));
   }
 }

@@ -1,17 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
-import { sosApi, type ReceivedSos, type SentSos } from '@/api/endpoints/sos';
+import type { ReceivedSos, SentSos } from '@/api/endpoints/sos';
 import { AppText, Avatar, QueryState, Screen, UnderlineTabs } from '@/components/ui';
-import { useReceivedSos } from '@/features/sos/queries';
+import { useReceivedSos, useSentSos } from '@/features/sos/queries';
+import { useResolveSosConfirm } from '@/features/sos/ResolveSosConfirm';
+import { formatSeconds, useSosVoice } from '@/features/sos/useSosVoice';
 import { useAuthStore } from '@/stores/authStore';
 import { makeStyles, radius, useColors } from '@/theme';
-import { showToast } from '@/utils/toast';
 import { formatDateTime } from '@/utils/time';
 
 type Tab = 'received' | 'sent';
@@ -27,9 +26,11 @@ export default function ReceivedSosScreen() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('received');
+  // 지도의 'SOS 도움 요청 중' 띠에서 오면 [보낸 SOS] 탭으로 엽니다
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>(params.tab === 'sent' ? 'sent' : 'received');
   const received = useReceivedSos();
-  const sent = useQuery({ queryKey: ['sos', 'sent'], queryFn: sosApi.sent, enabled: tab === 'sent' });
+  const sent = useSentSos(tab === 'sent');
   const active = tab === 'received' ? received : sent;
   const list = active.data ?? [];
 
@@ -83,6 +84,7 @@ function SentCard({ sos }: { sos: SentSos }) {
   const { t } = useTranslation();
   const myId = useAuthStore((s) => s.user?.id);
   const nickname = useAuthStore((s) => s.user?.nickname ?? '');
+  const confirm = useResolveSosConfirm();
   const to = sos.toMonitoring
     ? t('sosReceived.sentToMonitoring')
     : sos.recipientNames.length > 0
@@ -95,6 +97,10 @@ function SentCard({ sos }: { sos: SentSos }) {
       title={t('sosReceived.sentTitle')}
       subtitle={to}
       onPress={myId ? () => router.push(`/journey/${myId}`) : undefined}
+      // 대표 리포트 4차: 전송됨 화면을 벗어나면 끝낼 방법이 없어 '도움 요청 중'으로 계속 남았습니다
+      onResolve={sos.status === 'sent' ? () => confirm.ask(sos.id) : undefined}
+      resolving={confirm.pending}
+      extra={confirm.popup}
     />
   );
 }
@@ -106,12 +112,18 @@ function SosCard({
   title,
   subtitle,
   onPress,
+  onResolve,
+  resolving,
+  extra,
 }: {
   sos: ReceivedSos | SentSos;
   name: string;
   title: string;
   subtitle?: string;
   onPress?: () => void;
+  onResolve?: () => void;
+  resolving?: boolean;
+  extra?: ReactNode;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -143,7 +155,8 @@ function SosCard({
       </Pressable>
 
       <View style={styles.facts}>
-        <Fact label={t('sosReceived.factAt')} value={formatDateTime(sos.startedAt, { withYear: true, seconds: true })} />
+        {/* 대표 리포트 4차: 전송됨 화면과 같은 시각(서버가 받은 시각)으로 맞춥니다. 예전에는 누른 시각이라 20초쯤 달랐습니다 */}
+        <Fact label={t('sosReceived.factAt')} value={formatDateTime(sos.createdAt, { withYear: true, seconds: true })} />
         <Fact label={t('sosReceived.factPlace')} value={place ?? t('sosReceived.noPlace')} />
         {hasCoords ? <Fact label={t('sosReceived.factCoords')} value={`${sos.latitude!.toFixed(5)}, ${sos.longitude!.toFixed(5)}`} /> : null}
         {sos.altitude != null ? <Fact label={t('sosReceived.factAltitude')} value={`${Math.round(sos.altitude)} m`} /> : null}
@@ -165,8 +178,16 @@ function SosCard({
             </AppText>
           </Pressable>
         ) : null}
-        {sos.hasAudio ? <VoiceButton sosId={sos.id} /> : null}
+        {onResolve ? (
+          <Pressable accessibilityRole="button" disabled={resolving} onPress={onResolve} style={styles.resolveButton}>
+            <AppText variant="label2Bold" color={colors.white}>
+              {t('sos.resolveShort')}
+            </AppText>
+          </Pressable>
+        ) : null}
       </View>
+      {sos.hasAudio ? <VoicePlayer sosId={sos.id} /> : null}
+      {extra}
     </View>
   );
 }
@@ -187,67 +208,39 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** SOS 녹음 듣기 (AlertPopupHost 의 VoiceTile 과 같은 방식, 주소는 잠깐 뒤 만료되므로 누를 때 받습니다) */
-function VoiceButton({ sosId }: { sosId: string }) {
+/**
+ * SOS 녹음 듣기 (대표 리포트 4차: 눌러도 화면이 그대로였습니다).
+ * 불러오는 중 → 재생 중(진행 막대·시간·일시정지) → 끝, 실패하거나 녹음이 없으면 안내합니다 (useSosVoice)
+ */
+function VoicePlayer({ sosId }: { sosId: string }) {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const player = useRef<AudioPlayer | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(
-    () => () => {
-      player.current?.remove();
-      player.current = null;
-    },
-    [],
-  );
-
-  const toggle = async () => {
-    if (playing && player.current) {
-      player.current.pause();
-      setPlaying(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      if (!player.current) {
-        const url = await sosApi.audioUrl(sosId);
-        if (!url) {
-          showToast(t('alerts.voiceMissing'));
-          return;
-        }
-        await setAudioModeAsync({ playsInSilentMode: true });
-        const created = createAudioPlayer(url);
-        created.addListener('playbackStatusUpdate', (status) => {
-          if (status.didJustFinish) {
-            setPlaying(false);
-            void created.seekTo(0);
-          }
-        });
-        player.current = created;
-      }
-      player.current.play();
-      setPlaying(true);
-    } catch {
-      showToast(t('alerts.voiceFailed'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const voice = useSosVoice(sosId);
+  const active = voice.state !== 'idle';
   return (
-    <Pressable accessibilityRole="button" disabled={loading} onPress={() => void toggle()} style={styles.action}>
-      {loading ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <Ionicons name={playing ? 'pause-circle-outline' : 'play-circle-outline'} size={18} color={colors.primary} />
-      )}
-      <AppText variant="label2" color={colors.primary}>
-        {t(playing ? 'sosReceived.pauseVoice' : 'sosReceived.playVoice')}
-      </AppText>
-    </Pressable>
+    <View style={[styles.voice, active && styles.voiceActive]}>
+      <Pressable accessibilityRole="button" disabled={voice.state === 'loading'} onPress={() => void voice.toggle()} style={styles.action}>
+        {voice.state === 'loading' ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name={voice.state === 'playing' ? 'pause-circle' : 'play-circle'} size={28} color={colors.primary} />
+        )}
+        <AppText variant="label2" color={colors.primary}>
+          {voice.state === 'loading' ? t('sos.voiceLoading') : t(voice.state === 'playing' ? 'sosReceived.pauseVoice' : 'sosReceived.playVoice')}
+        </AppText>
+      </Pressable>
+      {active ? (
+        <View style={styles.voiceTrackRow}>
+          <View style={styles.voiceTrack}>
+            <View style={[styles.voiceFill, { width: `${voice.progress * 100}%` }]} />
+          </View>
+          <AppText variant="micro" color={colors.textSecondary}>
+            {formatSeconds(voice.position)} / {formatSeconds(voice.duration)}
+          </AppText>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -264,4 +257,10 @@ const useStyles = makeStyles((colors) => ({
   factLabel: { width: 64 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   action: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
+  resolveButton: { marginLeft: 'auto', paddingHorizontal: 14, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.danger },
+  voice: { gap: 6 },
+  voiceActive: { padding: 10, borderRadius: radius.md, backgroundColor: colors.surfaceStrong },
+  voiceTrackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  voiceTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
+  voiceFill: { height: 4, backgroundColor: colors.primary },
 }));

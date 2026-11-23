@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { billingApi } from '@/api/endpoints/billing';
 import { syncDeviceTimezone } from '@/api/endpoints/settings';
 import { AlertPopupHost } from '@/features/alerts/AlertPopupHost';
+import { BackgroundRestrictionPrompt } from '@/features/location/BackgroundRestrictionPrompt';
 import { InAppCardHost } from '@/features/alerts/InAppCardHost';
 import { useDeviceRestoreStore, usePostSignupStore } from '@/features/auth/deviceRestore';
 import { useSharingReminder } from '@/features/safety/sharingReminder';
@@ -52,6 +53,8 @@ export default function AppLayout() {
       {/* 앱이 켜져 있을 때 받은 긴급 팝업·알림 카드 */}
       <AlertPopupHost />
       <InAppCardHost />
+      {/* 배터리 설정 '제한'이면 위치가 안 가니 바꾸도록 안내 (대표 리포트 4차) */}
+      <BackgroundRestrictionPrompt />
     </>
   );
 }

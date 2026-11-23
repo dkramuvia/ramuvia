@@ -8,8 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { feedApi } from '@/api';
 import { AppText, BottomNav, ChipTabs, Header, QueryState } from '@/components/ui';
-import { useAlertStore } from '@/features/alerts/alertStore';
-import { popupForHistory } from '@/features/alerts/samples';
+import { openHistoryItem } from '@/features/alerts/historyDetail';
 import i18n from '@/i18n';
 import { useHistory, useJourney, useJourneyStats } from '@/features/settings/queries';
 import { formatDistance, usePreferencesStore } from '@/stores/preferencesStore';
@@ -160,7 +159,6 @@ function EventHistory({ category }: { category?: 'safety' }) {
   const colors = useColors();
   const { t } = useTranslation();
   const { data: events = [], isLoading, isError, refetch } = useHistory(category);
-  const showPopup = useAlertStore((s) => s.showPopup);
 
   const sections = useMemo(() => byDay<HistoryEvent>(events), [events]);
 
@@ -188,11 +186,8 @@ function EventHistory({ category }: { category?: 'safety' }) {
           message={item.message}
           time={formatTimeOfDay(item.createdAt)}
           sos={item.type === 'sos'}
-          // 서버 연동 전: 해당 알림 팝업 모양을 샘플 데이터로 보여줌
-          onPress={() => {
-            const popup = popupForHistory(item);
-            if (popup) showPopup(popup, false);
-          }}
+          // 대표 리포트 4차: 예시('지원님')가 아니라 그 알림의 실제 값으로 엽니다 (historyDetail.ts)
+          onPress={() => void openHistoryItem(item)}
         />
       )}
     />

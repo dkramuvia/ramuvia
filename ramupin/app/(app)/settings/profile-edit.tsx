@@ -59,6 +59,15 @@ export default function ProfileEditScreen() {
   const nicknameValid = !nicknameChanged || NICKNAME_RULE.test(nickname);
 
   const checkNickname = async () => {
+    // 대표 리포트 4차: 지금 이름 그대로면 버튼이 꺼져 있어 눌러도 반응이 없었습니다 → 안내
+    if (!nicknameChanged) {
+      showToast(t('profileEdit.currentName'));
+      return;
+    }
+    if (checkState === 'available') {
+      showToast(t('profileEdit.available'));
+      return;
+    }
     const available = await profileApi.isNicknameAvailable(nickname);
     setCheckState(available ? 'available' : 'taken');
   };
@@ -185,7 +194,7 @@ export default function ProfileEditScreen() {
             variant={nicknameChanged && nicknameValid && checkState === 'unchecked' ? 'soft' : 'neutral'}
             size="xs"
             shape="square"
-            disabled={!nicknameChanged || !nicknameValid || checkState !== 'unchecked'}
+            disabled={!nicknameValid}
             onPress={checkNickname}
           />
         }

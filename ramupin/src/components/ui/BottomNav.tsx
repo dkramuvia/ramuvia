@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout } from '@/theme';
@@ -27,6 +27,7 @@ const BAR_SIDE = 11;
 const BAR_BOTTOM = 13;
 /** 고른 탭 알약 280×110 → 118×46, 아이콘 100 → 42 */
 const PILL_WIDTH = 118;
+const BAR_PADDING = 9;
 const PILL_HEIGHT = 46;
 const ICON = 42;
 
@@ -44,6 +45,10 @@ interface BottomNavProps {
 export function BottomNav({ active, onPressTab, opacity = 0.4 }: BottomNavProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  // 피그마는 402 폭 기준. 360 폭 폰(갤럭시 대부분)에서는 한 칸이 106 이라 118 알약이 칸을 넘어
+  // 양옆이 잘리고 모서리가 각져 보였습니다 (11-21 대표 화면). 칸보다 조금 작게 줄입니다
+  const { width } = useWindowDimensions();
+  const pillWidth = Math.min(PILL_WIDTH, (width - BAR_SIDE * 2 - BAR_PADDING * 2) / TABS.length - 8);
 
   const handlePress = (name: TabName) => {
     if (onPressTab) onPressTab(name);
@@ -70,7 +75,7 @@ export function BottomNav({ active, onPressTab, opacity = 0.4 }: BottomNavProps)
               onPress={() => handlePress(tab.name)}
               style={styles.item}
             >
-              <View style={[styles.pill, selected && styles.pillSelected]}>
+              <View style={[styles.pill, { width: pillWidth }, selected && styles.pillSelected]}>
                 <Image source={tab.icon} style={[styles.icon, !selected && styles.iconInactive]} />
               </View>
             </Pressable>
@@ -89,13 +94,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 9,
+    paddingHorizontal: BAR_PADDING,
     // 피그마 안쪽 빛 (위 흰 테두리)
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.35)',
   },
   item: { flex: 1, height: BAR_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  pill: { width: PILL_WIDTH, height: PILL_HEIGHT, borderRadius: PILL_HEIGHT / 2, alignItems: 'center', justifyContent: 'center' },
+  pill: { height: PILL_HEIGHT, borderRadius: PILL_HEIGHT / 2, alignItems: 'center', justifyContent: 'center' },
   // 피그마: #F6FBD9 10% 바탕, 흰 테두리 2(→1)
   pillSelected: { backgroundColor: 'rgba(246,251,217,0.1)', borderWidth: 1, borderColor: '#FFFFFF' },
   icon: { width: ICON, height: ICON, opacity: 0.72 },

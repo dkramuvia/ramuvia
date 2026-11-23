@@ -21,6 +21,8 @@ export interface SendSosResult {
   smsCount: number;
   /** 지정한 수신인이 없어 회사(관제)가 받은 경우 (WBS 9.3) */
   toMonitoring: boolean;
+  /** 서버가 받은 시각 = SOS 기록의 보낸 시각 (대표 리포트 4차). 예전 서버는 안 줍니다 */
+  createdAt?: string;
 }
 
 /**
@@ -34,7 +36,7 @@ export const sosApi = {
   async send(input: SendSosInput): Promise<SendSosResult> {
     if (!isLive('sos')) {
       const count = mockSafety.recipientFriendIds.length + mockSafety.recipientGroupIds.length;
-      return mockResponse({ sosId: `sos${Date.now()}`, recipientCount: count, smsCount: mockSafety.contacts.length, toMonitoring: count === 0 }, 900);
+      return mockResponse({ sosId: `sos${Date.now()}`, recipientCount: count, smsCount: mockSafety.contacts.length, toMonitoring: count === 0, createdAt: new Date().toISOString() }, 900);
     }
 
     // 녹음이 있으면 먼저 저장소에 올립니다. 실패해도 SOS 는 보냅니다 — 위치가 더 급합니다
@@ -145,6 +147,9 @@ export interface ReceivedSos {
   status: 'sent' | 'cancelled' | 'resolved';
   startedAt: string;
   createdAt: string;
+  /** 종료(안전함)·취소 시각. 예전 서버는 없음 */
+  resolvedAt?: string | null;
+  cancelledAt?: string | null;
   readAt: string | null;
 }
 

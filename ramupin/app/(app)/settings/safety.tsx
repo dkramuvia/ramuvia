@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, TextInput, View } from 'react-native';
 
-import { AppText, Avatar, Button, MenuItem, Screen, TextField, ToggleRow } from '@/components/ui';
+import { AppText, Avatar, Button, MenuItem, Popup, Screen, TextField, ToggleRow } from '@/components/ui';
 import { useFriends } from '@/features/friends/queries';
 import { useMyGroups } from '@/features/groups/queries';
 import { MOCK_POLICIES, PLAN_NAMES } from '@/features/policy/policies';
@@ -36,6 +36,8 @@ export default function SafetyScreen() {
   const { data: groups = [] } = useMyGroups();
   const { planId, limit, can } = usePlan();
   const [contactModal, setContactModal] = useState(false);
+  /** 대표 리포트 4차: [비회원 연락처 추가] 를 눌러도 반응이 없었습니다(토스트만, 폰에 따라 안 보임) → 왜 안 되는지 창으로 */
+  const [contactBlocked, setContactBlocked] = useState<'locked' | 'full' | null>(null);
 
   if (!setting) return <Screen title={t('screens.safety')} tab="map" />;
 
@@ -133,7 +135,11 @@ export default function SafetyScreen() {
             label={t('safety.addContact')}
             variant="soft"
             style={styles.flex}
-            onPress={() => (smsAllowed ? setContactModal(true) : showToast(t('safety.smsLocked')))}
+            onPress={() => {
+              if (!smsAllowed) setContactBlocked('locked');
+              else if (full) setContactBlocked('full');
+              else setContactModal(true);
+            }}
           />
         </View>
         <View style={styles.ruleBox}>
@@ -207,6 +213,23 @@ export default function SafetyScreen() {
       </View>
 
       <ContactModal visible={contactModal} onClose={() => setContactModal(false)} onAdd={addContact} />
+      <Popup
+        visible={contactBlocked !== null}
+        title={t(contactBlocked === 'locked' ? 'sos.contactLockedTitle' : 'sos.contactFullTitle')}
+        message={
+          contactBlocked === 'locked'
+            ? t('safety.smsLocked')
+            : t('safety.usageFull', { platinum: MOCK_POLICIES.platinum.sosRecipientLimit, trinity: MOCK_POLICIES.trinity.sosRecipientLimit })
+        }
+        confirmLabel={t('sos.seePlans')}
+        onConfirm={() => {
+          setContactBlocked(null);
+          router.push('/plans');
+        }}
+        cancelLabel={t('common.close')}
+        onCancel={() => setContactBlocked(null)}
+        onDismiss={() => setContactBlocked(null)}
+      />
     </Screen>
   );
 }

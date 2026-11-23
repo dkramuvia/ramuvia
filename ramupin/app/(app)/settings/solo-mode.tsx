@@ -91,7 +91,10 @@ export default function SoloModeScreen() {
           ) : (
             <Button label={t('solo.later')} variant="neutral" size="lg" style={styles.flex} onPress={() => router.back()} />
           )}
-          <Button label={t(setting?.enabled ? 'solo.save' : 'solo.start')} variant="brown" size="lg" style={styles.flex2} disabled={!canStart || saving} onPress={() => void save(true)} />
+          <Button label={t(setting?.enabled ? 'solo.save' : 'solo.start')} variant="brown" size="lg" style={styles.flex2} disabled={!canStart || saving}
+            disabledHint={saving ? undefined : filled.length === 0 || !filled.every((a) => validPhone(a.phone)) ? t('solo.needContact') : t('solo.needConsent')}
+            onPress={() => void save(true)}
+          />
         </View>
       }
     >

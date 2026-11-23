@@ -6,10 +6,20 @@ interface InboxRow {
   type: string;
   category: string;
   message: string;
+  payload: string | null;
   created_at: string;
 }
 
 const RETENTION_DAYS = 180;
+
+function parsePayload(text: string | null): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
 
 /** 알림 보관함 (WBS 9.7) */
 export const inbox = {
@@ -35,6 +45,7 @@ export const inbox = {
       category: r.category as HistoryCategory,
       message: r.message,
       createdAt: r.created_at,
+      payload: parsePayload(r.payload),
     }));
   },
 

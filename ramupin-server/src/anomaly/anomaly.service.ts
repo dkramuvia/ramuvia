@@ -163,7 +163,8 @@ export class AnomalyService {
           // 대표 리포트 55: 배터리 알림은 [배터리 경고 알림] 설정·방해 금지를 따릅니다 (안 주면 SOS 로 봐 늘 울렸습니다)
           ...(detection.track === 'battery' ? { category: 'battery' as const } : {}),
           route: `/journey/${userId}`,
-          data: { track: detection.track, stage: detection.stage },
+          // userId·nickname: 히스토리에서 눌렀을 때 실제 친구 값을 보여 주려고 (대표 리포트 4차)
+          data: { track: detection.track, stage: detection.stage, userId, nickname },
         })
         .catch((error: unknown) => this.logger.error(`푸시 실패: ${String(error)}`));
     }

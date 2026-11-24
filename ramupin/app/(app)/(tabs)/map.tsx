@@ -61,14 +61,23 @@ const TOP_ROW_HEIGHT = 100;
 const ICON_SOS = require('../../../assets/icons/map-sos.png');
 const ICON_MY_LOCATION = require('../../../assets/icons/map-my-location.png');
 const ICON_STREET_VIEW = require('../../../assets/icons/map-street-view.png');
-/**
- * 급할 때 SOS (대표 리포트 2차 103): 두 손가락 이상으로 화면을 이 시간 안에 이만큼 두드리면 SOS 화면으로 갑니다.
- * SOS 화면은 보내기 전에 기다리는 시간이 있어 잘못 들어가도 취소할 수 있습니다
- */
 /** 대표 리포트 3차: 지도 한 곳을 이만큼 누르고 있으면 그 자리를 안심존으로 등록할지 묻습니다 */
 const HOLD_TO_ADD_ZONE_MS = 3000;
+/**
+ * 급할 때 SOS (대표 리포트 2차 103): 세 손가락 이상으로 화면을 이 시간 안에 이만큼 두드리면 SOS 화면으로 갑니다.
+ * SOS 화면은 보내기 전에 기다리는 시간이 있어 잘못 들어가도 취소할 수 있습니다.
+ *
+ * 11-24 대표: 두 손가락으로 지도를 확대·축소하기만 해도 SOS 가 떴습니다. 그래서
+ * 1. 세 손가락 이상일 때만 셉니다
+ * 2. 짧게 톡 두드린 것만 셉니다 — 손가락을 움직이거나(확대·이동) 오래 누르면 세지 않습니다
+ */
+const SOS_TAP_FINGERS = 3;
 const SOS_TAP_COUNT = 5;
 const SOS_TAP_WINDOW_MS = 4000;
+/** 한 번 두드림으로 보는 최대 시간(손가락이 처음 닿고 모두 떨어질 때까지) */
+const SOS_TAP_MAX_MS = 500;
+/** 이만큼(px) 넘게 움직이면 두드림이 아니라 확대·이동으로 봅니다 */
+const SOS_TAP_MAX_MOVE = 24;
 /** 시트 윗변과 내 마커 사이 여유 (마커·배지 높이) */
 const SHEET_GAP = 40;
 /** 처음 확대 정도 (AppMapView 기본값과 같음). 지도가 범위를 알려 주기 전까지 묶음 계산에 씁니다 */
@@ -119,9 +128,9 @@ export default function MapScreen() {
    * 손으로 지도를 움직이거나 친구를 활성화하면 꺼지고, 나의 위치 버튼으로 다시 켭니다
    */
   const [following, setFollowing] = useState(true);
-  // 두 손가락 두드림 SOS: 두드린 시각들과, 지금 손가락이 닿아 있는 동안 이미 셌는지
+  // 세 손가락 두드림 SOS: 두드린 시각들과, 지금 닿아 있는 손가락 묶음(처음 닿은 시각·위치, 세 손가락이 됐는지, 움직였는지)
   const sosTaps = useRef<number[]>([]);
-  const sosTapCounted = useRef(false);
+  const sosTouch = useRef<{ startedAt: number; points: Map<string, { x: number; y: number }>; fingers: number; moved: boolean } | null>(null);
   const sheetRef = useRef<SnapSheetHandle>(null);
   // 화면에 보이는 위도 범위. 겹친 친구를 묶는 데 씁니다 (대표 리포트 78)
   const [visibleDelta, setVisibleDelta] = useState(INITIAL_DELTA);
@@ -455,20 +464,37 @@ export default function MapScreen() {
       style={styles.container}
       // 지도가 터치를 가져가도 부모에는 손가락이 닿은 것이 전해집니다. 응답자를 가져오지 않아 지도 움직임은 그대로입니다
       onTouchStart={(e) => {
-        if (e.nativeEvent.touches.length < 2 || sosTapCounted.current) return;
-        sosTapCounted.current = true;
+        const touches = e.nativeEvent.touches;
+        const current = sosTouch.current ?? { startedAt: Date.now(), points: new Map(), fingers: 0, moved: false };
+        for (const t of touches) {
+          if (!current.points.has(String(t.identifier))) current.points.set(String(t.identifier), { x: t.pageX, y: t.pageY });
+        }
+        current.fingers = Math.max(current.fingers, touches.length);
+        sosTouch.current = current;
+      }}
+      onTouchMove={(e) => {
+        const current = sosTouch.current;
+        if (!current || current.moved) return;
+        for (const t of e.nativeEvent.touches) {
+          const start = current.points.get(String(t.identifier));
+          if (start && Math.hypot(t.pageX - start.x, t.pageY - start.y) > SOS_TAP_MAX_MOVE) current.moved = true;
+        }
+      }}
+      onTouchEnd={(e) => {
+        if (e.nativeEvent.touches.length > 0) return;
+        const current = sosTouch.current;
+        sosTouch.current = null;
+        if (!current || current.moved || current.fingers < SOS_TAP_FINGERS) return;
         const now = Date.now();
+        if (now - current.startedAt > SOS_TAP_MAX_MS) return;
         sosTaps.current = [...sosTaps.current.filter((at) => now - at < SOS_TAP_WINDOW_MS), now];
         if (sosTaps.current.length >= SOS_TAP_COUNT) {
           sosTaps.current = [];
           router.push('/sos');
         }
       }}
-      onTouchEnd={(e) => {
-        if (e.nativeEvent.touches.length === 0) sosTapCounted.current = false;
-      }}
       onTouchCancel={() => {
-        sosTapCounted.current = false;
+        sosTouch.current = null;
       }}
     >
       {focused ? <StatusBar style={mapIsDark ? 'light' : 'dark'} /> : null}

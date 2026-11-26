@@ -82,9 +82,16 @@ export function useSosVoice(sosId: string | undefined) {
         if (status.duration) setDuration(status.duration);
         setPosition(status.currentTime ?? 0);
         if (status.didJustFinish) {
+          // 대표 11-26: 다 듣고 나면 녹음이 처음부터 또 나왔습니다. 끝난 뒤 처음으로 되감으면(seekTo(0))
+          // 안드로이드 플레이어는 '재생 중' 상태가 남아 있어 다시 틉니다 → 멈추고 플레이어를 정리합니다.
+          // 다시 누르면 새 주소로 처음부터 틉니다
+          created.pause();
           setState('idle');
           setPosition(0);
-          void created.seekTo(0);
+          if (player.current === created) {
+            player.current = null;
+            setTimeout(() => created.remove(), 0);
+          }
         } else if (status.playing) {
           setState('playing');
         }

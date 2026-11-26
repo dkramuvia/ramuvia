@@ -152,7 +152,9 @@ export class SosService {
         .sendToUsers(recipients, {
           title: '라무핀',
           body: 'SOS 가 취소되었습니다.',
-          channel: 'sos',
+          // 끝났다는 알림에 SOS 경고음이 울리면 오히려 놀랍니다 (대표 11-26) → 안심지역 알림음. 켜고 끄는 건 그대로 SOS 항목
+          channel: 'safeZone',
+          category: 'sos',
           route: '/settings/history',
           data: { sosId, status: 'cancelled' },
         })
@@ -186,7 +188,9 @@ export class SosService {
         .sendToUsers(recipients, {
           title: '라무핀',
           body: `${ended.nickname || '친구'}님이 안전하다고 알렸습니다.`,
-          channel: 'sos',
+          // 안전하다는 알림은 편한 소리로 (대표 11-26: 경고음이 울림)
+          channel: 'safeZone',
+          category: 'sos',
           route: '/settings/history',
           data: { sosId, status: 'resolved' },
         })

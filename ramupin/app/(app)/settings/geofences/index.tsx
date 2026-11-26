@@ -38,6 +38,15 @@ export default function GeofencesScreen() {
   const remove = useRemoveGeofence();
   const { limit, policy } = usePlan();
   const [menuId, setMenuId] = useState<string | null>(null);
+  const listRef = useRef<ScrollView>(null);
+  // 메뉴를 펼치면 메뉴 끝까지 보이게 목록을 내립니다 (목록 높이·장소 위치·스크롤 위치)
+  const listHeight = useRef(0);
+  const listScroll = useRef(0);
+  const itemY = useRef(new Map<string, number>());
+  const revealMenu = (id: string, menuY: number, menuHeight: number) => {
+    const bottom = (itemY.current.get(id) ?? 0) + menuY + menuHeight + 16;
+    if (bottom > listScroll.current + listHeight.current) listRef.current?.scrollTo({ y: bottom - listHeight.current, animated: true });
+  };
   const [deleting, setDeleting] = useState<Geofence | null>(null);
   /** 대표 리포트 19: 아래 패널을 내려 지도를 넓게 볼 수 있게 */
   const [collapsed, setCollapsed] = useState(false);
@@ -141,7 +150,7 @@ export default function GeofencesScreen() {
         </View>
       </View>
 
-      <View style={[styles.sheet, collapsed && styles.sheetCollapsed]}>
+      <View style={[styles.sheet, !collapsed && styles.sheetOpen]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(collapsed ? 'geofence.expandPanel' : 'geofence.collapsePanel')}
@@ -158,14 +167,20 @@ export default function GeofencesScreen() {
         </Pressable>
         {collapsed ? null : (
         <>
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          ref={listRef}
+          contentContainerStyle={styles.list}
+          onLayout={(e) => (listHeight.current = e.nativeEvent.layout.height)}
+          onScroll={(e) => (listScroll.current = e.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={100}
+        >
           {geofences.length === 0 ? (
             <AppText variant="label1" color={colors.textMuted} align="center">
               {t('geofence.empty')}
             </AppText>
           ) : null}
           {geofences.map((g) => (
-            <View key={g.id} style={styles.item}>
+            <View key={g.id} style={styles.item} onLayout={(e) => itemY.current.set(g.id, e.nativeEvent.layout.y)}>
               <View style={styles.itemTitle}>
                 <Pressable onPress={() => focusZone(g)} style={styles.flex}>
                   <AppText variant="body2Bold" color={g.enabled ? colors.text : colors.textMuted}>
@@ -173,7 +188,9 @@ export default function GeofencesScreen() {
                     {g.enabled ? '' : ` · ${t('geofence.disabled')}`}
                   </AppText>
                 </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel={t('geofence.menu')} hitSlop={10} onPress={() => setMenuId(menuId === g.id ? null : g.id)}>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('geofence.menu')} hitSlop={10} onPress={() => {
+                    setMenuId(menuId === g.id ? null : g.id);
+                  }}>
                   <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
                 </Pressable>
               </View>
@@ -183,7 +200,7 @@ export default function GeofencesScreen() {
                 </AppText>
               </View>
               {menuId === g.id ? (
-                <View style={styles.menu}>
+                <View style={styles.menu} onLayout={(e) => revealMenu(g.id, e.nativeEvent.layout.y, e.nativeEvent.layout.height)}>
                   <MenuAction
                     label={t(g.enabled ? 'geofence.disable' : 'geofence.enable')}
                     onPress={() => {
@@ -275,12 +292,14 @@ const useStyles = makeStyles((colors) => ({
     left: 0,
     right: 0,
     bottom: 0,
-    height: SHEET_HEIGHT,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: colors.background,
   },
-  sheetCollapsed: { height: undefined },
+  // 대표 11-26 "안심존이 신규 저장 안 됨": 접을 때 height: undefined 로 높이를 지우려 했으나 지금 RN 은 그 값을 무시해
+  // 패널이 그대로 높게 남았습니다 → 목록·추가 버튼만 사라지고 빈 패널이 새 안심존을 가려 저장이 안 된 것처럼 보였습니다.
+  // 높이는 펼쳤을 때만 줍니다 (접으면 내용 높이)
+  sheetOpen: { height: SHEET_HEIGHT },
   grabberHit: { alignSelf: 'stretch', alignItems: 'center' },
   grabber: { width: 58, height: 4, borderRadius: 2, backgroundColor: '#B9B9B9', marginVertical: 12 },
   countBar: {
@@ -295,11 +314,10 @@ const useStyles = makeStyles((colors) => ({
   item: { gap: 8 },
   itemTitle: { flexDirection: 'row', alignItems: 'center' },
   addressBox: { borderRadius: radius.xs, backgroundColor: colors.surfaceStrong, paddingHorizontal: 12, paddingVertical: 8 },
+  // 대표 11-26: 아래쪽 장소의 메뉴가 목록 영역에 잘려 '알림 끄기'만 보이고 수정·삭제가 가려졌습니다
+  // (목록 위에 띄우던 메뉴) → 그 장소 아래에 펼칩니다
   menu: {
-    position: 'absolute',
-    right: 0,
-    top: 28,
-    zIndex: 10,
+    alignSelf: 'flex-end',
     borderRadius: 8,
     backgroundColor: colors.card,
     paddingVertical: 4,

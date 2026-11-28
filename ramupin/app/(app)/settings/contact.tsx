@@ -17,7 +17,9 @@ export default function ContactScreen() {
   const styles = useStyles();
   const colors = useColors();
   const { t } = useTranslation();
-  const version = Constants.expoConfig?.version ?? '';
+  // 빌드 번호도 함께 (11-28: 테스트 빌드가 모두 1.0.0 이라 어느 빌드인지 구분이 안 됨) → "1.0.0 (11)"
+  const build = Constants.expoConfig?.android?.versionCode ?? Constants.expoConfig?.ios?.buildNumber;
+  const version = `${Constants.expoConfig?.version ?? ''}${build ? ` (${build})` : ''}`;
 
   const copyEmail = async () => {
     await Clipboard.setStringAsync(LINKS.supportEmail);

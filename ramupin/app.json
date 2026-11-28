@@ -3,7 +3,7 @@
     "name": "라무핀",
     "slug": "ramupin",
     "scheme": "ramupin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.ramuviamanager.ramupin",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "backgroundColor": "#473C39",
         "foregroundImage": "./assets/android-icon-foreground.png",

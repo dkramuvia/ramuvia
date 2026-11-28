@@ -49,7 +49,7 @@ if (draftOnly) {
 
 try {
   await release('completed');
-  console.log('내부 테스트에 출시했습니다');
+  console.log(`${track} 트랙에 출시했습니다`);
 } catch (error) {
   // 출시 전 앱: "Only releases with status draft may be created on draft app"
   if (!String(error).includes('draft')) throw error;

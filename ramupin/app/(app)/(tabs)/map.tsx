@@ -17,6 +17,7 @@ import { useFriendRequests, useFriends } from '@/features/friends/queries';
 import { gpsSignal, type GpsSignal } from '@/features/location/signal';
 import { getActivity } from '../../../modules/ramupin-gps';
 import { stayedSince } from '@/features/location/backgroundTask';
+import { recentMovement } from '@/features/location/movementState';
 import { useAreaName } from '@/features/location/useAreaName';
 import { useLocationUpload } from '@/features/location/useLocationUpload';
 import { useMyLocation } from '@/features/location/useMyLocation';
@@ -283,7 +284,7 @@ export default function MapScreen() {
   }, []);
 
   // 내 상태는 활동 인식을 먼저 봅니다. 실내에서는 속도가 튀어 "이동중" 이 잘못 뜹니다
-  const status = statusText({ activity: getActivity()?.type, speedKmh: location?.speedKmh, stayedSince: myStayedSince });
+  const status = statusText({ activity: getActivity()?.type, speedKmh: location?.speedKmh, stayedSince: myStayedSince, moving: recentMovement() });
   /**
    * 내용이 같으면 **같은 객체**로 유지합니다.
    *
@@ -354,7 +355,7 @@ export default function MapScreen() {
         name: f.nickname,
         avatarUrl: f.avatarUrl,
         // 친구 배지는 이동 속도·머문 시간만 (피그마: 검은 배지)
-        status: statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince }),
+        status: statusText({ speedKmh: f.speedKmh, stayedSince: f.stayedSince, moving: f.moving }),
         onOpen: () => router.push(`/journey/${f.id}`),
       });
 

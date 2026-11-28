@@ -74,6 +74,8 @@ export interface CurrentLocation {
   speed: number | null;
   battery: number | null;
   measuredAt: string;
+  /** 폰이 이 점에서 '이동 중' 이라고 판단했는지 (11-27, 예전 앱은 속도로만). 친구 지도 배지에 씁니다 */
+  moving?: boolean;
 }
 
 const currentKey = (userId: string) => `loc:current:${userId}`;
@@ -153,6 +155,7 @@ export class LocationService {
       speed: latest.speed ?? null,
       battery: latest.battery ?? null,
       measuredAt: latest.measuredAt,
+      ...(latest.state === 'moving' || latest.state === 'still' ? { moving: latest.state === 'moving' } : {}),
     };
     // 늦게 도착한 옛날 점이 최신 위치를 덮어쓰지 않게 비교
     // 시각으로 비교합니다. 예전에 저장된 값에는 +09:00 모양이 남아 있을 수 있어 글자로 비교하면 틀립니다

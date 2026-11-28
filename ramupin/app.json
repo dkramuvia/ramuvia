@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.ramuviamanager.ramupin",
-      "versionCode": 10,
+      "versionCode": 11,
       "adaptiveIcon": {
         "backgroundColor": "#473C39",
         "foregroundImage": "./assets/android-icon-foreground.png",

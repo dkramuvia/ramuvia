@@ -87,6 +87,7 @@ export const friendsApi = {
       location: f.location ?? undefined,
       speedKmh: f.speedKmh ?? undefined,
       stayedSince: f.stayedSince ?? undefined,
+      moving: f.moving ?? undefined,
       isOnline: f.isOnline ?? undefined,
       theirShareLevel: f.theirShareLevel ?? undefined,
     }));

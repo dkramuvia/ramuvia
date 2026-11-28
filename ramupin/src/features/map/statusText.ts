@@ -45,6 +45,11 @@ export interface StatusInput {
   speedKmh?: number | null;
   /** 언제부터 한자리에 있는지 (ISO). 서버가 주는 값 */
   stayedSince?: string | null;
+  /**
+   * 수집이 판단한 이동 여부 (내 것은 기기, 친구 것은 서버가 마지막 점에서). 있으면 이것을 먼저 믿습니다.
+   * 11-27: 달리는 차에서 활동 인식이 '정지'·속도 없음이라 캐릭터는 움직이는데 '머무는 중' 으로 나왔습니다
+   */
+  moving?: boolean | null;
 }
 
 export interface MovementStatus {
@@ -54,19 +59,22 @@ export interface MovementStatus {
   kind: MovementKind;
 }
 
-export function statusText({ activity, speedKmh, stayedSince }: StatusInput): MovementStatus | null {
+export function statusText({ activity, speedKmh, stayedSince, moving }: StatusInput): MovementStatus | null {
   const speed = speedKmh ?? null;
   const movingBySpeed = speed != null && speed >= MOVING_SPEED_KMH;
   const walking = activity === 'walking' || activity === 'on_foot';
-  const riding = activity === 'vehicle' || activity === 'bicycle' || activity === 'running';
-  const still = activity === 'still' || (!activity && !movingBySpeed);
+  // 수집이 "이동 중" 이라고 했으면 활동 인식이 '정지' 여도 이동입니다 (걷기는 걷기 그림 그대로)
+  const riding = activity === 'vehicle' || activity === 'bicycle' || activity === 'running' || (moving === true && !walking);
+  const still = moving === false || activity === 'still' || (!activity && !movingBySpeed);
 
   if (walking) return { text: i18n.t('map.statusWalking'), kind: 'walking' };
-  if (riding || (!activity && movingBySpeed)) {
+  if (riding || (moving == null && !activity && movingBySpeed)) {
     // 속도를 모르면 숫자 없이 "이동중" 만
     const text = speed != null ? i18n.t('map.statusMoving', { speed: formatSpeed(speed, usePreferencesStore.getState().speedUnit) }) : i18n.t('map.statusMovingPlain');
     // 활동 인식이 "자전거" 라고 해도 그림은 속도로 고릅니다 — 자전거로 60km 는 없습니다
-    return { text, kind: activity === 'bicycle' && speed == null ? 'bicycle' : kindForSpeed(speed) };
+    // 속도를 모르는데 수집은 이동이라면 걷기보다 차일 가능성이 커서 자동차 그림
+    const kind = activity === 'bicycle' && speed == null ? 'bicycle' : speed == null && moving === true ? 'car' : kindForSpeed(speed);
+    return { text, kind: kind === 'staying' ? 'walking' : kind };
   }
   if (still) {
     const minutes = stayedMinutes(stayedSince);

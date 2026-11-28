@@ -112,6 +112,8 @@ export interface Friend {
   speedKmh?: number;
   /** 언제부터 한자리에 있는지 (ISO). 지도 마커의 "같은 자리에서 N분" */
   stayedSince?: string;
+  /** 친구 폰이 마지막에 '이동 중' 이라고 판단했는지 (11-27). 예전 서버는 안 줍니다 */
+  moving?: boolean;
   isOnline?: boolean;
 }
 

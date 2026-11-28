@@ -48,6 +48,8 @@ interface FriendResponse {
   speedKmh?: number;
   /** 언제부터 한자리에 있는지. 지도 마커의 "같은 자리에서 N분" (2026-09-28 디자인) */
   stayedSince?: string;
+  /** 친구 폰이 마지막에 '이동 중' 이라고 판단했는지. 상태 공개를 끈 친구는 안 줍니다 */
+  moving?: boolean;
   location?: { latitude: number; longitude: number; updatedAt: string };
 }
 
@@ -192,6 +194,7 @@ class FriendsService {
         // 상태 공개를 끈 친구는 머문 시간도 보이지 않아야 합니다 (그 자체가 상태입니다)
         const since = r.their_show_status ? stayedSince.get(r.id) : undefined;
         if (since) friend.stayedSince = since.toISOString();
+        if (r.their_show_status && loc.moving != null) friend.moving = loc.moving;
       }
       return friend;
     });

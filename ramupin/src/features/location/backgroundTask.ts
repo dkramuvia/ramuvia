@@ -14,6 +14,7 @@ import {
   stopSatelliteUpdates,
 } from '../../../modules/ramupin-gps';
 import { ADAPTIVE, decideState, intervalSecFor, type MoveState } from './adaptive';
+import { setMovement } from './movementState';
 import { distanceM } from './geo';
 import { isNearGeofence } from './geofenceSnapshot';
 import { isSosActive } from './sosMode';
@@ -149,7 +150,7 @@ async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise
     isSosActive(),
     isNearGeofence(latest),
   ]);
-  const { state, reanchor } = decideState({
+  const { state, reanchor, moving } = decideState({
     speedKmh: latest.speedKmh,
     battery: battery.level,
     charging: battery.charging,
@@ -162,6 +163,7 @@ async function currentState(latest: MyLocation, policy: PolicySnapshot): Promise
   });
   // 기준점이 아직 없거나, 다른 곳에 도착해 자리를 잡았으면 지금 위치로 옮깁니다
   if (!anchor || reanchor) await setAnchor(latest);
+  setMovement(moving);
   return state;
 }
 

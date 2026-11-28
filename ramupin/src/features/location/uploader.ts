@@ -10,6 +10,7 @@ import { distanceM } from './geo';
 import { isHiddenFromServer } from './hideScope';
 import { isSosActive } from './sosMode';
 import type { MyLocation } from './useMyLocation';
+import { recentMovement } from './movementState';
 
 /**
  * 내 위치 서버 전송.
@@ -118,7 +119,8 @@ export async function enqueueLocation(location: MyLocation, rule: EnqueueRule): 
     charging: battery.charging,
     // 걷기·차량·정지 (WBS 2.3). 실내에서 쓰러져 있는 것을 위치로는 알 수 없어서 함께 보냅니다
     activity: activity && activity.confidence >= 50 ? activity.type : null,
-    state: location.speedKmh != null && location.speedKmh >= 3 ? 'moving' : 'still',
+    // 수집이 판단한 이동 여부를 먼저 (달리는 차에서 활동 인식이 '정지'여도 이동). 모르면 속도로
+    state: (recentMovement() ?? (location.speedKmh != null && location.speedKmh >= 3)) ? 'moving' : 'still',
   };
 
   const db = getDb();

@@ -95,23 +95,26 @@ export interface StateDecision {
    * 멈춰 있는데 기준점에서 멀다면 = 다른 곳에 도착해서 자리를 잡은 것입니다.
    */
   reanchor: boolean;
+  /** 실제로 자리를 옮기는 중인지 (state 가 watched·geofence 여도). 지도 배지·친구 화면이 씁니다 */
+  moving: boolean;
 }
 
 export function decideState(input: StateInput): StateDecision {
   const { speedKmh, battery, charging, sos, nearGeofence, watched } = input;
   const lowBattery = input.lowBatteryPercent ?? DEFAULT_LOW_BATTERY_PERCENT;
   const movement = judgeMovement(input);
-  if (sos) return { state: 'sos', reanchor: false };
+  const { moving } = movement;
+  if (sos) return { state: 'sos', reanchor: false, moving };
   // 경계 근처라도 가만히 있으면 넘을 일이 없습니다. 움직이기 시작했을 때만 촘촘하게 (11-17 배터리)
-  if (nearGeofence && (movement.moving || isStirring(input.activity))) return { state: 'geofence', reanchor: movement.reanchor };
+  if (nearGeofence && (movement.moving || isStirring(input.activity))) return { state: 'geofence', reanchor: movement.reanchor, moving };
   // 보고 있는 사람이 있으면 배터리보다 실시간성을 앞세웁니다. 안 보면 바로 내려갑니다
-  if (watched) return { state: 'watched', reanchor: movement.reanchor };
+  if (watched) return { state: 'watched', reanchor: movement.reanchor, moving };
   // 충전 중이면 배터리를 아낄 이유가 없습니다
   if (!charging && battery != null && battery <= lowBattery) {
-    return { state: 'lowBattery', reanchor: movement.reanchor };
+    return { state: 'lowBattery', reanchor: movement.reanchor, moving };
   }
   void speedKmh;
-  return { state: movement.moving ? 'moving' : 'still', reanchor: movement.reanchor };
+  return { state: movement.moving ? 'moving' : 'still', reanchor: movement.reanchor, moving };
 }
 
 /** 걷기·차량 등 몸이 움직이는 중 (자리를 벗어났는지는 따지지 않음) */
@@ -138,8 +141,14 @@ function judgeMovement({ speedKmh, activity, distanceFromAnchorM }: StateInput):
     if (TRAVEL_ACTIVITIES.has(activity.type)) return { moving: true, reanchor: false };
     // 걷기: 자리를 벗어났을 때만 이동. 집안을 오가는 것은 머무는 중으로 둡니다
     if (activity.type === 'walking') return { moving: left, reanchor: false };
-    // 정지: 멈춰 있습니다. 기준점에서 멀다면 다른 곳에 도착한 것이므로 기준점을 옮깁니다
-    if (activity.type === 'still') return { moving: false, reanchor: left };
+    // 정지: 멈춰 있습니다. 기준점에서 멀다면 다른 곳에 도착한 것이므로 기준점을 옮깁니다.
+    // 단, 자리를 벗어났고 속도도 나면 달리는 차 안입니다 — 매끄럽게 달리는 차에서는 활동 인식이 '정지'로
+    // 나옵니다 (11-27 실측: 달리는 차에서 캐릭터는 움직이는데 '머무는 중'). 기준점은 옮겨 다음 점도 여기서 잽니다
+    if (activity.type === 'still') {
+      // 속도를 안 주는 기기도 있어, 속도를 모르면 자리를 벗어난 것만으로 봅니다 (기준점이 매번 옮겨지므로 다음 점에서 바로 바로잡힘)
+      const fast = speedKmh == null || speedKmh >= MOVING_SPEED_KMH;
+      return { moving: left && fast, reanchor: left };
+    }
     // tilting·unknown 은 판단하지 않고 아래 속도로 넘어갑니다
   }
 

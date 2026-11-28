@@ -10,6 +10,8 @@ import { PushService } from './push.service.js';
 const tokenBody = z.object({
   token: z.string().min(10).max(500),
   platform: z.enum(['android', 'ios', 'web']),
+  // 푸시 언어. 예전 앱은 안 보내므로 한국어로 봅니다
+  language: z.enum(['ko', 'en']).default('ko'),
 });
 const removeBody = z.object({ token: z.string().min(10).max(500) });
 
@@ -84,8 +86,8 @@ class PushController {
   @Post()
   @HttpCode(HttpStatus.NO_CONTENT)
   async register(@CurrentUser() user: AuthUser, @Body() body: unknown) {
-    const { token, platform } = parseInput(tokenBody, body);
-    await this.push.registerToken(user.id, token, platform);
+    const { token, platform, language } = parseInput(tokenBody, body);
+    await this.push.registerToken(user.id, token, platform, language);
   }
 
   /** 로그아웃·기기 변경 시 (남의 기기로 알림이 가지 않게) */

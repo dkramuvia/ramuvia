@@ -539,6 +539,8 @@ export interface PushTokensTable {
   token: string;
   user_id: string;
   platform: string;
+  /** 앱 언어 ('ko' | 'en'). 한국어가 아니면 푸시를 영어로 보냅니다 */
+  language: Generated<string>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

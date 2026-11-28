@@ -8,6 +8,7 @@ import type { MainDatabase, ShareLevel } from '../database/main.schema.js';
 import { ChatGateway } from '../chat/chat.gateway.js';
 import { PushService } from '../push/push.service.js';
 import { toUserSummary, type UserSummary } from '../users/user-summary.js';
+import { pushCopy } from '../push/push-texts.js';
 
 /** 앱 src/types/models.ts 의 FriendRequest 와 같은 모양 */
 export interface FriendRequestResponse {
@@ -132,7 +133,7 @@ export class FriendRequestsService {
       .executeTakeFirst();
     if (inserted) {
       this.gateway.emitFriendsChanged([me, targetId]);
-      await this.notify(targetId, me, (name) => `${name}님이 친구 요청을 보냈어요`, `/friends/request/${inserted.id}`);
+      await this.notify(targetId, me, 'friendRequestSent', `/friends/request/${inserted.id}`);
       return { requestId: inserted.id, status: 'pending' as const };
     }
 
@@ -193,15 +194,15 @@ export class FriendRequestsService {
       return { friendId, singleHouseholdReleasable };
     });
     this.gateway.emitFriendsChanged([me, friendId]);
-    await this.notify(friendId, me, (name) => `${name}님이 친구 요청을 수락했어요`, '/people');
+    await this.notify(friendId, me, 'friendRequestAccepted', '/people');
     return result;
   }
 
   /** 친구 요청 알림. 푸시가 안 가도 요청 자체는 끝난 뒤라 실패는 기록만 합니다 */
-  private async notify(to: string, from: string, body: (nickname: string) => string, route: string) {
+  private async notify(to: string, from: string, body: 'friendRequestSent' | 'friendRequestAccepted', route: string) {
     const sender = await this.db.selectFrom('member.users').select('nickname').where('id', '=', from).executeTakeFirst();
     await this.push
-      .sendToUsers([to], { title: '라무핀', body: body(sender?.nickname ?? '누군가'), channel: 'general', category: 'friendRequest', route, data: { kind: 'friendRequest' } })
+      .sendToUsers([to], { ...pushCopy('appName', body, { nickname: sender?.nickname }, { nickname: 'someone' }), channel: 'general', category: 'friendRequest', route, data: { kind: 'friendRequest' } })
       .catch((error: unknown) => this.logger.error(`친구 요청 알림 실패: ${String(error)}`));
   }
 

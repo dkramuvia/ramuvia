@@ -11,6 +11,7 @@ import { ChatService, sendMessageBody, type ChatMessageResponse } from './chat.s
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushModule } from '../push/push.module.js';
 import { PushService } from '../push/push.service.js';
+import { pushText } from '../push/push-texts.js';
 
 const historyQuery = z.object({ before: z.iso.datetime({ offset: true }).optional() });
 
@@ -63,13 +64,21 @@ class ChatController {
       this.db.selectFrom('member.users').select('nickname').where('id', '=', senderId).executeTakeFirst(),
       this.db.selectFrom('social.groups').select(['name', 'is_direct']).where('id', '=', message.roomId).executeTakeFirst(),
     ]);
-    const nickname = sender?.nickname ?? '알 수 없음';
-    const preview = message.type === 'location' ? '위치를 공유했어요.' : message.type === 'photo' ? '사진을 보냈어요.' : (message.text ?? '').slice(0, 100);
+    const nickname = sender?.nickname ?? pushText('ko', 'unknownName');
+    const enNickname = sender?.nickname ?? pushText('en', 'unknownName');
+    const previewIn = (language: 'ko' | 'en') =>
+      message.type === 'location' ? pushText(language, 'chatLocation') : message.type === 'photo' ? pushText(language, 'chatPhoto') : (message.text ?? '').slice(0, 100);
+    const preview = previewIn('ko');
+    const enPreview = previewIn('en');
     await this.push.sendToUsers(recipients, {
       channel: 'chat',
       // 1:1 은 보낸 사람 이름이 제목, 그룹은 방 이름이 제목이고 본문 앞에 보낸 사람
       title: room?.is_direct ? nickname : (room?.name ?? nickname),
       body: room?.is_direct ? preview : `${nickname}: ${preview}`,
+      en: {
+        title: room?.is_direct ? enNickname : (room?.name ?? enNickname),
+        body: room?.is_direct ? enPreview : `${enNickname}: ${enPreview}`,
+      },
       route: `/chat/${message.roomId}`,
       data: { kind: 'chat', roomId: message.roomId },
     });

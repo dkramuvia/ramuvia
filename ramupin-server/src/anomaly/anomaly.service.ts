@@ -16,6 +16,7 @@ import {
   type AnomalyTrack,
   type Detection,
 } from './anomaly.rules.js';
+import { pushCopy, type PushTextKey } from '../push/push-texts.js';
 
 /**
  * 이상징후 감시 (docs/anomaly-alerts.md).
@@ -157,8 +158,10 @@ export class AnomalyService {
       // 앱이 꺼져 있을 때는 WebSocket 이 닿지 않으므로 푸시로도 보냅니다
       await this.push
         .sendToUsers(friendIds, {
-          title: '라무핀 안전 알림',
-          body: messageFor(nickname, detection),
+          ...(() => {
+            const { key, hours } = messageFor(detection);
+            return pushCopy('safetyAlertTitle', key, { nickname, hours });
+          })(),
           channel: soundChannelFor(detection),
           // 대표 리포트 55: 배터리 알림은 [배터리 경고 알림] 설정·방해 금지를 따릅니다 (안 주면 SOS 로 봐 늘 울렸습니다)
           ...(detection.track === 'battery' ? { category: 'battery' as const } : {}),
@@ -312,19 +315,20 @@ function soundChannelFor(detection: Detection): PushChannel {
 export type { AnomalyTrack };
 
 /** 친구에게 보여줄 문구 (docs/anomaly-alerts.md 의 메시지) */
-function messageFor(nickname: string, detection: Detection): string {
-  const hours = detection.stage.endsWith('h') ? detection.stage.replace('h', '시간') : null;
+/** 알림 문구 키와 자리 (문구는 push-texts.ts, 영어 기기는 영어로) */
+function messageFor(detection: Detection): { key: PushTextKey; hours?: number } {
+  const hours = detection.stage.endsWith('h') ? Number.parseInt(detection.stage, 10) : undefined;
   switch (detection.track) {
     case 'battery':
-      if (detection.stage === 'low') return `${nickname}님의 배터리가 부족합니다`;
-      if (detection.stage === 'zero') return `${nickname}님의 전화기가 꺼졌습니다`;
-      return `${nickname}님의 전화기가 꺼진 지 ${hours}이 되었습니다. 확인 바랍니다`;
+      if (detection.stage === 'low') return { key: 'batteryLow' };
+      if (detection.stage === 'zero') return { key: 'phoneOff' };
+      return { key: 'phoneOffHours', hours };
     case 'gps_fixed':
-      return `${nickname}님의 위치가 ${hours} 고정되었습니다`;
+      return { key: 'locationFixedHours', hours };
     case 'fixed_battery_zero':
     case 'fixed_charging':
-      return `${nickname}님의 안전을 확인하세요`;
+      return { key: 'checkSafety' };
     case 'no_signal':
-      return `${nickname}님의 위치 신호가 확인되지 않습니다`;
+      return { key: 'noSignal' };
   }
 }

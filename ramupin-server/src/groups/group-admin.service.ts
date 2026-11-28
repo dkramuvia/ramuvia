@@ -5,6 +5,7 @@ import { policyNumber, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { StorageService } from '../media/storage.service.js';
 import { PushService } from '../push/push.service.js';
+import { pushCopy } from '../push/push-texts.js';
 
 /**
  * 그룹 멤버 관리 · 그룹 설정 (보완 화면 설계 4.19·4.20).
@@ -138,8 +139,7 @@ export class GroupAdminService {
 
     await this.push
       .sendToUsers([targetId], {
-        title: '라무핀',
-        body: `'${name}' 그룹에서 나가게 되었어요`,
+        ...pushCopy('appName', 'groupKicked', { group: name }),
         channel: 'general',
         route: '/people',
         data: { kind: 'groupKicked', groupId },
@@ -192,7 +192,7 @@ export class GroupAdminService {
 
     const others = members.filter((id) => id !== me);
     await this.push
-      .sendToUsers(others, { title: '라무핀', body: `'${name}' 그룹이 삭제되었어요`, channel: 'general', route: '/people', data: { kind: 'groupDeleted', groupId } })
+      .sendToUsers(others, { ...pushCopy('appName', 'groupDeleted', { group: name }), channel: 'general', route: '/people', data: { kind: 'groupDeleted', groupId } })
       .catch((error: unknown) => this.logger.error(`그룹 삭제 알림 실패: ${String(error)}`));
     return members;
   }

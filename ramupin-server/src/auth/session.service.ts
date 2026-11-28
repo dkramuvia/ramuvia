@@ -9,6 +9,7 @@ import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
 import { REDIS } from '../redis/redis.module.js';
 import { authError } from './auth-error.js';
+import { pushCopy } from '../push/push-texts.js';
 
 export interface DeviceInfo {
   installationId: string;
@@ -156,18 +157,18 @@ export class SessionService {
         .execute();
 
       const others = revoked.filter((r) => r.device_id !== deviceRow.id);
-      if (others.length === 0) return { replaced: undefined, oldTokens: [] as string[] };
+      if (others.length === 0) return { replaced: undefined, oldTokens: [] as { token: string; language: string }[] };
       const old = await trx
         .selectFrom('member.devices')
         .select(['model', 'platform'])
         .where('id', '=', others[0].device_id)
         .executeTakeFirst();
       // 새 기기는 로그인한 뒤에 토큰을 올리므로, 지금 있는 토큰은 이전 기기 것입니다
-      const tokens = await trx.selectFrom('member.push_tokens').select('token').where('user_id', '=', userId).execute();
+      const tokens = await trx.selectFrom('member.push_tokens').select(['token', 'language']).where('user_id', '=', userId).execute();
       if (tokens.length) await trx.deleteFrom('member.push_tokens').where('user_id', '=', userId).execute();
       return {
         replaced: { model: old?.model ?? null, platform: old?.platform ?? 'unknown' } as ReplacedDevice,
-        oldTokens: tokens.map((t) => t.token),
+        oldTokens: tokens,
       };
     });
 
@@ -176,8 +177,7 @@ export class SessionService {
       this.logger.log(`user ${userId}: 다른 기기 세션을 끊고 새 기기로 로그인`);
       await this.push
         .sendToTokens(oldTokens, {
-          title: '라무핀',
-          body: '다른 기기에서 로그인되어 이 휴대폰의 위치 공유가 중단되었어요',
+          ...pushCopy('appName', 'sessionReplaced'),
           channel: 'general',
           data: { kind: 'sessionReplaced' },
         })

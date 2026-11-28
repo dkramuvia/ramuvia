@@ -4,6 +4,7 @@ import { ChatGateway } from '../chat/chat.gateway.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
 import { judgeCrossing, type Fix } from './zone-crossing.js';
+import { pushCopy } from '../push/push-texts.js';
 
 /**
  * 위험지역 알림 (WBS 9.6).
@@ -108,8 +109,7 @@ export class DangerZoneService {
     });
     await this.push
       .sendToUsers([userId], {
-        title: '라무핀 안전 알림',
-        body: `${zoneName} 근처예요. 주의해서 이동해 주세요.`,
+        ...pushCopy('safetyAlertTitle', 'dangerZoneNear', { zone: zoneName }),
         channel: 'danger',
         // 위험한 곳에 지금 있다는 알림이라 SOS 와 같이 다룹니다 (방해 금지 시간에도 보냅니다)
         category: 'sos',

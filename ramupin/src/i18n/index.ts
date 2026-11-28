@@ -9,8 +9,8 @@ export const SUPPORTED_LANGUAGES = ['ko', 'en'] as const;
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
 const deviceLanguage = getLocales()[0]?.languageCode;
-// 한국어 우선 개발: 기기 언어가 영어일 때만 영어, 그 외에는 한국어
-const initialLanguage: Language = deviceLanguage === 'en' ? 'en' : 'ko';
+// 한국어 기기만 한국어, 그 밖의 언어(일본어·스페인어 등)는 영어 (11-26 해외 출시)
+const initialLanguage: Language = deviceLanguage === 'ko' ? 'ko' : 'en';
 
 i18n.use(initReactI18next).init({
   resources: {

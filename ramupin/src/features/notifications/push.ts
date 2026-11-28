@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { pushApi } from '@/api/endpoints/push';
 import { isLive } from '@/config/env';
+import i18n from '@/i18n';
 
 /**
  * 푸시 알림 (WBS 6단계, FCM).
@@ -80,7 +81,7 @@ export async function registerForPush(): Promise<string | null> {
     const token = (await Notifications.getDevicePushTokenAsync()).data;
     if (typeof token !== 'string' || !token) return null;
 
-    if (isLive('auth')) await pushApi.register(token, Platform.OS);
+    if (isLive('auth')) await pushApi.register(token, Platform.OS, i18n.language === 'ko' ? 'ko' : 'en');
     return token;
   } catch (error) {
     // 푸시를 못 받아도 앱은 계속 써야 합니다

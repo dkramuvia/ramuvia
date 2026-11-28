@@ -12,6 +12,7 @@ import { PushService } from '../push/push.service.js';
 import { encryptSosPlace, SOS_PLACE_COLUMNS, withSosPlace } from './sos-place.js';
 import { SoloService } from '../solo/solo.module.js';
 import { SosSmsService, sosSmsText } from './sos-sms.service.js';
+import { pushCopy } from '../push/push-texts.js';
 
 /**
  * SOS (WBS 7.9 / 8.3 / 9.3 / 10.8).
@@ -150,8 +151,7 @@ export class SosService {
       this.gateway.emitSos(recipients, ended);
       await this.push
         .sendToUsers(recipients, {
-          title: '라무핀',
-          body: 'SOS 가 취소되었습니다.',
+          ...pushCopy('appName', 'sosCancelled'),
           // 끝났다는 알림에 SOS 경고음이 울리면 오히려 놀랍니다 (대표 11-26) → 안심지역 알림음. 켜고 끄는 건 그대로 SOS 항목
           channel: 'safeZone',
           category: 'sos',
@@ -186,8 +186,7 @@ export class SosService {
       this.gateway.emitSos(recipients, ended);
       await this.push
         .sendToUsers(recipients, {
-          title: '라무핀',
-          body: `${ended.nickname || '친구'}님이 안전하다고 알렸습니다.`,
+          ...pushCopy('appName', 'sosResolved', { nickname: ended.nickname }, { nickname: 'friend' }),
           // 안전하다는 알림은 편한 소리로 (대표 11-26: 경고음이 울림)
           channel: 'safeZone',
           category: 'sos',
@@ -316,8 +315,7 @@ export class SosService {
       });
       await this.push
         .sendToUsers(recipients, {
-          title: `${me?.nickname ?? '친구'}님의 SOS 녹음`,
-          body: 'SOS 에 음성 녹음이 추가되었어요. 눌러서 들어 보세요',
+          ...pushCopy('sosAudioTitle', 'sosAudioBody', { nickname: me?.nickname }, { nickname: 'friend' }),
           channel: 'sos',
           route: '/sos-received',
           data: { sosId, userId, kind: 'sosAudio' },
@@ -404,7 +402,6 @@ export class SosService {
   }
 
   private async notify(recipients: string[], sosId: string, userId: string, nickname: string, input: SosInput, createdAt: Date) {
-    const where = input.placeName ?? input.placeAddress ?? '위치 확인 필요';
     // 피그마 v3.1 SOS 팝업: 받은 사람이 [전화걸기]로 바로 걸 수 있게 보낸 사람 번호를 함께 보냅니다.
     // 보낸 사람이 직접 고른 받는 사람에게만 가고, 꺼낼 때마다 조회 이력이 남습니다
     const phone = await this.phones.getForSend(userId, 'sos_recipient_display').catch(() => null);
@@ -427,8 +424,7 @@ export class SosService {
     // 앱이 꺼져 있어도 닿아야 합니다. SOS 는 놓치면 안 되는 알림입니다
     await this.push
       .sendToUsers(recipients, {
-        title: `${nickname}님의 SOS 긴급 발신`,
-        body: `${where} · 지금 확인해 주세요`,
+        ...pushCopy('sosTitle', 'sosBody', { nickname, place: input.placeName ?? input.placeAddress }, { place: 'unknownPlace' }),
         channel: 'sos',
         route: '/sos-received',
         data: { sosId, userId },

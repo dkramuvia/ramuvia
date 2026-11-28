@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { inbox } from '@/db/inbox';
 import { handleDataOnlyPush, isDataOnlyPush } from './dataOnlyPush';
@@ -23,12 +24,13 @@ import type { HistoryCategory, HistoryEventType } from '@/types/models';
  */
 export function usePush() {
   const isSignedIn = useAuthStore(selectIsSignedIn);
+  const { i18n } = useTranslation();
 
-  // 1) 토큰 등록. 로그인 상태가 되면 한 번
+  // 1) 토큰 등록. 로그인 상태가 되면 한 번, 앱 언어를 바꾸면 다시 (서버가 푸시를 그 언어로 보냅니다)
   useEffect(() => {
     if (!isSignedIn) return;
     void registerForPush();
-  }, [isSignedIn]);
+  }, [isSignedIn, i18n.language]);
 
   // 2) 받은 알림을 보관함에 저장
   useEffect(() => {

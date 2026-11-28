@@ -8,6 +8,7 @@ import { inQuietHours } from '../push/notification-settings.service.js';
 import { PushService } from '../push/push.service.js';
 import { distanceM } from './geo.js';
 import { judgeCrossing, settleCrossing, type Crossing, type PendingState } from './zone-crossing.js';
+import { pushCopy } from '../push/push-texts.js';
 
 /**
  * 장소(즐겨찾기)·안심장소(지오펜스)와 진입·이탈 알림 (WBS 8.8, 9.4).
@@ -413,12 +414,10 @@ export class SafeZoneService {
   }
 
   private async send(to: string[], userId: string, nickname: string, zoneId: string, zoneName: string, kind: 'enter' | 'leave', at: Date) {
-    const body = kind === 'enter' ? `${nickname}님이 ${zoneName}에 도착했어요` : `${nickname}님이 ${zoneName}에서 나갔어요`;
     this.gateway.emitGeofence(to, { userId, nickname, zoneId, zoneName, kind, occurredAt: at.toISOString() });
     await this.push
       .sendToUsers(to, {
-        title: '라무핀',
-        body,
+        ...pushCopy('appName', kind === 'enter' ? 'safeZoneEnter' : 'safeZoneLeave', { nickname, zone: zoneName }),
         channel: 'safeZone',
         category: 'geofence',
         route: `/journey/${userId}`,

@@ -5,6 +5,7 @@ import { policyFeature, resolvePolicy } from '../config/policy.js';
 import { MAIN_DB, type MainDb } from '../database/main-database.module.js';
 import { PushService } from '../push/push.service.js';
 import { canNotifyAgain, peakSpeed, speedingSeconds, speedingStage, SPEEDING_KMH, type SpeedPoint } from './speeding.js';
+import { pushCopy } from '../push/push-texts.js';
 
 /**
  * 과속 경고 (WBS 8.1).
@@ -106,8 +107,7 @@ export class SpeedingService {
     this.gateway.emitSpeeding(friendIds, { kind: 'speedingFriend', userId, nickname, speedKmh });
     await this.push
       .sendToUsers(friendIds, {
-        title: '라무핀 안전 알림',
-        body: `${nickname}님이 ${speedKmh}km/h 로 이동 중이에요`,
+        ...pushCopy('safetyAlertTitle', 'speeding', { nickname: me?.nickname, speed: speedKmh }, { nickname: 'friend' }),
         channel: 'danger',
         category: 'speeding',
         route: `/journey/${userId}`,
